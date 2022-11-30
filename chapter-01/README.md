@@ -105,7 +105,7 @@ adb pull /sdcard/framework.jar ./
 
 ![mokee_product](images/mokee_product.png)
 
-​	如果想要进一步了解，可以看看魔趣为AOSP扩展的功能 https://www.mokeedev.com/guide/feature.html
+​	如果想要进一步了解，可以看看魔趣为AOSP扩展的功能 [https://www.mokeedev.com/guide/feature.html](https://www.mokeedev.com/guide/feature.html)。
 
 
 ### 1.4.2 PixelExperience
@@ -117,7 +117,7 @@ adb pull /sdcard/framework.jar ./
 
 ### 1.4.3 LineageOS
 
-​	LineageOS的前身是大名鼎鼎的CyanogenMod，简称CM，这个开发团队是全球最大的Android第三方编译团队。早在Android1.6版本时，就为很多手机厂商定制出稳定的ROM。2016年12月Cyanogen公司宣布停止开发并关闭项目，随后复刻后更名为LineageOS由原团队继续研发。 LineageOS的风格同样是类似原生Android的，但是相比起PixelExperience要更加的精简，运行起来也是非常流畅，同样适配各大厂商机型。感兴趣可以在官网详细了解支持机型https://download.lineageos.org/
+​	LineageOS的前身是大名鼎鼎的CyanogenMod，简称CM，这个开发团队是全球最大的Android第三方编译团队。早在Android1.6版本时，就为很多手机厂商定制出稳定的ROM。2016年12月Cyanogen公司宣布停止开发并关闭项目，随后复刻后更名为LineageOS由原团队继续研发。 LineageOS的风格同样是类似原生Android的，但是相比起PixelExperience要更加的精简，运行起来也是非常流畅，同样适配各大厂商机型。感兴趣可以在官网详细了解支持机型[https://download.lineageos.org/](https://download.lineageos.org/)
 
 ## 1.5 初识系统定制
 
