@@ -100,29 +100,49 @@ adb pull /sdcard/framework.jar ./
 
 ## 1.4 其他常见的第三方定制系统
 
-​		AOSP并不是唯一可以定制的ROM，同样有很多优秀的第三方团队研发的定制系统。这些第三方开源ROM都有着各自的优点，有很多人会直接选择在这些已经定制修改过ROM上二次开发，对于我们学习来说，选择哪个ROM的区别并不会太大，因为底层一套使用的AOSP这一套，所以我们只要摸透一款，做好的功能随时可以迁移到其他的系统上。
+​		AOSP并不是唯一可以定制的ROM，同样有很多优秀的第三方团队研发的定制系统。由于AOSP基本只对Google系的机型适配，所以有使用国内常见测试机的人一般会选择使用第三方的定制ROM，这些第三方开源ROM都有着各自的优点，有很多人会直接选择在这些已经定制修改过ROM上二次开发，对于我们学习来说，选择哪个ROM的区别并不会太大，因为底层一套使用的AOSP这一套，所以我们只要摸透一款，做好的功能随时可以迁移到其他的系统上。
 
 ### 1.4.1 Mokee
 
-​		中文名魔趣，官网：https://www.mokeedev.com/。发起于2012年12月12日，是国内最大的第三方非盈利性开源ROM，适配了大量国内主流机型。主要针对的用户群体也是国内群众，所以在功能和操作方面非常贴切国人的使用习惯，同时简单纯净，性能出众，所以有些人会使用魔趣作为日常用的手机。
+​		中文名魔趣，官网：https://www.mokeedev.com/。发起于2012年12月12日，是国内最大的第三方非盈利性开源ROM，适配了大量国内主流机型，高达近300种。主要针对的用户群体也是国内群众，所以在功能和操作方面非常贴切国人的使用习惯，同时简单纯净，性能出众，所以有些人会使用魔趣作为日常用的手机。下面是魔趣支持的手机厂商，
 
-​		下图是魔趣支持的手机厂商，
-
-![mokee_product](images/mokee_product.png)
+| ARK  | 华硕 | Essential | 谷歌 |
+| :--: | :--: | :-------: | :--: |
+| HTC  | 华为 | 乐视 | 联想 |
+| LG   | 魅族 | 摩托罗拉 | Nextbit |
+| 努比亚 | 一加 | OPPO | Realme |
+| 红米 | 三星 | 锤子 | 索尼 |
+| Wileyfox | 小米 | YU   | 中兴 |
+| ZUK  |      |      |      |
 
 ​	如果想要进一步了解，可以看看魔趣为AOSP扩展的功能 [https://www.mokeedev.com/guide/feature.html](https://www.mokeedev.com/guide/feature.html)。
 
 
 ### 1.4.2 PixelExperience
 
-​		这是最接近原生Android系统的第三方ROM,官网https://download.pixelexperience.org/，我们正常编译出来的AOSP刷入后是没有谷歌插件，并且界面UI都是非常简陋的。如果你想要打造一个和原生Android非常相似的ROM，那么完全可以选择它，原生Android的界面风格以及自带谷歌套装，以及适配了更多的手机厂商。下图是它所支持的各大厂商。
+​		这是最接近原生Android系统的第三方ROM,官网https://download.pixelexperience.org/，我们正常编译出来的AOSP刷入后是没有谷歌插件，并且界面UI都是非常简陋的。如果你想要打造一个和原生Android非常相似的ROM，那么完全可以选择它，原生Android的界面风格以及自带谷歌套装，以及适配了更多的手机厂商。下面是它所支持的各大厂商。
 
-![pixelExperence](images/pixelExperence.png)
+|  ASUS  | Google  |  Lenovo  | Motorola |
+| :----: | :-----: | :------: | :------: |
+| Nokia  |  Nubia  | OnePlus  |  Razer   |
+| Realme | Samsung | Teracube |  Xiaomi  |
+
+
 
 
 ### 1.4.3 LineageOS
 
-​		LineageOS的前身是大名鼎鼎的CyanogenMod，简称CM，这个开发团队是全球最大的Android第三方编译团队。早在Android1.6版本时，就为很多手机厂商定制出稳定的ROM。2016年12月Cyanogen公司宣布停止开发并关闭项目，随后复刻后更名为LineageOS由原团队继续研发。 LineageOS的风格同样是类似原生Android的，但是相比起PixelExperience要更加的精简，运行起来也是非常流畅，同样适配各大厂商机型。感兴趣可以在官网详细了解支持机型[https://download.lineageos.org/](https://download.lineageos.org/)
+​		LineageOS的前身是大名鼎鼎的CyanogenMod，简称CM，这个开发团队是全球最大的Android第三方编译团队。早在Android1.6版本时，就为很多手机厂商定制出稳定的ROM。2016年12月Cyanogen公司宣布停止开发并关闭项目，随后复刻后更名为LineageOS由原团队继续研发。 LineageOS的风格同样是类似原生Android的，但是相比起PixelExperience要更加的精简，运行起来也是非常流畅，同样适配各大厂商机型。下面是它所支持的各大厂商。
+
+|   ASUS    |   BQ    | Dynalink | Essential |
+| :-------: | :-----: | :------: | :-------: |
+| Fairphone |  FxTec  |  Google  |   LeEco   |
+|  Lenovo   |   LG    | Motorola |  Nextbit  |
+|   Nokia   |  Nubia  |  Nvidia  |  OnePlus  |
+|   Razer   | Samsung |  SHIFT   |   Sony    |
+|  Xiaomi   |   Zuk   |  Extras  |           |
+
+
 
 ## 1.5 初识系统定制
 
