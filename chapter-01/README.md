@@ -106,7 +106,9 @@ adb pull /sdcard/framework.jar ./
 
 ### 1.4.1 Mokee
 
-​		中文名魔趣，官网：https://www.mokeedev.com/。发起于2012年12月12日，是国内最大的第三方非盈利性开源ROM，适配了大量国内主流机型，高达近300种。主要针对的用户群体也是国内群众，所以在功能和操作方面非常贴切国人的使用习惯，同时简单纯净，性能出众，所以有些人会使用魔趣作为日常用的手机。下面是魔趣支持的手机厂商，
+​		官网：https://www.mokeedev.com/
+
+​		中文名魔趣，。发起于2012年12月12日，是国内最大的第三方非盈利性开源ROM，适配了大量国内主流机型，高达近300种。主要针对的用户群体也是国内群众，所以在功能和操作方面非常贴切国人的使用习惯，同时简单纯净，性能出众，所以有些人会使用魔趣作为日常用的手机。下面是魔趣支持的手机厂商，
 
 | ARK  | 华硕 | Essential | 谷歌 |
 | :--: | :--: | :-------: | :--: |
@@ -122,7 +124,9 @@ adb pull /sdcard/framework.jar ./
 
 ### 1.4.2 PixelExperience
 
-​		这是最接近原生Android系统的第三方ROM,官网https://download.pixelexperience.org/，我们正常编译出来的AOSP刷入后是没有谷歌插件，并且界面UI都是非常简陋的。如果你想要打造一个和原生Android非常相似的ROM，那么完全可以选择它，原生Android的界面风格以及自带谷歌套装，以及适配了更多的手机厂商。下面是它所支持的各大厂商。
+​		官网：https://download.pixelexperience.org/
+
+​		这是最接近原生Android系统的第三方ROM,，我们正常编译出来的AOSP刷入后是没有谷歌插件，并且界面UI都是非常简陋的。如果你想要打造一个和原生Android非常相似的ROM，那么完全可以选择它，原生Android的界面风格以及自带谷歌套装，以及适配了更多的手机厂商。下面是它所支持的各大厂商。
 
 |  ASUS  | Google  |  Lenovo  | Motorola |
 | :----: | :-----: | :------: | :------: |
@@ -133,6 +137,8 @@ adb pull /sdcard/framework.jar ./
 
 
 ### 1.4.3 LineageOS
+
+​		官网：https://www.lineageos.org/
 
 ​		LineageOS的前身是大名鼎鼎的CyanogenMod，简称CM，这个开发团队是全球最大的Android第三方编译团队。早在Android1.6版本时，就为很多手机厂商定制出稳定的ROM。2016年12月Cyanogen公司宣布停止开发并关闭项目，随后复刻后更名为LineageOS由原团队继续研发。 LineageOS的风格同样是类似原生Android的，但是相比起PixelExperience要更加的精简，运行起来也是非常流畅，同样适配各大厂商机型。下面是它所支持的各大厂商。
 
