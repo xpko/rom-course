@@ -128,9 +128,7 @@ pip install pytest
 
 ~~~
 
-### 2.2.3 macOS
 
-​	macOS现在分为两个种架构，新起的m1系列采用的均为arm架构的芯片，而老款的mac都是使用inter系列芯片，如果你是老款的mac，那么直接采用Parallels Desktop虚拟机安装ubuntu进行编译即可，而m1系列可以直接在mac编译，但是由于缺少依赖，无法正常编译安卓内核。
 
 ### 2.3 如何选择源码版本
 
@@ -212,11 +210,6 @@ sudo apt-get install -y git-core gnupg flex bison build-essential \
 	zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 lib32ncurses5-dev \
 	x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip \
 	fontconfig libncurses5 procps rsync libsqlite3-0
-	
-// 内核编译的相关依赖安装
-sudo apt install p7zip-full wget curl git tree -y
-sudo apt-get install dialog file python3 python3-pip python2 libelf-dev gpg gpg-agent tree flex bison libssl-dev zip unzip curl wget tree build-essential bc software-properties-common libstdc++6 libpulse0 libglu1-mesa locales lcov --no-install-recommends -y
-sudo apt-get install pahole libreadline-dev -y
 ~~~
 
 ​	依赖安装完成后，我们再进行一个细节调整，由于我们经常需要备份代码，将整个源码进行打包备份，但是编译出来的输出目录`out`的体积非常庞大，所以我备份时会选择移走`out`目录，或者干脆删除掉，这样非常的麻烦，所以我会选择直接修改编译输出的目录。通过设置环境变量`OUT_DIR`就可以调整编译结果的输出目录了。
@@ -251,10 +244,11 @@ tar -xvf google_devices-blueline-sp1a.210812.016.a1-d10754e0.tgz
 ​	导入设备驱动完成后，准备工作基本完成，可以开始编译源码了。
 
 ~~~
-// 初始化环境，
+// 初始化环境，执行后会导入多个命令，辅助我们进行编译。
+// 这里也可以使用. build/envsetup.sh 是同样的效果
 source ./build/envsetup.sh
 
-// 选择编译的环境
+// 选择编译的版本
 lunch
 
 //下面是我这边显示的结果
@@ -271,15 +265,16 @@ Lunch menu... pick a combo:
 Which would you like? [aosp_arm-eng]
 
 // 选择版本可以填写直接填写aosp_blueline-userdebug或者是填写编号4
+// 同样我们可以省略成一句，直接lunch 4或者是lunch aosp_blueline-userdebug
 4
 
 // 和上面一样。直接使用当前cpu的核心数作为编译的并发线程
 make -j$(nproc --all)
 ~~~
 
-​	在上面选择版本中可以看到`aosp_arm-eng`和`aosp_arm64-eng`的选项，这两个是模拟器使用的版本。而模拟器使用的版本是可以不需要导入设备驱动文件的。
+​	在上面选择版本中可以看到`aosp_arm-eng`和`aosp_arm64-eng`的选项，这两个是模拟器使用的版本。而模拟器使用的版本是可以不需要导入设备驱动文件的。如果在`lunch`的菜单中没有看到你要编译的版本，并且直接`lunch aosp_blueline-userdebug `也提示错误，可能是没有成功导入驱动文件，或者下载的驱动文件不对。
 
-​	同一个代号的编译有三种编译环境选择。分别如下：
+​	同一个代号的编译有三种编译版本选择。分别如下：
 
 1、`aosp_blueline-user` 一般是默认的编译环境，主要是作为发布版本，这种版本编译的环境会默认开启大多数的安全机制，比如`ro.secure`值为1，`ro.debuggable`值为0，，需要我们自行用第三方工具获取root权限。我们日常使用的机子就是属于user环境的。
 
@@ -315,17 +310,134 @@ vbmeta.img
 vendor.img
 ~~~
 
-确定有编译出`vendor.img、system.img、boot.img`等等镜像文件，就说明编译成功了。
-
-
+​	确定有编译出`vendor.img、system.img、boot.img`等等镜像文件，就说明编译成功了。
 
 ### 2.4 模块编译
 
+​	前文在编译的过程中介绍到，我们使用`source ./build/envsetup.sh`初始化环境的时候，导入了多个命令来帮助我们进行编译。我们可以通过命令`hmm`查看提供的命令帮助。
 
+~~~
+hmm
+
+Run "m help" for help with the build system itself.
+
+Invoke ". build/envsetup.sh" from your shell to add the following functions to your environment:
+- lunch:      lunch <product_name>-<build_variant>
+              Selects <product_name> as the product to build, and <build_variant> as the variant to
+              build, and stores those selections in the environment to be read by subsequent
+              invocations of 'm' etc.
+- tapas:      tapas [<App1> <App2> ...] [arm|x86|arm64|x86_64] [eng|userdebug|user]
+              Sets up the build environment for building unbundled apps (APKs).
+- banchan:    banchan <module1> [<module2> ...] [arm|x86|arm64|x86_64] [eng|userdebug|user]
+              Sets up the build environment for building unbundled modules (APEXes).
+- croot:      Changes directory to the top of the tree, or a subdirectory thereof.
+- m:          Makes from the top of the tree.
+- mm:         Builds and installs all of the modules in the current directory, and their
+              dependencies.
+- mmm:        Builds and installs all of the modules in the supplied directories, and their
+              dependencies.
+              To limit the modules being built use the syntax: mmm 
+// 省略            
+......  
+~~~
+
+​	`croot` 命令可以跳转根目录，或者是根目录下的任意子目录
+
+​	`m` 命令会直接在根目录运行编译，即使我们当前目录是在子目录也是相当于在根目录编译。也可以指定名称来编译单独的目标，例如`m droid`。
+
+​	`mm ` 编译当前目录中的所有模块及依赖项
+
+​	`mmm` 编译指定目录中的所有模块及依赖项
+
+​	`clean` 清除编译的结果，相当于删掉out目录中的内容
+
+​	我们可以通过`m help`查看可以单独编译哪些选项
+
+~~~
+m help
+
+Common goals are:
+
+    clean                   (aka clobber) equivalent to rm -rf out/
+    checkbuild              Build every module defined in the source tree
+    droid                   Default target
+    nothing                 Do not build anything, just parse and validate the build structure
+
+    java                    Build all the java code in the source tree
+    native                  Build all the native code in the source tree
+
+    host                    Build all the host code (not to be run on a device) in the source tree
+    target                  Build all the target code (to be run on the device) in the source tree
+
+    (java|native)-(host|target)
+    (host|target)-(java|native)
+                            Build the intersection of the two given arguments
+
+    snod                    Quickly rebuild the system image from built packages
+                            Stands for "System, NO Dependencies"
+    vnod                    Quickly rebuild the vendor image from built packages
+                            Stands for "Vendor, NO Dependencies"
+    pnod                    Quickly rebuild the product image from built packages
+                            Stands for "Product, NO Dependencies"
+    senod                   Quickly rebuild the system_ext image from built packages
+                            Stands for "SystemExt, NO Dependencies"
+    onod                    Quickly rebuild the odm image from built packages
+                            Stands for "Odm, NO Dependencies"
+    vdnod                   Quickly rebuild the vendor_dlkm image from built packages
+                            Stands for "VendorDlkm, NO Dependencies"
+    odnod                   Quickly rebuild the odm_dlkm image from built packages
+                            Stands for "OdmDlkm, NO Dependencies"
+~~~
+
+​	通过帮助命令的提示，我们可以看到`m snod`就是单独编译`System`,命令`m vnod`就是单独编译`Vendor`。大多数时候我们修改的内容都是在`System`中。我们可以根据自己的变动情况，模块编译即可。
 
 ### 2.5 内核编译
 
+​	在前面我们编译完成后，可以在编译的镜像结果中看到文件`boot.img`，这个文件就是内核镜像文件。但是这个内核是Android源码树中已经编译好的内核文件，并不是我们编译出来的，如果我们想要修改内核，就需要拉取内核的对应分支，编译内核，将编译结果放入Android源码中的指定路径，然后再重新编译Android。刷入手机后，使用的内核就是我们自己编译的了。
 
+​	首先第一步是找到对应我们当前手机的内核分支，官网提供了详细的说明https://source.android.com/docs/setup/build/building-kernels。根据下图可以看到，对应`Pixel 3`测试机分支是`android-msm-crosshatch-4.9-android12`。
+
+![image-20230105221730348](.\images\image-20230105221730348.png)
+
+​	接下来我们按照官网的说明拉取代码并编译。
+
+~~~
+// 内核编译的相关依赖安装
+sudo apt install p7zip-full wget curl git tree -y
+sudo apt-get install dialog file python3 python3-pip python2 libelf-dev gpg gpg-agent tree flex bison libssl-dev zip unzip curl wget tree build-essential bc software-properties-common libstdc++6 libpulse0 libglu1-mesa locales lcov --no-install-recommends -y
+sudo apt-get install pahole libreadline-dev -y
+
+// 创建内核的源码目录，不用放再Android源码目录下
+mkdir android-kernel && cd android-kernel
+
+// 初始化指定分支
+repo init -u https://android.googlesource.com/kernel/manifest -b android-msm-crosshatch-4.9-android12
+
+// 同步分支代码
+repo sync -j$(nproc --all)
+
+// 编译内核
+build/build.sh
+
+// 编译完成后，查看编译结果，最后输出显示Image.lz4文件就表示内核编译是成功的。
+ls /root/android_src/android-kernel/out/android-msm-pixel-4.9/dist |grep Image
+~~~
+
+​	编译成功后，我们还需要指定Android源码编译时使用这个内核文件。只需要设置环境变量指定路径即可。方式如下。
+
+~~~
+// 为了以后方便，环境路径相关的，我们都写在这个初始化导入环境命令的地方
+vim ./build/envsetup.sh
+
+// 在最底部添加
+export TARGET_PREBUILT_KERNEL=/root/android_src/android-kernel/out/android-msm-pixel-4.9/dist/Image.lz4
+
+// 保存配置后，重新加载一下
+source ./build/envsetup.sh
+
+// 单独编译内核镜像
+make bootimage
+~~~
 
 ### 2.6 刷机
 
