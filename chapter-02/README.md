@@ -435,6 +435,9 @@ export TARGET_PREBUILT_KERNEL=/root/android_src/android-kernel/out/android-msm-p
 // 保存配置后，重新加载一下
 source ./build/envsetup.sh
 
+// 选择编译版本
+lunch aosp_blueline-userdebug
+
 // 单独编译内核镜像
 make bootimage
 ~~~
