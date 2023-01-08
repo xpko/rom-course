@@ -534,7 +534,7 @@ make dist DIST_DIR=dist_output
 
 ​	接下来是如何刷入卡刷包，有两种刷入方式，一种是使用`adb sideload`命令刷入，另一种方式是使用twrp刷入。下面演示两种不同方式的刷机流程。
 
-​	1、adb sideload
+​	1、adb sideload（这里没写完，你补充一下，我这边环境没跑通）
 
 ​		首先进入fastbootd
 
@@ -553,4 +553,4 @@ fastboot reboot fastboot
 
 ​		
 
-​	2、twrp
+​	2、twrp（这里没写完，你补充一下，我这边环境没跑通）
