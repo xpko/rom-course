@@ -444,5 +444,113 @@ make bootimage
 
 ### 2.6 刷机
 
+​	大多数情况下，非技术的Android爱好者通常会使用傻瓜式一键刷机工具，例如刷机大师、刷机精灵、奇兔等等。这种刷机方式就是属于软刷（软件刷机），除此之外还有我们第一章中简单介绍到的线刷和卡刷。不论刷机的方式是什么，他们最终的原理都是相同的，都是对刷机包进行处理，然后将ROM文件写入对应的分区，替换掉原始文件。下面我们将简单介绍如何进行线刷和卡刷。
 
+### 2.6.1 线刷
 
+​	通过上面编译中的步骤，在目录`aosp12_out/target/product/blueline/`中能看到若干个后缀为`img`的镜像文件。我的输出路径`aosp12_out`是由于我手动指定了输出目录，如果你没有设置，那么默认是在`aosp12/out/target/product/blueline/`目录下。最后的目录`blueline`是对应编译的版本，如果你是其他版本，就在对应的目录下查看。
+
+​	首先我们要进入刷机模式，然后环境变量设置编译结果的路径，然后使用命令完整刷机即可。详细流程如下
+
+~~~
+// 进入刷机模式
+adb reboot bootloader
+
+// 设置刷机包的路径到环境变量
+export ANDROID_PRODUCT_OUT=/home/king/android_src/mikrom_out/target/product/blueline
+
+// 查询fastboot是否能成功看到设备
+fastboot devices
+	
+// 上面的查看命令显示的结果
+8ARX0Y7EP	fastboot
+
+// 完整刷机
+fastboot flashall -w
+~~~
+
+​	等待刷机结束即可，刷机结束后会自动进入Android系统。如果我们只想刷单个分区镜像，也是可以的。流程如下
+
+~~~
+// 进入刷机模式
+adb reboot bootloader
+
+// 进入编译结果的目录
+cd /home/king/android_src/mikrom_out/target/product/blueline
+
+// 单独刷入内核
+fastboot flash boot ./boot.img
+
+// 单独刷入系统
+fastboot flash system ./system.img
+
+// 部分机型可能会出现如下错误提示
+fastboot: error: The partition you are trying to flash is dynamic, and should be flashed via fastbootd. Please run:
+
+    fastboot reboot fastboot
+
+And try again. If you are intentionally trying to overwrite a fixed partition, use --force.
+
+// 这种情况我们按照他的提示操作即可，执行下面的命令后，发现进入了fastbootd模式
+fastboot reboot fastboot
+
+// 重新刷入系统
+fastboot flash system ./system.img
+
+// 刷入共享系统
+fastboot flash system_ext ./system_ext.img
+
+// 刷入硬件驱动
+fastboot flash vendor ./vendor.img
+
+// 重启
+fastboot reboot
+~~~
+
+### 2.6.2 卡刷
+
+​	我们前面编译出来的是线刷包，如果我们需要卡刷包，就需要使用下面的方式进行编译
+
+~~~
+// 下面是简单的编译卡刷包
+cd aosp12
+source ./build/envsetup.sh
+lunch aosp_blueline-userdebug
+make otapackage
+~~~
+
+​	编译完成后，我们可以在前面线刷包的路径下看到卡刷包文件，我这里的文件名是`aosp_blueline-ota-eng.king.zip`。除了上面的方式，我们还可以完整编译卡刷包，编译方式如下
+
+~~~
+//下面是完整编译卡刷包
+cd aosp12
+source ./build/envsetup.sh
+lunch aosp_blueline-userdebug
+mkdir dist_output
+make dist DIST_DIR=dist_output
+~~~
+
+​	编译完成后，可以在目录`dist_output`中看到完整卡刷包结果。
+
+​	接下来是如何刷入卡刷包，有两种刷入方式，一种是使用`adb sideload`命令刷入，另一种方式是使用twrp刷入。下面演示两种不同方式的刷机流程。
+
+​	1、adb sideload
+
+​		首先进入fastbootd
+
+~~~
+adb reboot bootloader
+fastboot reboot fastboot
+~~~
+
+​		这时的界面如下图，使用音量键减，切换到`Enter recovery`，然后按电源键进入`recovery`模式
+
+![image-20230108190236615](.\images\image-20230108190236615.png)
+
+​		接下来进入下面的界面，选择`Apply update from ADB`
+
+![image-20230108190631803](.\images\image-20230108190631803.png)
+
+​		
+
+​	2、twrp
