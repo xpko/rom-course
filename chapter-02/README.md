@@ -2,9 +2,9 @@
 
 ## 2.1 重新看待系统定制
 
-​	经过第一章的学习，对AOSP定制进行简略的了解后，相信这时，在你的心中已经对系统定制开发有了大致的理解。简单来说，所谓的系统定制，就是相当于在一款成熟的产品上进行二次开发。和我们二次开发其他项目的学习步骤不会有太大的出入，细节的区别就在于Android源码相比其他项目要更加庞大。
+​  经过第一章的学习，对AOSP定制进行简略的了解后，相信这时，在读者的心中已经对系统定制开发有了大致的理解。简单来说，所谓的系统定制，相当于在一款成熟的产品上进行二次开发。和我们二次开发其他软件项目的学习步骤不会有太大的出入，细节的区别就在于Android源码相比其他软件项目要更加庞大。
 
-​	尽管Android源码非常庞大，但是我们并不需要完整的吃透所有代码。我们要学会的是分析的思路，学会看代码，了解Android的部分运行原理，然后思考如何达到自己的目的，最后去尝试实现。
+​	尽管Android源码非常庞大，但对于初学者，并不需要完整的吃透所有代码。重要的是学会分析的思路，学会看代码，了解Android的部分运行原理，然后思考如何达到自己的目的，最后自已去尝试实现。
 
 ​	学习的流程就和我们二次开发其他应用一样，第一步我们要了解如何将项目成功编译并运行。这一章将详细讲解在各种不同的环境下，我们应该如何编译Android源码，并将其刷入手机中。
 
@@ -185,7 +185,7 @@ repo init -u https://aosp.tuna.tsinghua.edu.cn/platform/manifest
 // 指定分支版本
 repo init -u https://aosp.tuna.tsinghua.edu.cn/platform/manifest -b android-12.0.0_r3
 
-// 同步代码 
+// 同步代码
 repo sync -c -j8
 ~~~
 
@@ -336,9 +336,9 @@ Invoke ". build/envsetup.sh" from your shell to add the following functions to y
               dependencies.
 - mmm:        Builds and installs all of the modules in the supplied directories, and their
               dependencies.
-              To limit the modules being built use the syntax: mmm 
-// 省略            
-......  
+              To limit the modules being built use the syntax: mmm
+// 省略
+......
 ~~~
 
 ​	`croot` 命令可以跳转根目录，或者是根目录下的任意子目录
@@ -461,7 +461,7 @@ export ANDROID_PRODUCT_OUT=/home/king/android_src/mikrom_out/target/product/blue
 
 // 查询fastboot是否能成功看到设备
 fastboot devices
-	
+
 // 上面的查看命令显示的结果
 8ARX0Y7EP	fastboot
 
@@ -551,6 +551,6 @@ fastboot reboot fastboot
 
 ![image-20230108190631803](.\images\image-20230108190631803.png)
 
-​		
+​
 
 ​	2、twrp（这里没写完，你补充一下，我这边环境没跑通）
