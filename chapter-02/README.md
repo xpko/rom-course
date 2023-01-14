@@ -2,7 +2,7 @@
 
 ## 2.1 重新看待系统定制
 
-​  经过第一章的学习，对AOSP定制进行简略的了解后，相信这时，在读者的心中已经对系统定制开发有了大致的理解。简单来说，所谓的系统定制，相当于在一款成熟的产品上进行二次开发。和我们二次开发其他软件项目的学习步骤不会有太大的出入，细节的区别就在于Android源码相比其他软件项目要更加庞大。
+  经过第一章的学习，对AOSP定制进行简略的了解后，相信这时，在读者的心中已经对系统定制开发有了大致的理解。简单来说，所谓的系统定制，相当于在一款成熟的产品上进行二次开发。和我们二次开发其他软件项目的学习步骤不会有太大的出入，细节的区别就在于Android源码相比其他软件项目要更加庞大。
 
 ​	尽管Android源码非常庞大，但对于初学者，并不需要完整的吃透所有代码。重要的是学会分析的思路，学会看代码，了解Android的部分运行原理，然后思考如何达到自己的目的，最后自已去尝试实现。
 
@@ -539,7 +539,7 @@ make dist DIST_DIR=dist_output
 
 ​	接下来是如何刷入卡刷包，有两种刷入方式，一种是使用`adb sideload`命令刷入，另一种方式是使用twrp刷入。下面演示两种不同方式的刷机流程。
 
-​	1、adb sideload（这里没写完，你补充一下，我这边环境没跑通）
+​	1、adb sideload（TODO这里没写完，你补充一下，我这边环境没跑通）
 
 ​		首先进入fastbootd
 
@@ -556,6 +556,86 @@ fastboot reboot fastboot
 
 ![image-20230108190631803](.\images\image-20230108190631803.png)
 
-​
 
-​	2、twrp（这里没写完，你补充一下，我这边环境没跑通）
+
+​	2、twrp（TODO这里没写完，你补充一下，我这边环境没跑通）
+
+### 2.8 源码的开发环境搭建
+
+​	Android系统是一个非常庞大的项目，所以我们需要采用合适的编辑器或者是`ide`来修改代码，如果你的改动不多，那么我们简单的使用`VsCode`导入工作区即可开始修改代码。但是`VsCode`的智能提示和跳转较为简陋，所以如果想要更加友好的开发体验，我们可以选择将源码导入`Android Studio`中编辑java部分代码，导入`Clion`中编辑`native`部分代码。下面简单介绍如何将源码导入Android Studio。
+
+~~~
+cd ~/aosp12
+source build/envsetup.sh
+lunch aosp_blueline-userdebug
+
+// 编译生成idegen.jar
+make idegen
+
+// 在源码根目录生成android.ipr和android.iml
+development/tools/idegen/idegen.sh
+
+// 编辑iml文件，找到excludeFolder的属性位置，新增排除掉一些基本不怎么修改或者是native代码相关的部分
+vim ./android.iml
+
+// 例如新增下面这些部分
+<excludeFolder url="file://$MODULE_DIR$/abi"/>
+<excludeFolder url="file://$MODULE_DIR$/art"/>
+<excludeFolder url="file://$MODULE_DIR$/bionic"/>
+<excludeFolder url="file://$MODULE_DIR$/bootable"/>
+<excludeFolder url="file://$MODULE_DIR$/build"/>
+<excludeFolder url="file://$MODULE_DIR$/cts"/>
+<excludeFolder url="file://$MODULE_DIR$/dalvik"/>
+<excludeFolder url="file://$MODULE_DIR$/developers"/>
+<excludeFolder url="file://$MODULE_DIR$/development"/>
+<excludeFolder url="file://$MODULE_DIR$/device"/>
+<excludeFolder url="file://$MODULE_DIR$/docs"/>
+<excludeFolder url="file://$MODULE_DIR$/external"/>
+<excludeFolder url="file://$MODULE_DIR$/hardware"/>
+<excludeFolder url="file://$MODULE_DIR$/libcore"/>
+<excludeFolder url="file://$MODULE_DIR$/libnativehelper"/>
+<excludeFolder url="file://$MODULE_DIR$/ndk"/>
+<excludeFolder url="file://$MODULE_DIR$/out"/>
+<excludeFolder url="file://$MODULE_DIR$/pdk"/>
+<excludeFolder url="file://$MODULE_DIR$/prebuilts"/>
+<excludeFolder url="file://$MODULE_DIR$/sdk"/>
+<excludeFolder url="file://$MODULE_DIR$/system"/>
+<excludeFolder url="file://$MODULE_DIR$/tools"/>
+<excludeFolder url="file://$MODULE_DIR$/kernel"/>
+~~~
+
+​	修改好配置后，最后使用Android studio打开`android.ipr`文件即可。接下来简单介绍将代码导入Clion。
+
+~~~
+// 设置环境变量,在编译时生成CMakeLists.txt文件
+export SOONG_GEN_CMAKEFILES=1
+export SOONG_GEN_CMAKEFILES_DEBUG=1 
+
+// 正常编译一次
+cd ~/aosp12
+source build/envsetup.sh
+lunch aosp_blueline-userdebug
+make -j$(nproc --all)
+
+// 查看clion目录下面生成了大量的CMakeLists.txt
+tree out/development/ide/clion/
+
+// 在clion目录下创建一个CMakeLists.txt来合并导入我们需要使用的各个模块
+touch out/development/ide/clion/CMakeLists.txt
+
+// 配置CMakeLists.txt导入模块
+vim out/development/ide/clion/CMakeLists.txt
+
+// CMakeLists.txt文件添加下面的内容，单独导入一个先
+cmake_minimum_required(VERSION 3.6)
+project(AOSP-Native)
+// 添加子模块，导入了部分工程。工程很多，我是用到了再导入
+add_subdirectory(frameworks/native)
+~~~
+
+​	配置好cmake文件后，使用clion打开项目，选择刚刚配置好的`CMakeLists.txt`文件的目录`out/development/ide/clion/`。导入成功后，我们需要修改工程的根目录，`Tools->Cmake->Change Project Root`，然后选择源码根目录即可。
+
+## 2.9 小结 
+
+TODO
+
