@@ -635,7 +635,7 @@ add_subdirectory(frameworks/native)
 
 ​	配置好cmake文件后，使用clion打开项目，选择刚刚配置好的`CMakeLists.txt`文件的目录`out/development/ide/clion/`。导入成功后，我们需要修改工程的根目录，`Tools->Cmake->Change Project Root`，然后选择源码根目录即可。
 
-## 2.9 git管理
+## 2.9 gitlab+repo管理源码
 
 ​	虽然我们将源码导入idea中后，已经可以正常的开始修改源码了。但是由于这是一个庞大的项目，所以我们需要考虑到源码的管理，便于我们随时能够查看自己的修改和切换不同的分支进行开发。否则这样一个巨大的项目，一个月后，再想要找齐当时修改的逻辑，就非常困难了。如果你是个人开发，并且修改的逻辑不是特别复杂，或者是刚开始学习，那么可以选择跳过这个部分，直接修改源码即可。
 
@@ -962,7 +962,7 @@ if __name__ == '__main__':
 
 ~~~
 
-​	子模块仓库建立完成，最后我们还需要将代码上传到对应的仓库中。同样参考网上找的上传代码，修改一部分细节，代码如下
+​	子模块仓库建立完成，最后我们还需要将代码上传到对应的仓库中。同样参考网上找的上传代码，修改一部分细节，这里一定要注意default.xml中，project元素的属性path的是本地路径，而name才是指的git仓库的路径，代码如下
 
 ~~~python
 #!/usr/bin/python3
@@ -993,7 +993,7 @@ def parse_repo_manifest():
                     s = MANIFEST_XML_PATH_NAME_RE.search(this_temp_line)
 
                     if s is not None:
-                        manifest_xml_project_paths.append(s.group("path"))
+                        manifest_xml_project_paths.append({"path":s.group("path"),"name":s.group("name")})
 
     print("manifest_xml_project_paths=" + str(manifest_xml_project_paths))
     print("manifest_xml_project_paths len=" + str(len(manifest_xml_project_paths)))
@@ -1002,8 +1002,8 @@ def parse_repo_manifest():
 def push_source_code_by_folder(str_writer):
     # 遍历所有路径
     for path in manifest_xml_project_paths:
-        print("path=" + path)
-        abs_path = SOURCE_CODE_ROOT + path
+        print("path=" + path["path"])
+        abs_path = SOURCE_CODE_ROOT + path["path"]
         # 路径存在则进行上传
         if os.path.exists(abs_path):
             # change current work dir
@@ -1030,7 +1030,7 @@ def push_source_code_by_folder(str_writer):
             git_init_cmd = "git init"
             cmd_list.append(git_init_cmd)
 
-            git_remote_cmd = "git remote add origin " + REMOTE + path + ".git"
+            git_remote_cmd = "git remote add origin " + REMOTE + path["name"] + ".git"
             cmd_list.append(git_remote_cmd)
 
             git_add_dot_cmd = "git add ."
@@ -1111,7 +1111,64 @@ repo init -u git@192.168.2.189:android12_r3/manifest.git --repo-url=git@192.168.
 repo sync -j8
 ~~~
 
-​	到这里就完成了gitlab源码管理android源码开发了。最后如何使用git提交和查看历史记录我就不在这里叙述了。
+​	在同步的过程中，出现了两个问题。首先第一个是出现如下错误
+
+~~~
+remote: 
+remote: ========================================================================
+remote: 
+remote: The project you were looking for could not be found or you don't have permission to view it.
+remote: 
+remote: ========================================================================
+remote: 
+fatal: 无法读取远程仓库。
+
+请确认您有正确的访问权限并且仓库存在。
+
+platform/build/bazel:
+~~~
+
+​	检测代码后发现bazel仓库在路径build中不存在，这个仓库被建立在了platform下。导致这个问题的原因是由于前面的创建git的脚本中，发现build被指定为project，所以创建为仓库，而bazel必须是在一个group下，路径才会成立。而build的仓库已经存在，创建这个group失败后，就默认使用了更上一层的group。而解决办法也非常简单，直接将default中的几个build路径下的几个project重新命名，不要放在build的group下即可。下面是解决后的default.xml配置。
+
+~~~
+<project path="build/make" name="platform/build" groups="pdk" >
+    <copyfile src="core/root.mk" dest="Makefile" />
+    <linkfile src="CleanSpec.mk" dest="build/CleanSpec.mk" />
+    <linkfile src="buildspec.mk.default" dest="build/buildspec.mk.default" />
+    <linkfile src="core" dest="build/core" />
+    <linkfile src="envsetup.sh" dest="build/envsetup.sh" />
+    <linkfile src="target" dest="build/target" />
+    <linkfile src="tools" dest="build/tools" />
+</project>
+<project path="build/bazel" name="platform/build_bazel" groups="pdk" >
+	<linkfile src="bazel.WORKSPACE" dest="WORKSPACE" />
+	<linkfile src="bazel.sh" dest="tools/bazel" />
+	<linkfile src="bazel.BUILD" dest="BUILD" />
+</project>
+<project path="build/blueprint" name="platform/build_blueprint" groups="pdk,tradefed" />
+<project path="build/pesto" name="platform/build_pesto" groups="pdk" />
+<project path="build/soong" name="platform/build_soong" groups="pdk,tradefed" >
+    <linkfile src="root.bp" dest="Android.bp" />
+    <linkfile src="bootstrap.bash" dest="bootstrap.bash" />
+</project>
+~~~
+
+​	另外一个问题也非常类似。错误如下。
+
+~~~
+请确认您有正确的访问权限并且仓库存在。
+device/mediatek/wembley-sepolicy: sleeping 4.0 seconds before retrying
+~~~
+
+​	经过检查后发现，这是由于这个仓库在default.xml中的配置如下
+
+~~~
+<project name="device/mediatek/wembley-sepolicy" path="device/mediatek/wembley-sepolicy" groups="device"/>
+~~~
+
+​	然后看了创建仓库和批量提交代码的逻辑就明白了，是的，name和path的顺序反了，导致正则表达式未能成功匹配到这个仓库，所以我们调整一下name和path的顺序即可。到这里就完成了gitlab源码管理android源码开发了。最后如何使用git提交和查看历史记录我就不在这里叙述了。
+
+​	
 
 ## 2.10 小结 
 
