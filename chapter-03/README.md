@@ -490,7 +490,7 @@ static int __ref kernel_init(void *unused)
 }
 ~~~
 
-​	在这里我们看到了原来init进程是用try_to_run_init_process启动的，并且会依次执行上面的4个进程。我们继续看看这个函数是如何启动进程的。
+​	在这里我们看到了原来init进程是用try_to_run_init_process启动的，运行失败的情况下会依次执行上面的4个进程。我们继续看看这个函数是如何启动进程的。
 
 ~~~c
 static int try_to_run_init_process(const char *init_filename)
@@ -525,3 +525,380 @@ static int run_init_process(const char *init_filename)
 ![startkernel](.\images\startkernel.png)
 
 ## 3.4 Init进程启动
+
+​	init进程是第一个用户空间的进程，init进程的入口是在Android源码的`system/core/init/main.cpp`。下面我们看看入口函数main
+
+~~~cpp
+int main(int argc, char** argv) {
+#if __has_feature(address_sanitizer)
+    __asan_set_error_report_callback(AsanReportCallback);
+#endif
+    // Boost prio which will be restored later
+    setpriority(PRIO_PROCESS, 0, -20);
+    if (!strcmp(basename(argv[0]), "ueventd")) {
+        return ueventd_main(argc, argv);
+    }
+	
+    if (argc > 1) {
+        if (!strcmp(argv[1], "subcontext")) {
+            android::base::InitLogging(argv, &android::base::KernelLogger);
+            const BuiltinFunctionMap& function_map = GetBuiltinFunctionMap();
+
+            return SubcontextMain(argc, argv, &function_map);
+        }
+		// 第二步 装载selinux策略
+        if (!strcmp(argv[1], "selinux_setup")) {
+            return SetupSelinux(argv);
+        }
+		// 第三步
+        if (!strcmp(argv[1], "second_stage")) {
+            return SecondStageMain(argc, argv);
+        }
+    }
+	// 第一步 挂载设备节点
+    return FirstStageMain(argc, argv);
+}
+~~~
+
+​	根据上一章的启动init的参数，可以判断第一次启动时，执行的是FirstStageMain函数，我们继续看看这个函数的实现
+
+~~~cpp
+
+int FirstStageMain(int argc, char** argv) {
+    ...
+    CHECKCALL(clearenv());
+    CHECKCALL(setenv("PATH", _PATH_DEFPATH, 1));
+    // Get the basic filesystem setup we need put together in the initramdisk
+    // on / and then we'll let the rc file figure out the rest.
+    CHECKCALL(mount("tmpfs", "/dev", "tmpfs", MS_NOSUID, "mode=0755"));
+    CHECKCALL(mkdir("/dev/pts", 0755));
+    CHECKCALL(mkdir("/dev/socket", 0755));
+    CHECKCALL(mkdir("/dev/dm-user", 0755));
+    CHECKCALL(mount("devpts", "/dev/pts", "devpts", 0, NULL));
+#define MAKE_STR(x) __STRING(x)
+    CHECKCALL(mount("proc", "/proc", "proc", 0, "hidepid=2,gid=" MAKE_STR(AID_READPROC)));
+#undef MAKE_STR
+    // Don't expose the raw commandline to unprivileged processes.
+    CHECKCALL(chmod("/proc/cmdline", 0440));
+    std::string cmdline;
+    android::base::ReadFileToString("/proc/cmdline", &cmdline);
+    // Don't expose the raw bootconfig to unprivileged processes.
+    chmod("/proc/bootconfig", 0440);
+    std::string bootconfig;
+    android::base::ReadFileToString("/proc/bootconfig", &bootconfig);
+    gid_t groups[] = {AID_READPROC};
+    CHECKCALL(setgroups(arraysize(groups), groups));
+    CHECKCALL(mount("sysfs", "/sys", "sysfs", 0, NULL));
+    CHECKCALL(mount("selinuxfs", "/sys/fs/selinux", "selinuxfs", 0, NULL));
+    CHECKCALL(mknod("/dev/kmsg", S_IFCHR | 0600, makedev(1, 11)));
+	...
+    // 这里可以看到重新访问了init进程，并且参数设置为selinux_setup
+    const char* path = "/system/bin/init";
+    const char* args[] = {path, "selinux_setup", nullptr};
+    auto fd = open("/dev/kmsg", O_WRONLY | O_CLOEXEC);
+    dup2(fd, STDOUT_FILENO);
+    dup2(fd, STDERR_FILENO);
+    close(fd);
+    // 使用execv再次调用起init进程
+    execv(path, const_cast<char**>(args));
+	
+    // execv() only returns if an error happened, in which case we
+    // panic and never fall through this conditional.
+    PLOG(FATAL) << "execv(\"" << path << "\") failed";
+
+    return 1;
+}
+~~~
+
+​	这里看到又拉起了一个init进程，并且传了参数selinux_setup，所以接下来我们直接看前面main入口函数中判断出现该参数时调用的SetupSelinux函数。
+
+~~~cpp
+int SetupSelinux(char** argv) {
+    SetStdioToDevNull(argv);
+    InitKernelLogging(argv);
+	...
+
+    LOG(INFO) << "Opening SELinux policy";
+
+    // Read the policy before potentially killing snapuserd.
+    std::string policy;
+    ReadPolicy(&policy);
+
+    auto snapuserd_helper = SnapuserdSelinuxHelper::CreateIfNeeded();
+    if (snapuserd_helper) {
+        // Kill the old snapused to avoid audit messages. After this we cannot
+        // read from /system (or other dynamic partitions) until we call
+        // FinishTransition().
+        snapuserd_helper->StartTransition();
+    }
+
+    LoadSelinuxPolicy(policy);
+
+    if (snapuserd_helper) {
+        // Before enforcing, finish the pending snapuserd transition.
+        snapuserd_helper->FinishTransition();
+        snapuserd_helper = nullptr;
+    }
+
+    SelinuxSetEnforcement();
+
+    // We're in the kernel domain and want to transition to the init domain.  File systems that
+    // store SELabels in their xattrs, such as ext4 do not need an explicit restorecon here,
+    // but other file systems do.  In particular, this is needed for ramdisks such as the
+    // recovery image for A/B devices.
+    if (selinux_android_restorecon("/system/bin/init", 0) == -1) {
+        PLOG(FATAL) << "restorecon failed of /system/bin/init failed";
+    }
+
+    setenv(kEnvSelinuxStartedAt, std::to_string(start_time.time_since_epoch().count()).c_str(), 1);
+	// 继续再拉起一个init进程,参数设置second_stage
+    const char* path = "/system/bin/init";
+    const char* args[] = {path, "second_stage", nullptr};
+    execv(path, const_cast<char**>(args));
+
+    // execv() only returns if an error happened, in which case we
+    // panic and never return from this function.
+    PLOG(FATAL) << "execv(\"" << path << "\") failed";
+
+    return 1;
+}
+~~~
+
+​	上面的代码可以看到，在完成selinux的加载处理后，又拉起了一个init进程，并且传参数second_stage。接下来我们看第三步SecondStageMain函数
+
+~~~cpp
+
+int SecondStageMain(int argc, char** argv) {
+    ...
+	// 初始化属性系统
+    PropertyInit();
+
+    // 开启属性服务
+    StartPropertyService(&property_fd);
+	
+    // 解析init.rc 以及启动其他相关进程
+    LoadBootScripts(am, sm);
+
+    ...
+    return 0;
+}
+~~~
+
+​	接下来我们看看LoadBootScripts这个函数的处理
+
+~~~cpp
+
+static void LoadBootScripts(ActionManager& action_manager, ServiceList& service_list) {
+    Parser parser = CreateParser(action_manager, service_list);
+
+    std::string bootscript = GetProperty("ro.boot.init_rc", "");
+    if (bootscript.empty()) {
+        // 解析各目录中的init.rc
+        parser.ParseConfig("/system/etc/init/hw/init.rc");
+        if (!parser.ParseConfig("/system/etc/init")) {
+            late_import_paths.emplace_back("/system/etc/init");
+        }
+        // late_import is available only in Q and earlier release. As we don't
+        // have system_ext in those versions, skip late_import for system_ext.
+        parser.ParseConfig("/system_ext/etc/init");
+        if (!parser.ParseConfig("/vendor/etc/init")) {
+            late_import_paths.emplace_back("/vendor/etc/init");
+        }
+        if (!parser.ParseConfig("/odm/etc/init")) {
+            late_import_paths.emplace_back("/odm/etc/init");
+        }
+        if (!parser.ParseConfig("/product/etc/init")) {
+            late_import_paths.emplace_back("/product/etc/init");
+        }
+    } else {
+        parser.ParseConfig(bootscript);
+    }
+}
+
+~~~
+
+​	继续看看解析的逻辑，可以看到参数可以是目录或者文件
+
+~~~cpp
+bool Parser::ParseConfig(const std::string& path) {
+    if (is_dir(path.c_str())) {
+        return ParseConfigDir(path);
+    }
+    return ParseConfigFile(path);
+}
+~~~
+
+​	如果是目录，则遍历所有文件再调用解析文件，所以我们下面直接看ParseConfigFile就好了
+
+~~~cpp
+bool Parser::ParseConfigFile(const std::string& path) {
+    ...
+    ParseData(path, &config_contents.value());
+	...
+}
+~~~
+
+​	最后看看ParseData是如何解析数据的
+
+~~~cpp
+
+void Parser::ParseData(const std::string& filename, std::string* data) {
+    ...
+    
+    for (;;) {
+        switch (next_token(&state)) {
+            case T_EOF:
+                ...
+                return;
+            case T_NEWLINE: {
+                ...
+                else if (section_parsers_.count(args[0])) {
+                    end_section();
+                    // 从section_parsers_中获取出来的
+                    section_parser = section_parsers_[args[0]].get();
+                    section_start_line = state.line;
+                    // 使用了ParseSection进行解析
+                    if (auto result =
+                                section_parser->ParseSection(std::move(args), filename, state.line);
+                        !result.ok()) {
+                        parse_error_count_++;
+                        LOG(ERROR) << filename << ": " << state.line << ": " << result.error();
+                        section_parser = nullptr;
+                        bad_section_found = true;
+                    }
+                } else if (section_parser) {
+                    // 使用了ParseLineSection进行解析
+                    if (auto result = section_parser->ParseLineSection(std::move(args), state.line);
+                        !result.ok()) {
+                        parse_error_count_++;
+                        LOG(ERROR) << filename << ": " << state.line << ": " << result.error();
+                    }
+                } 
+                ...
+            }
+            case T_TEXT:
+                args.emplace_back(state.text);
+                break;
+        }
+    }
+}
+~~~
+
+​	这里我们简单解读一下这里的代码，首先这里看到从section_parsers_中找到指定的节点解析对象来执行ParseSection或者ParseLineSection进行解析.rc文件中的数据，我们看下parse创建的函数CreateParser
+
+~~~cpp
+void Parser::AddSectionParser(const std::string& name, std::unique_ptr<SectionParser> parser) {
+    section_parsers_[name] = std::move(parser);
+}
+
+
+Parser CreateParser(ActionManager& action_manager, ServiceList& service_list) {
+    Parser parser;
+
+    parser.AddSectionParser("service", std::make_unique<ServiceParser>(
+                                               &service_list, GetSubcontext(), std::nullopt));
+    parser.AddSectionParser("on", std::make_unique<ActionParser>(&action_manager, GetSubcontext()));
+    parser.AddSectionParser("import", std::make_unique<ImportParser>(&parser));
+
+    return parser;
+}
+~~~
+
+​	如果了解过init.rc文件格式的，看到这里就很眼熟了，这就是.rc文件中配置时使用的节点名称了。他们的功能简单的描述如下。
+
+​	1、service		开启一个服务
+
+​	2、on				触发某个action时，执行对应的指令
+
+​	3、import	   表示导入另外一个rc文件
+
+​	那么我们再解读上面的代码就是，根据rc文件的配置不同，来使用ServiceParser、ActionParser、ImportParser这三种节点解析对象的ParseSection或者ParseLineSection函数来处理。接下来我们看看这三个对象的处理函数把。
+
+~~~cpp
+// service节点的解析处理
+Result<void> ServiceParser::ParseSection(std::vector<std::string>&& args,
+                                         const std::string& filename, int line) {
+    if (args.size() < 3) {
+        return Error() << "services must have a name and a program";
+    }
+
+    const std::string& name = args[1];
+    if (!IsValidName(name)) {
+        return Error() << "invalid service name '" << name << "'";
+    }
+
+    filename_ = filename;
+
+    Subcontext* restart_action_subcontext = nullptr;
+    if (subcontext_ && subcontext_->PathMatchesSubcontext(filename)) {
+        restart_action_subcontext = subcontext_;
+    }
+
+    std::vector<std::string> str_args(args.begin() + 2, args.end());
+
+    if (SelinuxGetVendorAndroidVersion() <= __ANDROID_API_P__) {
+        if (str_args[0] == "/sbin/watchdogd") {
+            str_args[0] = "/system/bin/watchdogd";
+        }
+    }
+    if (SelinuxGetVendorAndroidVersion() <= __ANDROID_API_Q__) {
+        if (str_args[0] == "/charger") {
+            str_args[0] = "/system/bin/charger";
+        }
+    }
+
+    service_ = std::make_unique<Service>(name, restart_action_subcontext, str_args, from_apex_);
+    return {};
+}
+
+
+// on 节点的解析处理
+Result<void> ActionParser::ParseSection(std::vector<std::string>&& args,
+                                        const std::string& filename, int line) {
+    std::vector<std::string> triggers(args.begin() + 1, args.end());
+    if (triggers.size() < 1) {
+        return Error() << "Actions must have a trigger";
+    }
+
+    Subcontext* action_subcontext = nullptr;
+    if (subcontext_ && subcontext_->PathMatchesSubcontext(filename)) {
+        action_subcontext = subcontext_;
+    }
+
+    std::string event_trigger;
+    std::map<std::string, std::string> property_triggers;
+
+    if (auto result =
+                ParseTriggers(triggers, action_subcontext, &event_trigger, &property_triggers);
+        !result.ok()) {
+        return Error() << "ParseTriggers() failed: " << result.error();
+    }
+
+    auto action = std::make_unique<Action>(false, action_subcontext, filename, line, event_trigger,
+                                           property_triggers);
+
+    action_ = std::move(action);
+    return {};
+}
+
+// import节点的解析处理
+Result<void> ImportParser::ParseSection(std::vector<std::string>&& args,
+                                        const std::string& filename, int line) {
+    if (args.size() != 2) {
+        return Error() << "single argument needed for import\n";
+    }
+
+    auto conf_file = ExpandProps(args[1]);
+    if (!conf_file.ok()) {
+        return Error() << "Could not expand import: " << conf_file.error();
+    }
+
+    LOG(INFO) << "Added '" << *conf_file << "' to import list";
+    if (filename_.empty()) filename_ = filename;
+    imports_.emplace_back(std::move(*conf_file), line);
+    return {};
+}
+
+~~~
+
+​	到这里大致的init进程的启动流程相信大家已经有了一定了解。明白init的原理后，对于init.rc相信大家已经有了简单的印象，下一章我们将详细展开讲解init.rc文件。
