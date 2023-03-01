@@ -629,8 +629,38 @@ vim out/development/ide/clion/CMakeLists.txt
 // CMakeLists.txt文件添加下面的内容，单独导入一个先
 cmake_minimum_required(VERSION 3.6)
 project(AOSP-Native)
-// 添加子模块，导入了部分工程。工程很多，我是用到了再导入
+// 添加子模块，导入了部分工程
 add_subdirectory(frameworks/native)
+add_subdirectory(art/dalvikvm/dalvikvm-arm64-android)
+add_subdirectory(art/libdexfile/libdexfile-arm64-android)
+add_subdirectory(art/runtime/libart-arm64-android)
+add_subdirectory(bionic/libc/libc_bionic-arm64-android)
+add_subdirectory(bionic/libc/libc_bionic_ndk-arm64-android)
+add_subdirectory(bionic/libc/system_properties/libsystemproperties-arm64-android)
+add_subdirectory(external/compiler-rt/lib/sanitizer_common/libsan-arm64-android)
+add_subdirectory(frameworks/av/media/libaaudio/src/libaaudio-arm64-android)
+add_subdirectory(frameworks/av/soundtrigger/libsoundtrigger-arm64-android)
+add_subdirectory(frameworks/base/core/jni/libandroid_runtime-arm64-android)
+add_subdirectory(frameworks/native/cmds/installd/installd-arm64-android)
+add_subdirectory(frameworks/native/cmds/servicemanager/servicemanager-arm64-android)
+add_subdirectory(frameworks/native/libs/binder/libbinder-arm64-android)
+add_subdirectory(libcore/libjavacore-arm64-android)
+add_subdirectory(libcore/libopenjdk-arm64-android)
+add_subdirectory(libnativehelper/libnativehelper-arm64-android)
+add_subdirectory(libnativehelper/libnativehelper_compat_libc++-arm64-android)
+add_subdirectory(system/core/base/libbase-arm64-android)
+add_subdirectory(system/core/init/libinit-arm64-android)
+add_subdirectory(system/core/libziparchive/libziparchive-arm64-android)
+add_subdirectory(system/core/liblog/liblog-arm64-android)
+add_subdirectory(system/core/libcutils/libcutils-arm64-android)
+add_subdirectory(system/core/libutils/libutils-arm64-android)
+add_subdirectory(system/core/libprocessgroup/libprocessgroup-arm64-android)
+add_subdirectory(system/core/logcat/logcatd-arm64-android)
+add_subdirectory(system/core/logcat/liblogcat-arm64-android)
+add_subdirectory(system/core/logd/logd-arm64-android)
+add_subdirectory(system/core/logd/liblogd-arm64-android)
+add_subdirectory(system/core/lmkd/liblmkd_utils-arm64-android)
+add_subdirectory(system/core/lmkd/lmkd-arm64-android)
 ~~~
 
 ​	配置好cmake文件后，使用clion打开项目，选择刚刚配置好的`CMakeLists.txt`文件的目录`out/development/ide/clion/`。导入成功后，我们需要修改工程的根目录，`Tools->Cmake->Change Project Root`，然后选择源码根目录即可。
@@ -1186,9 +1216,5 @@ repo sync -j8
 
 ​	在这一章里，主要讲述了如何从零开始搭建一个编译Android源码的环境，以及如何选择编译的版本和完整的编译Android源码并使用自己编译的内核，然后将这个我们编译好的镜像尝试多种方式刷入测试手机中。为了后续开发和阅览代码的便利，又讲述了如何使用Android Studio和Clion导入源码。最后为了便于长期维护和持续性的开发，我们又搭建了gitlab+repo管理Android源码。终于将一切准备就绪了。
 
-​	如果你理解了源码同步的方式，那么你可以延申一下，如何将源码直接同步到github中呢？请自己动手试试吧。
-
-​	
-
-TODO 你看看这里是不是小结写的有点简单。看着应该怎么丰富一下。
+​	TODO 你看看这里是不是小结写的有点简单。看着应该怎么丰富一下。
 
