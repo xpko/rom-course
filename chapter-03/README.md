@@ -2232,13 +2232,21 @@ private Process.ProcessStartResult attemptZygoteSendArgsAndGetResult(
     }
 ~~~
 
-​	那么到这里，我们回首看看前文中介绍ZygoteServer启动进程的流程，我们当时看到执行到最后是findStaticMain函数，是获取一个类名下的main函数，并返回后进行调用。然后现在我们启动进程时，在startProcessLocked函数中能看到类名赋值是android.app.ActivityThread，所以这里和ZygoteServer进行通信创建线程，最后调用的函数就是android.app.ActivityThread中的main函数。这样一来，启动流程就衔接上了，ActivityThread是Android应用程序运行的主线程，负责处理应用程序的所有生命周期事件，接收系统消息并处理它们，我们继续看看这个main函数
+​	那么到这里，我们回首看看前文中介绍ZygoteServer启动进程的流程，我们当时看到执行到最后是findStaticMain函数，是获取一个类名下的main函数，并返回后进行调用。然后现在我们启动进程时，在startProcessLocked函数中能看到类名赋值是android.app.ActivityThread，所以这里和ZygoteServer进行通信创建线程，最后调用的函数就是android.app.ActivityThread中的main函数。这样一来，启动流程就衔接上了。
+
+​	ActivityThread是Android应用程序运行的UI主线程，负责处理应用程序的所有生命周期事件，接收系统消息并处理它们，main函数就是安卓应用的入口函数。prepareMainLooper函数将实例化一个Looper对象，然后由Looper对象创建一个消息队列，当loop函数调用时，UI线程就会进入消息循环，不断从消息队列获取到消息去进行相应的处理。
 
 ~~~java
 public static void main(String[] args) {
     	...
+        Looper.prepareMainLooper();
+    	...
     	ActivityThread thread = new ActivityThread();
         thread.attach(false, startSeq);
+    	// 主线程消息循环处理的handler
+    	if (sMainThreadHandler == null) {
+            sMainThreadHandler = thread.getHandler();
+        }
         ...
         Looper.loop();
     }
@@ -2251,7 +2259,87 @@ private void attach(boolean system, long startSeq) {
     }
 ~~~
 
-​	mgr就是AMS，所以继续回到ActivityManagerService查看attachApplication
+​	我们先看看这个loop函数，在这里直接是一个死循环进行loopOnce调用
+
+~~~java
+public static void loop() {
+        ...
+        for (;;) {
+            if (!loopOnce(me, ident, thresholdOverride)) {
+                return;
+            }
+        }
+    }
+~~~
+
+​	继续看看loopOnce的实现，看到了从队列中获取一条消息，并且将消息派发给对应的Handler来执行。
+
+~~~java
+private static boolean loopOnce(final Looper me,
+            final long ident, final int thresholdOverride) {
+        Message msg = me.mQueue.next(); // might block
+        if (msg == null) {
+            // No message indicates that the message queue is quitting.
+            return false;
+        }
+		...
+        msg.target.dispatchMessage(msg); 
+        ...
+        return true;
+    }
+~~~
+
+​	对应的消息处理的Handler就是前面在入口函数main中看到的sMainThreadHandler对象前面看到是通过getHandler函数获取的，我们跟进去寻找具体的对象。
+
+~~~java
+public Handler getHandler() {
+        return mH;
+    }
+// 继续查看mH是如何赋值，找到代码如下。
+final H mH = new H();
+~~~
+
+​	找到的这个H类型就是对应的主线程消息处理Handler了。我们看看相关实现。
+
+~~~java
+class H extends Handler {
+        public static final int BIND_APPLICATION        = 110;
+        @UnsupportedAppUsage
+        public static final int EXIT_APPLICATION        = 111;
+		...
+        String codeToString(int code) {
+            if (DEBUG_MESSAGES) {
+                switch (code) {
+                    case BIND_APPLICATION: return "BIND_APPLICATION";
+                    case EXIT_APPLICATION: return "EXIT_APPLICATION";
+                    ...
+                }
+            }
+            return Integer.toString(code);
+        }
+        public void handleMessage(Message msg) {
+            if (DEBUG_MESSAGES) Slog.v(TAG, ">>> handling: " + codeToString(msg.what));
+            switch (msg.what) {
+                case BIND_APPLICATION:
+                    Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "bindApplication");
+                    AppBindData data = (AppBindData)msg.obj;
+                    handleBindApplication(data);
+                    Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
+                    break;
+                case EXIT_APPLICATION:
+                    if (mInitialApplication != null) {
+                        mInitialApplication.onTerminate();
+                    }
+                    Looper.myLooper().quit();
+                    break;
+                ...
+            }
+            ...
+        }
+    }
+~~~
+
+​	接着我们再回头看看attch中的处理，mgr就是AMS，所以来到ActivityManagerService查看attachApplication
 
 ~~~java
 public final void attachApplication(IApplicationThread thread, long startSeq) {
@@ -2429,12 +2517,7 @@ TODO 流程图
 
 ​	在Android启动流程中，我们就已经看到了很多Service的启动，前文代码看到当系统启动后通过forkSystemServer执行到SystemServer来启动一系列的Service。这些Service有着各自负责的功能，其中最关键的是ActivityManagerService，常常被我们简称为AMS。而启动了AMS的SystemServer也是一个服务，这个服务负责在Android完成启动后，加载和启动所有的系统服务，管理系统级别的资源。
 
-​	AMS是Android系统中的一个核心服务，它是一个系统级服务，负责Android系统中的所有活动管理，包括应用程序的启动，暂停，恢复，终止，以及对系统资源的管理和分配。负责Android系统中所有活动的管理。它负责管理任务栈，并允许任务栈中的任务来回切换，以便在任务之间改变焦点。它还负责管理进程，并将进程启动，暂停，恢复，终止，以及分配系统资源。在启动流程中我们能看到，所有Service都是由它来启动的，下面是启动的相关代码。
-
-~~~java
-ActivityTaskManagerService atm = mSystemServiceManager.startService(
-        ActivityTaskManagerService.Lifecycle.class).getService();
-~~~
+​	AMS是Android系统中的一个核心服务，它是一个系统级服务，负责Android系统中的所有活动管理，包括应用程序的启动，暂停，恢复，终止，以及对系统资源的管理和分配。负责Android系统中所有活动的管理。它负责管理任务栈，并允许任务栈中的任务来回切换，以便在任务之间改变焦点。它还负责管理进程，并将进程启动，暂停，恢复，终止，以及分配系统资源。在启动流程中我们能看到，所有Service都是由它来启动的.
 
 ​	除了AMS外，也有其他重要的Service为Android应用提供基础的功能，下面简单介绍这些常用的Service。
 
@@ -2534,7 +2617,1215 @@ ActivityTaskManagerService atm = mSystemServiceManager.startService(
 
 ​	BluetoothService是Android操作系统中的一种服务，它可以实现蓝牙设备之间的无线通信。它提供了一种方便的方式来建立和管理蓝牙连接，使蓝牙设备之间能够进行文件传输、远程打印、蓝牙键盘连接等活动。
 
-​	还有更多的系统服务为Android的运行提供着各模块的基础功能，这里就不展开详细叙述了，当我们对某一个服务的功能实现感兴趣时，我们可以顺着启动服务的地方开始跟踪代码，分析实现的逻辑。也可以直接参考系统服务的定义模式来自定义系统服务来提供特殊需求的功能。下面我们先分析一个系统服务的启动到它的代码实现。
+​	还有更多的系统服务为Android的运行提供着各模块的基础功能，这里就不展开详细叙述了，当我们对某一个服务的功能实现感兴趣时，我们可以顺着启动服务的地方开始跟踪代码，分析实现的逻辑。也可以直接参考系统服务的定义模式来自定义系统服务来提供特殊需求的功能。
 
-​	
+## 3.9 了解Framework
 
+​	Framework指的是软件开发框架，由于系统处于内核中，我们无法直接对系统的功能进行请求，而是由框架层为我们开发的顶层应用提供接口调用，从而让我们不必烦恼如何与底层交互，开发框架为开发人员提供各种功能以及Android应用工具的支持来便于我们创建和管理Android应用程序，最终达到让用户能高效开发Android应用的目的，以生活中的事务为例，Framework就像是一个配套完善的小区，有高效的物业，周边配套有学校、医院、商场，各类设施非常齐全，而用户就像是小区内的业主。下面我们看一张经典的架构图。
+
+![在这里插入图片描述](.\images\android-framework.jpg)
+
+​	从上图中可以看到Framewok的组成部分，下面我们简单它们的功能
+
+1. Activity Manager：用于管理和协调所有Android应用程序的活动和任务。
+2. Content Providers：允许Android应用程序之间共享数据。
+3. Package Manager：用于安装，升级和管理应用程序，以及处理应用程序的权限。
+4. Resource Manager：管理应用程序使用的资源，例如图像，字符串，布局。
+5. Notification Manager：处理Android系统的通知机制。
+6. Telephony Manager：提供电话功能，例如拨打电话，接听电话等。
+7. Location Manager：用于获取设备的位置信息。
+8. View System：提供用户界面的基本组件或部件，例如按钮，文本框等。
+9. Window Manager：处理屏幕上的窗口，例如在屏幕上绘制UI元素和管理窗口焦点。
+10. Package Installer：用于在设备上安装应用程序的控制面板。
+11. Resource Manager：管理所有允许应用程序访问的公共资源，例如铃声，照片和联系人信息。
+12. Activity和Fragment：提供应用程序的用户界面和控制器。
+
+​	可以看到前文中的各种系统服务就是属于Framework中的一部分，但是用户层并不能直接的访问系统服务提供的功能，而是通过各服务对应的管理器来对系统服务进行调用。接下来我们开始跟踪，在开发应用中当我们调用一个系统服务提供的功能时发生了哪些调用，使用Android Studio创建一个项目，添加如下代码。
+
+~~~java
+protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        TelephonyManager tm = (TelephonyManager) this.getSystemService(TELEPHONY_SERVICE);
+        /*
+         * 电话状态：
+         * 1.tm.CALL_STATE_IDLE=0     无活动
+         * 2.tm.CALL_STATE_RINGING=1  响铃
+         * 3.tm.CALL_STATE_OFFHOOK=2  摘机
+         */
+        int state= tm.getCallState();//int
+        Log.i("MainActivity","phone state "+state);
+    }
+~~~
+
+​	通过getSystemService函数提供了一个系统服务的名称，获取到了对应系统服务对应管理器，通过调用管理器的函数来触发对应系统服务的功能，我们看看具体是如何获取到系统服务的。我们找到Android源码中Activity.java文件。
+
+~~~java
+public Object getSystemService(@ServiceName @NonNull String name) {
+        if (getBaseContext() == null) {
+            throw new IllegalStateException(
+                    "System services not available to Activities before onCreate()");
+        }
+
+        if (WINDOW_SERVICE.equals(name)) {
+            return mWindowManager;
+        } else if (SEARCH_SERVICE.equals(name)) {
+            ensureSearchManager();
+            return mSearchManager;
+        }
+        return super.getSystemService(name);
+    }
+~~~
+
+​	如果是WINDOW_SERVICE或者SEARCH_SERVICE就快速的返回对应的管理器了，其他系统服务则继续调用父类的函数。Activity继承自ContextThemeWrapper，找到对应实现代码如下。
+
+~~~java
+public Object getSystemService(String name) {
+        if (LAYOUT_INFLATER_SERVICE.equals(name)) {
+            if (mInflater == null) {
+                mInflater = LayoutInflater.from(getBaseContext()).cloneInContext(this);
+            }
+            return mInflater;
+        }
+        return getBaseContext().getSystemService(name);
+    }
+~~~
+
+​	找到ContextImpl中的对应实现
+
+~~~java
+public Object getSystemService(String name) {
+        ...
+        return SystemServiceRegistry.getSystemService(this, name);
+    }
+~~~
+
+​	继续查看SystemServiceRegistry中的实现
+
+~~~java
+public static Object getSystemService(ContextImpl ctx, String name) {
+        if (name == null) {
+            return null;
+        }
+        final ServiceFetcher<?> fetcher = SYSTEM_SERVICE_FETCHERS.get(name);
+        if (fetcher == null) {
+            if (sEnableServiceNotFoundWtf) {
+                Slog.wtf(TAG, "Unknown manager requested: " + name);
+            }
+            return null;
+        }
+        final Object ret = fetcher.getService(ctx);
+        ...
+        return ret;
+    }
+~~~
+
+​	发现服务是从SYSTEM_SERVICE_FETCHERS中获取出来，然后返回的。所以我们看看这个对象的值是如何插进去的。搜索该对象的put函数调用处找到相关函数如下。
+
+~~~java
+private static <T> void registerService(@NonNull String serviceName,
+            @NonNull Class<T> serviceClass, @NonNull ServiceFetcher<T> serviceFetcher) {
+        SYSTEM_SERVICE_NAMES.put(serviceClass, serviceName);
+        SYSTEM_SERVICE_FETCHERS.put(serviceName, serviceFetcher);
+        SYSTEM_SERVICE_CLASS_NAMES.put(serviceName, serviceClass.getSimpleName());
+    }
+~~~
+
+​	从名字就能看的出来，这是一个注册系统服务的函数，现在我们知道了想要查找到一个系统服务，必须通过registerService函数注册。顺着这个函数，我们找到了在SystemServiceRegistry类中进行了大量的系统服务注册，如果我们添加一个自定义的系统服务，同样也是需要在这里进行系统服务的注册。接着我们看看TelephonyManager中getCallState函数的实现
+
+~~~java
+public @CallState int getCallState() {
+        if (mContext != null) {
+            TelecomManager telecomManager = mContext.getSystemService(TelecomManager.class);
+            if (telecomManager != null) {
+                return telecomManager.getCallState();
+            }
+        }
+        return CALL_STATE_IDLE;
+    }
+~~~
+
+​	这里又通过另一个管理器进行的函数调用，继续跟进去
+
+~~~java
+public @CallState int getCallState() {
+        ITelecomService service = getTelecomService();
+        if (service != null) {
+            try {
+                return service.getCallStateUsingPackage(mContext.getPackageName(),
+                        mContext.getAttributionTag());
+            } catch (RemoteException e) {
+                Log.d(TAG, "RemoteException calling getCallState().", e);
+            }
+        }
+        return TelephonyManager.CALL_STATE_IDLE;
+    }
+~~~
+
+​	然后就看到了，管理器并不负责业务相关的处理，主要是调用对应的系统服务来获取结果。继续查看getCallStateUsingPackage函数实现
+
+~~~java
+public int getCallStateUsingPackage(String callingPackage, String callingFeatureId) {
+            try {
+                Log.startSession("TSI.getCallStateUsingPackage");
+                if (CompatChanges.isChangeEnabled(
+                        TelecomManager.ENABLE_GET_CALL_STATE_PERMISSION_PROTECTION, callingPackage,
+                        Binder.getCallingUserHandle())) {
+                    // Bypass canReadPhoneState check if this is being called from SHELL UID
+                    if (Binder.getCallingUid() != Process.SHELL_UID && !canReadPhoneState(
+                            callingPackage, callingFeatureId, "getCallState")) {
+                        throw new SecurityException("getCallState API requires READ_PHONE_STATE"
+                                + " for API version 31+");
+                    }
+                }
+                synchronized (mLock) {
+                    return mCallsManager.getCallState();
+                }
+            } finally {
+                Log.endSession();
+            }
+        }
+~~~
+
+​	在系统服务中就看到了管理状态相关的具体业务代码了，继续观察getCallStae的实现
+
+~~~java
+int getCallState() {
+        return mPhoneStateBroadcaster.getCallState();
+    }
+~~~
+
+​	最后是由PhoneStateBroadcaster对象维护着电话的状态信息了，PhoneStateBroadcaster是Android中的一个系统广播机制，它用于在电话状态发生变化时发出通知，以便其他组件和应用程序能够接收和处理这些变化。它可以发出包括新来电，挂断电话，拨号等状态变化的通知，以使系统中的其他组件能够更新和处理这些变化。PhoneStateBroadcaster还提供了一些其他的功能，例如电话状态监控，用于检测电话状态的变化，以便能够及时响应。简单的贴一下相关的代码如下。
+
+~~~java
+final class PhoneStateBroadcaster extends CallsManagerListenerBase {
+	...
+    @Override
+    public void onCallStateChanged(Call call, int oldState, int newState) {
+        if (call.isExternalCall()) {
+            return;
+        }
+        updateStates(call);
+    }
+
+    @Override
+    public void onCallAdded(Call call) {
+        if (call.isExternalCall()) {
+            return;
+        }
+        updateStates(call);
+
+        if (call.isEmergencyCall() && !call.isIncoming()) {
+            sendOutgoingEmergencyCallEvent(call);
+        }
+    }
+
+    @Override
+    public void onCallRemoved(Call call) {
+        if (call.isExternalCall()) {
+            return;
+        }
+        updateStates(call);
+    }
+
+    @Override
+    public void onExternalCallChanged(Call call, boolean isExternalCall) {
+        updateStates(call);
+    }
+
+    private void updateStates(Call call) {
+        int callState = TelephonyManager.CALL_STATE_IDLE;
+        if (mCallsManager.hasRingingOrSimulatedRingingCall()) {
+            callState = TelephonyManager.CALL_STATE_RINGING;
+        } else if (mCallsManager.getFirstCallWithState(CallState.DIALING, CallState.PULLING,
+                CallState.ACTIVE, CallState.ON_HOLD) != null) {
+            callState = TelephonyManager.CALL_STATE_OFFHOOK;
+        }
+        sendPhoneStateChangedBroadcast(call, callState);
+    }
+
+    int getCallState() {
+        return mCurrentState;
+    }
+    
+    private void sendPhoneStateChangedBroadcast(Call call, int phoneState) {
+        if (phoneState == mCurrentState) {
+            return;
+        }
+
+        mCurrentState = phoneState;
+		...
+    }
+	...
+}
+
+~~~
+
+## 3.9 了解libcore
+
+​	libcore是Android平台下的Java核心库，主要提供与Java语言核心相关的类，如Object类、String类，Java集合类以及输入/输出流等。同时，libcore还包括了平台支持库，提供了一些用于Android平台特定功能的实现，如Socket、SSL、File、URI等类的平台特定实现。
+
+​	libcore库还包括了面向移动设备的一些实现，如用于应用程序沙箱、低内存设备优化和运行时的权限管理等。这些功能使得Android应用程序开发更加便捷，具有更高的安全性和稳定性。
+
+​	在Android应用程序开发中，libcore库是必不可少的一部分，其提供的类和实现对于开发和调试应用程序都具有非常重要的作用。
+
+​	在libcore库中，luni是其中的一个子库，是指Java的基础类库（LUNI = LANG + UTIL + NET + IO），ojluni是OpenJDK的代码在Android中的实现，其目录结构与luni子库类似，包含了Java语言核心类、Java集合类和I/O类等。ojluni是在Java标准库的基础上进行了一些定制化的修改，以便更好地适配Android系统。
+
+在ojluni子库中，主要包含了以下类和接口：
+
+1. java.lang包：包含了Java语言的核心类，如Object、String、Class、System等。
+2. java.util包：包含了Java集合类，如ArrayList、HashMap等。
+3. java.io包：包含了Java I/O类，如File、InputStream、OutputStream等。
+4. java.net包：包含了Java网络编程类，如Socket、URL等。
+
+​	在Android应用程序开发中，ojluni子库也是非常重要的一部分，它提供了Java语言的核心类和接口，以及Java集合类和I/O类等，在使用Java标准库时需要注意一些Android系统特殊性的修改。我们可以通过在这里阅读和修改openjdk中的实现，或添加一些目录和类为我们开发定制功能提供便利。下面我们用tree命令展开目录的树状图。
+
+~~~
+tree ./libcore/ojluni/src/main/java/ -d
+
+├── com
+│   └── sun
+│       ├── net
+│       │   └── ssl
+│       │       └── internal
+│       │           └── ssl
+│       ├── nio
+│       │   └── file
+│       └── security
+│           └── cert
+│               └── internal
+│                   └── x509
+├── java
+│   ├── awt
+│   │   └── font
+│   ├── beans
+│   ├── io
+│   ├── lang
+│   │   ├── annotation
+│   │   ├── invoke
+│   │   ├── ref
+│   │   └── reflect
+│   ├── math
+│   ├── net
+│   ├── nio
+│   │   ├── channels
+│   │   │   └── spi
+│   │   ├── charset
+│   │   │   └── spi
+│   │   └── file
+│   │       ├── attribute
+│   │       └── spi
+│   ├── security
+│   │   ├── acl
+│   │   ├── cert
+│   │   ├── interfaces
+│   │   └── spec
+│   ├── sql
+│   ├── text
+│   ├── time
+│   │   ├── chrono
+│   │   ├── format
+│   │   ├── temporal
+│   │   └── zone
+│   └── util
+│       ├── concurrent
+│       │   ├── atomic
+│       │   └── locks
+│       ├── function
+│       ├── jar
+│       ├── logging
+│       ├── prefs
+│       ├── regex
+│       ├── stream
+│       └── zip
+├── javax
+│   ├── crypto
+│   │   ├── interfaces
+│   │   └── spec
+│   ├── net
+│   │   └── ssl
+│   ├── security
+│   │   ├── auth
+│   │   │   ├── callback
+│   │   │   ├── login
+│   │   │   └── x500
+│   │   └── cert
+│   └── sql
+│       └── rowset
+├── jdk
+│   ├── internal
+│   │   ├── util
+│   │   └── vm
+│   │       └── annotation
+│   └── net
+└── sun
+    ├── invoke
+    │   └── util
+    ├── misc
+    ├── net
+    │   ├── ftp
+    │   │   └── impl
+    │   ├── spi
+    │   │   └── nameservice
+    │   ├── util
+    │   └── www
+    │       └── protocol
+    │           ├── file
+    │           ├── ftp
+    │           └── jar
+    ├── nio
+    │   ├── ch
+    │   ├── cs
+    │   └── fs
+    ├── reflect
+    │   └── misc
+    ├── security
+    │   ├── action
+    │   ├── jca
+    │   ├── pkcs
+    │   ├── provider
+    │   │   └── certpath
+    │   ├── timestamp
+    │   ├── util
+    │   └── x509
+    └── util
+        ├── calendar
+        ├── locale
+        │   └── provider
+        ├── logging
+        └── resources
+~~~
+
+## 3.11 了解sepolicy
+
+​	sepolicy是指Android系统中实现访问控制的一种安全机制，它在Linux内核的基础上实现，用于保证手机安全。
+
+在Android中，sepolicy主要用于限制应用程序的权限，使其只能访问其所需的资源，并在需要时向用户请求权限。通过限制应用程序的权限，可以防止恶意软件和攻击者攻击系统。
+
+具体而言，sepolicy可以做到以下几点：
+
+1. 限制应用程序访问系统的资源，例如系统设置、网络接口等。
+2. 限制应用程序的使用权限，例如读取联系人、访问存储空间等。
+3. 保护系统文件和目录，防止应用程序和攻击者修改和删除系统关键文件。
+4. 限制system_server和其他服务的访问权限，以提高系统的安全性。
+
+为了实现这些功能，Android sepolicy使用了许多安全策略，包括：
+
+1. Type Enforcemen是一种强制式访问控制（MAC）策略，它可以将每一个资源（如文件、目录、设备等）和进程依据其安全等级划分到一个预先定义好的类型域（domain）之中，并且限制这些资源之间的访问。。
+2. Role Based Access Control（RBAC）：使用了基于角色的访问控制策略，在系统安全范围内分配相应角色并运用于用户。
+3. Mandatory Access Control（MAC）：在安全措施中使用永久访问控制的策略来强化安全风险管理。
+
+通过以上措施的组合，Android sepolicy可以保证手机系统的安全性和可靠性，使得用户使用手机更加放心，保护了手机中存储的个人和敏感信息。
+
+​	在ROM定制时，我们常常会添加某些功能时由于权限问题导致系统输出警告信息提示错误，这种情况我们就需要调整策略，通过以上的一种方式为app开放权限。调整策略的位置在 Android 源代码的 `./system/sepolicy/` 目录中，`public`、`private`、`prebuilts` 目录下。
+
+1. `public`：该目录包含 Android 系统与函数库等公共的 sepolicy 规则。这些规则是开发人员和厂商可以自由使用和修改的，因为这些规则涉及到的是公共区域的访问控制。
+2. `private`：该目录包含硬编码到 Android 系统中的特定规则。这些规则用于控制既定的 Android 系统功能和应用程序，例如拨号应用程序、电源管理等，因此这些规则不能被修改或覆盖。
+3. `prebuilts`: 该目录包含预制的 sepolicy 文件，通常在 Android 设备的启动映像中用于定制芯片厂商的定制设备。它包括一组针对不同芯片和设备制造商的 sepolicy 规则和策略，找不到与特定设备相关联的策略时，预置策略可作为 Fallback 值。
+
+​	在构建安卓设备时，sepolicy 在以上的基础上会使用 *.te（Type Enforcement） 和 *.fc（File Context） 规则来生成 sepolicy 文件，以针对特定设备和应用程序修补平台策略。在这个过程中，可以将上述的默认策略与特定设备或应用程序的安全策略独立或合并起来，以进一步加强安全性。
+
+​	当修改 Android 系统的 sepolicy 策略时，系统会使用 prebuilts 中的策略进行对比，这是因为 prebuilts 中包含了在 Android 设备上预置的 sepolicy 策略和规则。
+
+​	首先，系统先会加载 `public` 目录中的公共 sepolicy 规则，然后会使用 `private` 目录中的预设规则来控制既定的 Android 系统功能和应用程序。如果系统需要更改某些规则，系统会加载 `public` 和 `private` 目录中的规则文件，并根据这些文件进行修改。
+
+​	在这个过程中，如果需要新的规则并且它不存在于 `public` 和 `private` 目录中，则系统需要使用预制的 `prebuilts` 规则对新规则进行对比。因为预置的 prebuilts 规则是与设备和芯片厂商紧密相关的，因此这有助于系统保持原有的稳定性和设备兼容性，并防止在修改规则时发生不可预测的错误。
+
+​	通过使用预置的 prebuilts 规则，开发人员可以更容易地定制和开发 Android 对特定设备和应用程序的 sepolicy 策略，从而提高系统的安全性和稳定性。
+
+​	对安全策略有一个大致的了解后，我们先看一个简单的例子，找到文件`./system/sepolicy/public/adbd.te`
+
+~~~
+type adbd, domain;
+allow adbd shell_test_data_file:dir create_dir_perms;
+~~~
+
+​	这里使用了三个类型：
+
+- `adbd`：指定进程的类型；
+- `domain`：指定域的类型；
+- `shell_test_data_file`：指定目录的类型。
+
+规则使用了`allow`关键字，表示允许某些操作。具体来说，上述规则允许`adbd`类型的进程在`shell_test_data_file`目录下创建目录，并且该目录将被赋予允许创建子目录的权限（由`create_dir_perms`定义）。
+
+​	这个规则的实际意义是，当`adbd`进程需要在`shell_test_data_file`目录下创建子目录时，允许该操作，并为新创建的目录设置适当的权限。注意，这个规则只对该目录有效，不能用于其他目录。
+
+​	通常情况下我是采用按需修改的方式调整安全策略，当添加的功能被安全策略拦住时，会打印提示。例如当我在文件`com_android_internal_os_Zygote.cpp`的`SpecializeCommon`函数中加入如下代码，访问data目录。
+
+~~~cpp
+std::string filepath="/data/app/demo";
+ReadFileToString(filepath,&file_contents)
+~~~
+
+​	然后就会被selinux给拦截并提示警告信息如下
+
+~~~
+avc: denied { search } for name="app" dev="dm-8" ino=100 scontext=u:r:zygote:s0 tcontext=u:object_r:apk_data_file:s0 tclass=dir permissive=0
+~~~
+
+​	在SELinux中，`avc: denied`是出现最频繁的提示之一，表示SELinux权限被拒绝的操作。给出的操作名在花括号中。如果提示被拒绝的进程、文件或目录有更多的上下文信息。
+
+​	1、avc: denied {open} - 表示进程被禁止打开文件或设备。
+
+​	2、avc: denied {read} - 表示进程被禁止读取一个文件、设备或目录。
+
+​	3、avc: denied {write} - 表示进程被禁止写入一个文件、设备或目录。
+
+​	4、avc: denied {getattr} - 表示进程被禁止读取一个文件或目录的元数据（例如，所有权、组、权限等）。
+
+​	5、avc: denied {execute} - 表示进程被禁止执行一个文件或进程。
+
+​	6、avc: denied {create} - 表示进程被禁止创建一个文件。
+
+​	7、avc: denied {search} - 表示此进程被禁止在某目录中搜索文件的操作
+
+​	除了 `avc: denied`之外，还有其他一些可能出现的提示信息。以下是一些常见提示信息以及它们的含义：
+
+​	1、avc: granted - 表示操作被允许。
+
+​	2、avc: audit - 表示SELinux正在监视执行上下文之间的交互，并将相关信息记录到审计日志中。
+
+​	3、avc: no audit - 表示SELinux没有记录此操作的详细信息，这通常是因为没有启用SELinux的审计功能。
+
+​	4、avc: invalid - 表示操作请求的权限非法或无效。
+
+​	5、avc: timeout - 表示SELinux规则分析器超时无法确定操作是否应该允许。在这种情况下，操作通常会被拒绝。
+
+​	6、avc: failed - 表示SELinux规则分析器无法确定操作是否应该被允许或拒绝。
+
+​	在SELinux中，scontext代表系统中的安全上下文，tcontext代表对象的安全上下文。每个具有权限要求的进程和对象都有一个安全上下文。 SELinux使用这些安全上下文来进行访问控制决策。
+
+scontext和tcontext中的“u”，“r”和“s0”是安全上下文标记的不同部分。含义如下：
+
+​	1、u - 代表selinux中定义的用户，tcontext中的u代表对象所属用户。
+
+​	2、r - 代表进程的角色（role），tcontext中的r代表对象的角色。
+
+​	3、s0 - 代表进程的安全策略范围（security level），tcontext中的s0代表对象的安全策略范围。s0通常表示为默认值。
+
+​	我们可以通过命令`ps -eZ`来查看进程的scontext。
+
+~~~
+ps -eZ
+
+u:r:servicemanager:s0          system         672     1 10860740  3784 SyS_epoll+          0 S servicemanager
+u:r:hwservicemanager:s0        system         673     1 10880928  4648 SyS_epoll+          0 S hwservicemanager
+u:r:kernel:s0                  root           674     2       0      0 worker_th+          0 S [kworker/7:1H]
+u:r:vndservicemanager:s0       system         675     1 10813436  2884 SyS_epoll+          0 S vndservicemanager
+u:r:kernel:s0                  root           676     2       0      0 kthread_w+          0 S [psimon]
+~~~
+
+​	可以通过命令`ls -Z`来查看文件的scontext
+
+~~~
+cd /data/app
+ls -Z -all
+
+drwxrwxr-x  3 system system u:object_r:apk_data_file:s0          3488 2023-02-26 21:50:57.968696920 +0800 ~~QZ-rYHaywe6nr2ryYn3UoQ==
+drwxrwxr-x  3 system system u:object_r:apk_data_file:s0          3488 2023-03-02 22:12:29.802016689 +0800 ~~W9dmzmphiDsjJm79RiBwdg==
+~~~
+
+​	现在我们可以重新对下面的这个提示进行一次解读了。selinux拒绝搜索一个目录，目录名称为app，所在设备为dm-8，被拒绝的进程上下文特征是`u:r:zygote:s0`，角色是zygote，目标文件上下文特征是`u:object_r:apk_data_file:s0`，用户级别为object_r，文件的所属类型是apk_data_file，表示应用程序的数据文件。tclass表示请求对象的类型，dir为适用于目录，file表示适用于文件
+
+~~~
+avc: denied { search } for name="app" dev="dm-8" ino=100 scontext=u:r:zygote:s0 tcontext=u:object_r:apk_data_file:s0 tclass=dir permissive=0
+~~~
+
+​	解读完成后我们可以开始调整安全策略了，找到文件`system/sepolicy/private/zygote.te`，然后添加策略如下
+
+~~~
+allow zygote apk_data_file:dir search;
+~~~
+
+​	修改完成后编译时，会报错，提示diff对比文件时发现内容不一致。最后再将文件`system/sepolicy/prebuilts/api/31.0/private/zygote.te`下添加相同的策略即可成功编译。
+
+​	neverallow`是 SELinux 策略语言中的一个规则，它用于指定某个操作永远不允许执行。neverallow规则用于设置一些强制访问控制规则，以在安全策略中明确禁止某些行为，从而提高其安全性。neverallow 规则与 allow规则在语法上非常相似，但在作用上截然不同。
+
+​	有时我们按照警告信息提示，添加了对应策略后无法编译通过提示违反了neverallow。这种情况我们可以找到对应的neverallow，进行修改添加一个白名单来放过我们添加的规则。例如下面这个例子
+
+~~~
+  neverallow {
+    coredomain
+    -fsck
+    -init
+    -ueventd
+    -zygote
+  } device:{ blk_file file } no_rw_file_perms;
+~~~
+
+​	这个规则禁止上述进程以可读可写权限读写 `device` 类型的文件，其中-zygote，这种前面带有`-`表示排除掉这种进程，如果被设置了永不允许，只要找到对应的设置处，添加上排除对应进程即可成功编译了。
+
+## 3.12 了解Linker
+
+​	Linker是安卓中的一个系统组件，负责加载和链接系统动态库文件。Linker的主要作用有两个。
+
+​	1、符号解析：在应用程序中发现对系统库中符号的引用，然后在具有相应功能的系统库中查找这些符号的实现。一旦找到实现，Linker会将引用的地址替换为实现。
+
+​	2、重定位：当可执行文件加载到内存中时，它们在内存中的位置与在其开发环境中链接时的位置不同。Linker负责解决这个问题，使文件中的所有跳转指令都指向正确的内存地址。
+
+​	在Android源代码中，Linker源码的主要目录是`bionic/linker`。该目录包含Linker的核心实现，如动态加载、符号表管理、重定位、符号解析、SO文件搜索等。其中，`linker.c`是Linker的主要入口点，该文件中包含了大量的实现细节。`linker_phdr.c`是负责加载和处理ELF格式库文件的代码，`linker_namespaces.cpp`负责管理命名空间的代码，`linker_relocs.cpp`负责处理重定位的代码，`linker_sleb128.cpp`和`linker_uleb128.cpp`负责压缩和解压缩数据的实现等。除了`bionic/linker`目录外，Linker相关的代码还分散在其他系统组件中，例如系统服务和应用程序框架。
+
+​	在开始了解Linker如何加载动态库so文件前，我们需要先对so文件有一个简单的了解。
+
+### 3.12.1 ELF格式
+
+​	在Android中，so（Shared Object）动态库是一种是一种基于ELF格式（Executable and Linkable Format）的可执行文件，它包含已编译的函数和数据，可以在运行时被加载到内存中，并被多个应用程序或共享库使用。
+
+​	与静态库不同，动态库中的代码在可执行文件中并不存在，取而代之的是一些动态链接器（Linker）编译时不知道的外部引用符号。在运行时，Linker会根据动态库中的符号表来解析这些引用，并将动态库中的函数和数据链接到可执行程序中。
+
+​	进程间共享动态库可以大大减少内存使用，提高代码重用性和可维护性。例如，如果多个应用程序都需要使用同一组件库，可以将其实现作为共享库提供。这样一来，每个应用程序都可以使用同一份库，而不必将代码重复添加到每个应用程序中。
+
+​	在ELF文件结构中，包含以下三个部分：
+
+​	1、ELF Header，即ELF文件头，包含了文件的基本信息，例如文件类型、程序入口地址、节表的位置和大小等。
+
+​	2、Section Header，即节头部分，描述了文件中各个节的大小、类型和位置等信息。ELF文件中的每个节都包含某种类型的信息，例如代码、数据、符号表、重定位表以及其他调试信息等。
+
+​	3、Program Header，即段头部分，描述了可执行文件在内存中的布局。由于ELF文件的节可以以任意顺序排列，因此Linker在加载前需要使用Program Header来释放并映射虚拟内存，创建进程虚拟内存段布局。Program Header也包含了动态链接器所需的信息，例如动态库的位置、依赖关系和符号表位置等。
+
+​	ELF文件结构的设计使得其具有较好的可扩展性和可移植性。在Android开发中，通过编译生成ELF格式的so文件，使用动态链接器将so文件链接到运行的可执行程序中，提高了代码的重用性和可维护性。
+
+​	接下来，我们使用Android Studio创建一个Native C++的项目，成功编译后来到output目录中，解压app-debug.apk文件，然后进入`app-debug\lib\arm64-v8a\`目录，找到我们这个最简单的so文件将其拖入010 Editor工具中。
+
+​	接着我们给010 Editor编辑器安装一个ELF格式解析的模板，在工具栏找到模板->模板存储库。接着在右上角输入ELF，最后点击安装，操作见下图。
+
+![image-20230304135859598](.\images\image-20230304135859598.png)
+
+​	模板安装后，关闭文件，重新使用010 Editor打开后，将编辑方式切换为模板后我们就能成功看到使用ELF格式解析so文件的结果了，如下图。
+
+![image-20230304140328010](.\images\image-20230304140328010.png)
+
+​	ELF 头部（elf_header）结构包含以下成员：
+
+1. e_ident：一个长度为 16 字节的数组，用于标识文件类型和文件版本等信息。
+2. e_type：表示 ELF 文件类型，如可执行文件、共享库、目标文件等等。
+3. e_machine：表示 ELF 文件的目标硬件架构。
+4. e_version：表示 ELF 文件的版本，其一般为 EV_CURRENT。
+5. e_entry：表示该文件的程序入口点的虚拟地址。
+6. e_phoff：表示程序头表（program header table）的偏移量（以字节为单位）。
+7. e_shoff：表示节头表（section header table）的偏移量（以字节为单位）。
+8. e_flags：表示一些标志，比如针对硬件进行微调的标志。
+9. e_ehsize：表示 ELF 头部的长度（以字节为单位）。
+10. e_phentsize：表示程序头表中一个入口的长度（以字节为单位）。
+11. e_phnum：表示程序头表中入口的数量。
+12. e_shentsize：表示节头表中一个入口的长度（以字节为单位）。
+13. e_shnum：表示节头表中入口的数量。
+14. e_shstrndx：表示节头表中节名称字符串表的索引。
+
+​	ELF 头部定义了 ELF 文件的基本属性和结构，也为后续的段表和节表等信息提供了重要的指导作用。加载ELF文件的第一步就是解析ELF头部后，再根据头部信息去解析其他部分的数据。下图是010 Edtior解析展示的结果图。
+
+![image-20230304141143199](.\images\image-20230304141143199.png)
+
+​	program header table 是一种用于描述可执行文件和共享库的各个段（section）在进程内存中的映射关系的结构，也称为段表。每个程序头表入口表示一个段。在 Linux 系统中，它是被操作系统用于将 ELF 文件加载到进程地址空间的重要数据结构之一。
+
+每个 program header table 具有相同的固定结构，包含如下字段：
+
+1. p_type：指定该段的类型，如可执行代码、只读数据、可读写数据、动态链接表、注释等等。
+2. p_offset：该段在 ELF 文件中的偏移量（以字节为单位）。
+3. p_vaddr：该段在进程虚拟地址空间中的起始地址。
+4. p_paddr：该项通常与 p_vaddr 相等。用于操作系统在将 ELF 文件的一个段映射到进程地址空间前，进行虚拟地址和物理地址的转换等操作。
+5. p_filesz：该段在文件中的长度（以字节为单位）。
+6. p_memsz：该段在加到进程地址空间后的长度（以字节为单位）。
+7. p_flags：用于描述该段的标志，如可读、可写、可执行、不可缓存等等。
+8. p_align：对于某些类型的段，该字段用于指定段在地址空间中的对齐方式。
+
+​	下图是编辑器中解析so看到的值
+
+![image-20230304142500744](.\images\image-20230304142500744.png)
+
+​	section header table（节头表）是用于描述 ELF 文件中所有节（section）的元信息列表，也称为节表。它包含了每个节在文件中的位置、大小、类型、属性等信息。section header table 通常位于文件的末尾，并且包含 fixed-length 的 section header table entries，每个 entry 对应一个 section。它是诸如链接器和动态加载器等程序所必需的基本信息之一。
+
+每个 section header table entry，包含以下字段：
+
+​	1、sh_name: 表示该节的名字在 .shstrtab 节中的向偏移量。这个偏移量可以用于获取该节的名字。
+
+​	2、sh_type：表示该节的类型（type），如代码段、数据段、符号表等。
+
+​	3、sh_flags：表示该节的属性标志，如是否可读、可写、可执行等。
+
+​	4、sh_addr：表示节的内存地址（virtual address），当这个地址为零时，表示这个节没有被加载到内存中。
+
+​	5、sh_offset：表示该节在 ELF 文件中的偏移量（offset）。
+
+​	6、sh_size：表示该节的长度（size）属性。
+
+​	7、sh_link：在节头表中，表示该节的连接节（linking section），可以帮助定位一些节，如符号表。
+
+​	8、sh_info：与 sh_link 一起使用，具体含义与 sh_link 的值有关。
+
+​	9、sh_addralign：表示该节的对齐方式（alignment）。
+
+​	10、sh_entsize：表示该节的 entry 的大小（entry size），通常只有表格节会有 entry。
+
+​	通过这些信息，section header table 可以为执行链接和动态加载提供必要的元数据信息。样例数据看下图
+
+![image-20230304143100841](.\images\image-20230304143100841.png)
+
+​	ELF文件中有各种节点用于存放对应的数据信息，几个常见的节点存放数据的描述如下。
+
+​	1、`.dynsym` 节：该节包含动态链接符号表（dynamic symbol table），用于描述 .so 文件所包含的动态链接库中的符号。符号是程序中一些命名实体的名称，例如函数、变量、常量等等，描述了这些实体在程序中的地址和大小等信息。`.dynsym` 节可以协助动态加载器（Dynamic Linker）在程序运行时逐个查找符号。
+
+​	2、`.dynstr` 节：该节包含字符串表，用于存放符号表中的字符串，包括函数名、变量名、库名等等。
+
+​	3、`.rela.dyn` 节：该节包含重定位入口表，是 LD（动态链接器）用于执行重定位操作的数据之一。`.rel.dyn` 节中每个入口包含需要进行重定位的位置及其要执行的重定位类型等信息。
+
+​	4、`.rela.plt` 节：该节也是重定位入口表，但是它只包含用于实现远程函数调用 JUMP SLOT 的入口并跳转过去时需要使用的数据。这些数据是符号的信息，包括符号表中该引用的符号的编号以及重定位类型等等。动态链接器在对 `.rel.plt` 节进行重定位时，会在 GDB stub 中实现远程调用。
+
+​	5、`.plt` 节：保存了远程函数调用实现的跳转代码。
+
+​	6、`.rodata` 节：包含程序中只读数据的代码段，如字符串常量、全局常量等等。
+
+​	7、`.text` 节：程序的主要代码存放在该节中。该节包含可执行代码的机器语言指令，例如函数代码、条件语句、循环语句等等。
+
+​	8、`.bss` 节点（Block Started by Symbol）存储未初始化的全局变量和静态变量，其大小在编译时无法确定。因此，.bss 节点在 ELF 文件中只占据一些空间，该空间称为 bss 段。而在运行时，操作系统会分配实际的内存空间给这些变量。.bss 节点的大小在 ELF 文件头的 e_shsize 字段中给出。
+
+​	9、`.shstrtab` 节点（Section Header STRing TABle）存储节名称字符串，即每个节的名称和节头表中的节名称偏移量。它包含了 ELF 文件中每个节的字符串名称，方便读取程序在加载时快速访问。在运行时，操作系统负责维护这张表. 在 Android 中，.shstrtab 节点是一个特殊的节，它位于节头表的末尾，可以通过 ELF 文件头的 e_shstrndx 字段找到。
+
+![image-20230304143003972](.\images\image-20230304143003972.png)
+
+​	动态符号表（Dyanmic Symbol Table）用于动态链接，其中记录了与共享库中的符号相关的信息，包括符号的名称、符号的值、符号的类型等。当一个程序在运行时需要链接共享库时，动态链接器会使用该表将程序中的符号解析为共享库中的符号。
+
+​	通常情况下，每个共享库都拥有一个关联的动态符号表，因此在 ELF 二进制文件中也会有多个动态符号表存在。这些动态符号表可以通过 .dynsym 节节点进行访问。在动态符号表中，每个符号具有一个唯一的名称和一个类型（如函数、变量等），以及一个对应的符号表地址（符号的值）。为了提高链接速度，动态符号表中的符号通常存储为哈希表的形式。这样，在进行符号查找的时候，可以更快速和高效地找到符号。
+
+​	下图是编辑器解析ELF结构看到我们样本so中的stringFromJni的符号信息。
+
+![image-20230304145047084](.\images\image-20230304145047084.png)
+
+​	上图中年可以看到，每个符号在动态符号表中对应一个 symbol entry。
+
+在 dynamic_symbol_table 中，每个 symbol entry 包含以下信息:
+
+- `st_name`：符号的名称在字符串表节中的偏移量。通过这个偏移量，可以获得符号的名称。
+- `st_value`：符号的值，表示符号的地址或偏移量，其含义取决于符号类型。
+- `st_size`：符号的大小，即占用的字节数。
+- `st_info`：符号的相关信息，包括符号的类型（在最高位），以及局部或全局符号等其他信息（低位）。
+- `st_other`：符号的其他信息，通常为 0。
+- `st_shndx`: 指向存放符号的Section Header的索引。可以通过该索引找到存储符号的节
+
+​	其中，`st_info` 字段包括符号的类型和其他属性信息。类型的值可以是以下之一：
+
+- `STT_NOTYPE`：未知类型。
+- `STT_OBJECT`: 对象符号，表示一个数据对象。
+- `STT_FUNC`: 函数符号，表示相关联的符号是一个函数或可执行指令。
+- `STT_SECTION`：表示该符号是一个节。
+- `STT_FILE`：表示该符号是源文件名的符号。
+
+​	其他属性信息的值为以下之一：
+
+- `STB_LOCAL`：局部符号，只在共享库内部可用。
+- `STB_GLOBAL`：全局符号，可以在其他共享库和可执行文件中使用。
+- `STB_WEAK`：弱符号，在多个地方定义时，优先级较低。
+
+​	在动态链接时，动态链接器会根据 ELF 文件中的 dynamic_symbol_table 来确定链接的目标信息，包括符号的名字、位置等。其中 symbol entry 也就是动态链接器解析符号的基本单元。
+
+### 3.12.2 动态加载流程
+
+​	Linker动态加载是把代码（函数、变量、数据结构等）从动态链接库（so文件）中加载到内存中，并建立起代码之间的相互引用关系的过程。在Android等操作系统中，Linker动态加载主要用于模块化开发，将程序分为多个独立的模块，以便于代码的管理和维护。下面是Linker动态加载的主要步骤：
+
+1. 根据系统的运行时需求，将需要的库文件加载进内存中，实现代码重用和共享。此时，Linker会执行一些特定的逻辑，如依赖优化、so文件版本检查等。
+2. 在进行动态链接的过程中，Linker会为每个库和每个函数生成全局唯一的标识符，以确定代码所在的地址。这个标识符会在编译过程中嵌入到库文件的头部，并且保存到动态链接库的符号表中。
+3. 解析符号表。Linker会读取库文件的符号表，并把符号名和符号地址配对起来，以便于在程序运行期间在内存中动态地连接他们。
+4. 检查符号表中的函数的其他库依赖项。如果当前库依赖于其他库，Linker就会递归地对这些依赖库进行加载、解析和链接。
+5. 调整符号地址。Linker会修改符号表中的函数地址，将函数重定向到动态库中正确的位置，以确保函数调用能够正确地传递和接收数据。
+6. 执行初始化和清理代码。在所有库和函数都被解析、链接和装载之后，Linker会执行全局构造函数来初始化代码，以及执行全局析构函数来清理代码。
+7. Linker动态加载过程中还会涉及到如动态追加、卸载等操作。
+
+​	以上是Linker动态加载的主要步骤及涉及到的主要逻辑。Linker动态加载是Android操作系统的底层技术之一，对于Android应用开发具有重要作用。接着我们从源码层面跟踪动态加载的具体过程。打开我们前面创建的样例app。
+
+~~~java
+public class MainActivity extends AppCompatActivity {
+    // Used to load the 'linkertest' library on application startup.
+    static {
+        System.loadLibrary("linkertest");
+    }
+	...
+    public native String stringFromJNI();
+}
+~~~
+
+​	在应用层直接通过调用loadLibrary就可以完成一系列的加载动态库的操作了，接着我们看看内部是如何实现的。这里发现是System下的loadLibrary函数，前文有介绍过libcore中存放着openjdk的核心库的实现，而java.lang.System就是其中，我们找到文件`libcore/ojluni/src/main/java/java/lang/System.java`查看函数实现如下。
+
+~~~java
+public static void loadLibrary(String libname) {
+        Runtime.getRuntime().loadLibrary0(Reflection.getCallerClass(), libname);
+    }
+~~~
+
+​	继续在ojluni的目录中搜索loadLibrary0的函数实现
+
+~~~java
+void loadLibrary0(Class<?> fromClass, String libname) {
+        ClassLoader classLoader = ClassLoader.getClassLoader(fromClass);
+        loadLibrary0(classLoader, fromClass, libname);
+    }
+
+private synchronized void loadLibrary0(ClassLoader loader, Class<?> callerClass, String libname) {
+        ...
+        String libraryName = libname;
+    	// 如果classloader不是BootClassLoader
+        if (loader != null && !(loader instanceof BootClassLoader)) {
+            String filename = loader.findLibrary(libraryName);
+            if (filename == null &&
+                    (loader.getClass() == PathClassLoader.class ||
+                     loader.getClass() == DelegateLastClassLoader.class)) {
+                
+                filename = System.mapLibraryName(libraryName);
+            }
+            ...
+            String error = nativeLoad(filename, loader);
+            if (error != null) {
+                throw new UnsatisfiedLinkError(error);
+            }
+            return;
+        }
+        getLibPaths();
+        String filename = System.mapLibraryName(libraryName);
+        String error = nativeLoad(filename, loader, callerClass);
+        if (error != null) {
+            throw new UnsatisfiedLinkError(error);
+        }
+    }
+
+// 看到不管是哪个Classloader都是调用的nativeLoad，只是重载不一样。但是两个参数的实际也是调用了三个参数重载的实现。
+private static String nativeLoad(String filename, ClassLoader loader) {
+        return nativeLoad(filename, loader, null);
+    }
+
+// 三个参数重载的是一个native函数
+private static native String nativeLoad(String filename, ClassLoader loader, Class<?> caller);
+
+~~~
+
+​	搜索nativeLoad的相关实现如下
+
+~~~c++
+// 调用了JVM_NativeLoad
+JNIEXPORT jstring JNICALL
+Runtime_nativeLoad(JNIEnv* env, jclass ignored, jstring javaFilename,
+                   jobject javaLoader, jclass caller)
+{
+    return JVM_NativeLoad(env, javaFilename, javaLoader, caller);
+}
+~~~
+
+​	JVM_NativeLoad的代码在art目录中，我们继续查看相关实现
+
+~~~cpp
+
+JNIEXPORT jstring JVM_NativeLoad(JNIEnv* env,
+                                 jstring javaFilename,
+                                 jobject javaLoader,
+                                 jclass caller) {
+  ScopedUtfChars filename(env, javaFilename);
+  if (filename.c_str() == nullptr) {
+    return nullptr;
+  }
+
+  std::string error_msg;
+  {
+    art::JavaVMExt* vm = art::Runtime::Current()->GetJavaVM();
+    bool success = vm->LoadNativeLibrary(env,
+                                         filename.c_str(),
+                                         javaLoader,
+                                         caller,
+                                         &error_msg);
+    if (success) {
+      return nullptr;
+    }
+  }
+  ...
+}
+
+// 继续找到相关实现
+bool JavaVMExt::LoadNativeLibrary(JNIEnv* env,
+                                  const std::string& path,
+                                  jobject class_loader,
+                                  jclass caller_class,
+                                  std::string* error_msg) {
+  error_msg->clear();
+  SharedLibrary* library;
+  Thread* self = Thread::Current();
+  {
+    MutexLock mu(self, *Locks::jni_libraries_lock_);
+    library = libraries_->Get(path);
+  }
+  ...
+  // 已经加载过的，存在则返回true了。
+  if (library != nullptr) {
+    ...
+    return true;
+  }
+
+  ScopedLocalRef<jstring> library_path(env, GetLibrarySearchPath(env, class_loader));
+
+  Locks::mutator_lock_->AssertNotHeld(self);
+  const char* path_str = path.empty() ? nullptr : path.c_str();
+  bool needs_native_bridge = false;
+  char* nativeloader_error_msg = nullptr;
+  // 加载动态链接库
+  void* handle = android::OpenNativeLibrary(
+      env,
+      runtime_->GetTargetSdkVersion(),
+      path_str,
+      class_loader,
+      (caller_location.empty() ? nullptr : caller_location.c_str()),
+      library_path.get(),
+      &needs_native_bridge,
+      &nativeloader_error_msg);
+  VLOG(jni) << "[Call to dlopen(\"" << path << "\", RTLD_NOW) returned " << handle << "]";
+  ...
+  bool created_library = false;
+  {
+    std::unique_ptr<SharedLibrary> new_library(
+        new SharedLibrary(env,
+                          self,
+                          path,
+                          handle,
+                          needs_native_bridge,
+                          class_loader,
+                          class_loader_allocator));
+
+    MutexLock mu(self, *Locks::jni_libraries_lock_);
+    library = libraries_->Get(path);
+    // 将刚刚加载好的链接库保存起来
+    if (library == nullptr) {  // We won race to get libraries_lock.
+      library = new_library.release();
+      libraries_->Put(path, library);
+      created_library = true;
+    }
+  }
+  ...
+  bool was_successful = false;
+  // 查找符号JNI_OnLoad
+  void* sym = library->FindSymbol("JNI_OnLoad", nullptr);
+  if (sym == nullptr) {
+    ...
+  } else {
+    ScopedLocalRef<jobject> old_class_loader(env, env->NewLocalRef(self->GetClassLoaderOverride()));
+    self->SetClassLoaderOverride(class_loader);
+
+    VLOG(jni) << "[Calling JNI_OnLoad in \"" << path << "\"]";
+    using JNI_OnLoadFn = int(*)(JavaVM*, void*);
+    JNI_OnLoadFn jni_on_load = reinterpret_cast<JNI_OnLoadFn>(sym);
+    // 调用JNI_OnLoad
+    int version = (*jni_on_load)(this, nullptr);
+	...
+  }
+  library->SetResult(was_successful);
+  return was_successful;
+}
+
+~~~
+
+​	在这个函数中，我们看到了使用OpenNativeLibrary来加载一个动态库，然后将加载动态库的信息包装成SharedLibrary对象，存入`libraries_`中，下次再加载时，会在`libraries_`查看是否存在，存在则直接返回。接着又通过函数FindSymbol查找JNI_OnLoad的符号地址，然后进行调用。接下来我们先继续跟踪加载动态库的具体实现，然后再回头看看查找符号的实现。
+
+~~~cpp
+
+
+void* OpenNativeLibrary(JNIEnv* env, int32_t target_sdk_version, const char* path,
+                        jobject class_loader, const char* caller_location, jstring library_path,
+                        bool* needs_native_bridge, char** error_msg) {
+#if defined(ART_TARGET_ANDROID)
+  UNUSED(target_sdk_version);
+
+  if (class_loader == nullptr) {
+    ...
+    void* handle = android_dlopen_ext(path, RTLD_NOW, &dlextinfo);
+    if (handle == nullptr) {
+        *error_msg = strdup(dlerror());
+    }
+    return handle;
+    ...
+    {
+      Result<void*> handle = TryLoadNativeloaderExtraLib(path);
+      if (!handle.ok()) {
+        *error_msg = strdup(handle.error().message().c_str());
+        return nullptr;
+      }
+      if (handle.value() != nullptr) {
+        return handle.value();
+      }
+    }
+	...
+    void* handle = OpenSystemLibrary(path, RTLD_NOW);
+    if (handle == nullptr) {
+      *error_msg = strdup(dlerror());
+    }
+    return handle;
+  }
+  ...
+#else
+  for (const std::string& lib_path : library_paths) {
+    ...
+    void* handle = dlopen(path_arg, RTLD_NOW);
+    if (handle != nullptr) {
+      return handle;
+    }
+    if (NativeBridgeIsSupported(path_arg)) {
+      *needs_native_bridge = true;
+      handle = NativeBridgeLoadLibrary(path_arg, RTLD_NOW);
+      if (handle != nullptr) {
+        return handle;
+      }
+      *error_msg = strdup(NativeBridgeGetError());
+    } else {
+      *error_msg = strdup(dlerror());
+    }
+  }
+  return nullptr;
+#endif
+}
+~~~
+
+​	在这里函数看到，使用多种方式尝试进行动态加载，分别是android_dlopen_ext、TryLoadNativeloaderExtraLib、OpenSystemLibrary。它们都是在 Android 平台上用来加载动态库的方法，但是它们各自的使用场景略有不同：
+
+1. android_dlopen_ext：是一个供开发者使用的公开函数，在 Android 应用程序中可以使用它来动态加载本地库。它支持指定库的绝对路径和不同的标志（如 RTLD_NOW、RTLD_LAZY 等），并返回一个指向已加载库的指针，供后续调用函数的时候使用。
+2. TryLoadNativeloaderExtraLib：是 Android 系统中的内部方法，用于加载额外的本地库。它被用于支持动态加载共享库的应用程序，例如使用反射实现的动态库加载方式。系统在应用程序启动时调用它，用于加载应用程序所需的额外本地库。使用该方法可以加载特定的本地库，并支持跨架构的执行。
+3. OpenSystemLibrary：也是 Android 系统中的内部方法，用于加载 Android 系统的本地库。它不需要指定库的路径，而是使用系统库路径中的路径名来加载相应的库文件。该方法主要用于加载 Android 操作系统核心中的一些固定的系统库，例如 libz.so、liblog.so 等。
+
+​	总的来说，这三个方法都是用于加载动态库的方法，不同的是它们的使用场景略有不同：android_dlopen_ext 适合一般需要动态加载本地库的应用程序；TryLoadNativeloaderExtraLib 适用于需要在 Android 平台上进行动态库加载的应用程序；OpenSystemLibrary 则主要用于加载 Android 操作系统核心中的一些固定的系统库。
+
+​	我们选一条路线分析即可，这里继续从android_dlopen_ext深入分析，该函数的相关代码在libdl.cpp中实现。
+
+~~~cpp
+void* android_dlopen_ext(const char* filename, int flag, const android_dlextinfo* extinfo) {
+  const void* caller_addr = __builtin_return_address(0);
+  return __loader_android_dlopen_ext(filename, flag, extinfo, caller_addr);
+}
+~~~
+
+​	继续跟踪文件dlfcn.cpp中的实现
+
+~~~cpp
+void* __loader_android_dlopen_ext(const char* filename,
+                           int flags,
+                           const android_dlextinfo* extinfo,
+                           const void* caller_addr) {
+  return dlopen_ext(filename, flags, extinfo, caller_addr);
+}
+
+
+static void* dlopen_ext(const char* filename,
+                        int flags,
+                        const android_dlextinfo* extinfo,
+                        const void* caller_addr) {
+  ScopedPthreadMutexLocker locker(&g_dl_mutex);
+  g_linker_logger.ResetState();
+  void* result = do_dlopen(filename, flags, extinfo, caller_addr);
+  if (result == nullptr) {
+    __bionic_format_dlerror("dlopen failed", linker_get_error_buffer());
+    return nullptr;
+  }
+  return result;
+}
+~~~
+
+​	到这里do_dlopen则执行到了Linker部分的实现了，找到linker.cpp文件查看
+
+~~~cpp
+
+void* do_dlopen(const char* name, int flags,
+                const android_dlextinfo* extinfo,
+                const void* caller_addr) {
+  ...
+  soinfo* si = find_library(ns, translated_name, flags, extinfo, caller);
+  loading_trace.End();
+
+  if (si != nullptr) {
+    void* handle = si->to_handle();
+    LD_LOG(kLogDlopen,
+           "... dlopen calling constructors: realpath=\"%s\", soname=\"%s\", handle=%p",
+           si->get_realpath(), si->get_soname(), handle);
+    si->call_constructors();
+    failure_guard.Disable();
+    LD_LOG(kLogDlopen,
+           "... dlopen successful: realpath=\"%s\", soname=\"%s\", handle=%p",
+           si->get_realpath(), si->get_soname(), handle);
+    return handle;
+  }
+  return nullptr;
+}
+~~~
+
+​	这里看到通过find_library进行查找的，找到后又调用了call_constructors函数。我们先看看call_constructors函数的处理。
+
+~~~cpp
+
+void soinfo::call_constructors() {
+  if (constructors_called || g_is_ldd) {
+    return;
+  }
+  ...
+  call_function("DT_INIT", init_func_, get_realpath());
+  call_array("DT_INIT_ARRAY", init_array_, init_array_count_, false, get_realpath());
+  ...
+}
+~~~
+
+​	根据上面代码发现这里就是.init和.initarray执行的地方，接着我们再继续看看加载的流程。
+
+~~~cpp
+
+static soinfo* find_library(android_namespace_t* ns,
+                            const char* name, int rtld_flags,
+                            const android_dlextinfo* extinfo,
+                            soinfo* needed_by) {
+  soinfo* si = nullptr;
+
+  if (name == nullptr) {
+    si = solist_get_somain();
+  } else if (!find_libraries(ns,
+                             needed_by,
+                             &name,
+                             1,
+                             &si,
+                             nullptr,
+                             0,
+                             rtld_flags,
+                             extinfo,
+                             false /* add_as_children */)) {
+    if (si != nullptr) {
+      soinfo_unload(si);
+    }
+    return nullptr;
+  }
+
+  si->increment_ref_count();
+
+  return si;
+}
+
+// 继续向下跟踪
+bool find_libraries(...) {
+  ...
+  ZipArchiveCache zip_archive_cache;
+  soinfo_list_t new_global_group_members;
+
+  for (size_t i = 0; i<load_tasks.size(); ++i) {
+    。。。
+    if (!find_library_internal(const_cast<android_namespace_t*>(task->get_start_from()),
+                               task,
+                               &zip_archive_cache,
+                               &load_tasks,
+                               rtld_flags)) {
+      return false;
+    }
+
+    soinfo* si = task->get_soinfo();
+  }
+  ...
+  return true;
+}
+
+//追踪find_library_internal
+static bool find_library_internal(android_namespace_t* ns,
+                                  LoadTask* task,
+                                  ZipArchiveCache* zip_archive_cache,
+                                  LoadTaskList* load_tasks,
+                                  int rtld_flags) {
+  soinfo* candidate;
+  ...
+  if (load_library(ns, task, zip_archive_cache, load_tasks, rtld_flags,
+                   true /* search_linked_namespaces */)) {
+    return true;
+  }
+  ...
+  return false;
+}
+
+
+static bool load_library(android_namespace_t* ns,
+                         LoadTask* task,
+                         ZipArchiveCache* zip_archive_cache,
+                         LoadTaskList* load_tasks,
+                         int rtld_flags,
+                         bool search_linked_namespaces) {
+  const char* name = task->get_name();
+  soinfo* needed_by = task->get_needed_by();
+  ...
+  LD_LOG(kLogDlopen,
+         "load_library(ns=%s, task=%s, flags=0x%x, search_linked_namespaces=%d): calling "
+         "open_library",
+         ns->get_name(), name, rtld_flags, search_linked_namespaces);
+
+  // Open the file.
+  off64_t file_offset;
+  std::string realpath;
+  int fd = open_library(ns, zip_archive_cache, name, needed_by, &file_offset, &realpath);
+  ...
+  return load_library(ns, task, load_tasks, rtld_flags, realpath, search_linked_namespaces);
+}
+
+// open_library打开动态库文件将指定的共享库文件加载到当前进程的地址空间中，创建一个新的动态链接对象，并返回其的句柄。
+static int open_library(android_namespace_t* ns,
+                        ZipArchiveCache* zip_archive_cache,
+                        const char* name, soinfo *needed_by,
+                        off64_t* file_offset, std::string* realpath) {
+  TRACE("[ opening %s from namespace %s ]", name, ns->get_name());
+
+  // If the name contains a slash, we should attempt to open it directly and not search the paths.
+  if (strchr(name, '/') != nullptr) {
+    return open_library_at_path(zip_archive_cache, name, file_offset, realpath);
+  }
+  ...
+  return fd;
+}
+
+// load_library加载解析ELF格式并将其链接到进程的地址空间中，将动态链接对象中的符号解析为当前进程中的符号，从而创建动态链接的关系。
+static bool load_library(android_namespace_t* ns,
+                         LoadTask* task,
+                         LoadTaskList* load_tasks,
+                         int rtld_flags,
+                         const std::string& realpath,
+                         bool search_linked_namespaces) {
+  ...
+  soinfo* si = soinfo_alloc(ns, realpath.c_str(), &file_stat, file_offset, rtld_flags);
+
+  task->set_soinfo(si);
+
+  // 读取elf header
+  if (!task->read(realpath.c_str(), file_stat.st_size)) {
+    task->remove_cached_elf_reader();
+    task->set_soinfo(nullptr);
+    soinfo_free(si);
+    return false;
+  }
+  ...
+  return true;
+}
+
+// 最后看看read函数，这个函数负责从elf文件格式的数据中读取内容
+bool read(const char* realpath, off64_t file_size) {
+    ElfReader& elf_reader = get_elf_reader();
+    return elf_reader.Read(realpath, fd_, file_offset_, file_size);
+  }
+~~~
+
+​	ElfReader是Android源文件中的工具，位于系统核心库libcore中，代码主要由 C++ 编写。它可以读取ELF文件的所有信息，并将其解析为指定格式，以便于在Android系统中使用。
+
+ElfReader具备以下特点：
+
+- 能够读取ELF文件的头信息，包括ELF版本、目标体系结构、程序入口地址、节表偏移量等。
+- 能够读取ELF文件的节表信息，包括节表名称、大小、偏移量、属性等。
+- 通过节表信息可以获取符号表、重定位表、动态链接表等关键信息，如函数、变量、链接库、导出函数等。
+- 支持通过指定节表名称获取某个节表的信息，如根据".rodata"获取只读数据节表的信息等。
+
+在Android开发过程中，ElfReader被广泛地使用于Android应用开发、安全检测以及对Android系统的二次开发中。它能够方便地读取ELF文件相关信息，为后续的开发工作提供了便捷的数据支持。
+
+​	我们也可以直接直接使用linker提供的一些函数来操作动态库，相关函数如下
+
+​	1、dlopen()：打开一个动态链接库并返回句柄。
+
+​	2、dlsym()：查找动态链接库中符号的地址。
+
+​	3、dlclose()：关闭先前打开的动态链接库。
+
+​	4、dlerror()：返回最近的动态链接库错误。
+
+​	5、dladdr()：根据一个内存地址，返回映射到该地址的函数或变量的信息。
+
+​	6、dl_iterate_phdr()：遍历进程的动态链接库模块，可以获取模块地址、同名模块列表等信息。
+
+## 小结
+
+TODO
