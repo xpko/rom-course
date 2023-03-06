@@ -704,11 +704,11 @@ add_subdirectory(system/core/lmkd/lmkd-arm64-android)
 
 ​	配置好`cmake`工程后，使用`clion`打开项目，选择配置好的`CMakeLists.txt`文件所在的目录`out/development/ide/clion`。导入成功后，修改工程的根目录，`Tools->Cmake->Change Project Root`，然后选择源码根目录即可。
 
-## 2.9 gitlab+repo管理源码
+## 2.9 gitlab配合repo管理源码
 
-​	虽然将源码导入idea中后，已经可以正常的开始修改源码了。但是由于这是一个庞大的项目，需要考虑到源码的管理，便于随时能够查看自己的修改和切换不同的分支进行开发。否则这样一个巨大的项目，一个月后，再想要找齐当时修改的逻辑，就非常困难了。如果你是个人开发，并且修改的逻辑不是特别复杂，或者是刚开始学习，那么可以选择跳过这个部分，直接修改源码即可。
+​	将源码导入idea中后，已经可以正常的开始修改源码了。在日常的项目开中，需要考虑到源码的管理，便于随时能够查看自己的修改，切换不同的分支进行开发。这样一个巨大的项目，一个月后，再想要查找当时修改的逻辑，就非常困难了。如果你是个人开发，并且修改的逻辑不是特别复杂，或者是刚开始学习，那么可以选择跳过这个部分内容。
 
-​	首先,需要对repo进行一定的了解，在前文中，有简单的介绍到，repo是python脚本实现的，是对git命令的封装，用来管理大型项目关联多个子项目的。重新回顾一下下载android代码的过程。前文中，使用repo进行初始化指定分支，在完成初始化后，会在当前目录生成一个.repo的目录，查看目录中的manifest.xml文件，内容如下。
+​	首先，需要对`repo`进行一定的了解，在前文中，有简单的介绍到，`repo`是`python`脚本实现的，是对`git`命令的封装，用来管理大型项目关联多个子项目的。重新回顾一下下载Android代码的过程。前文中，使用`repo`进行初始化指定分支，在完成初始化后，会在当前目录生成一个.repo的目录，查看目录中的manifest.xml文件，内容如下。
 
 ```
 <?xml version="1.0" encoding="UTF-8"?>
@@ -727,7 +727,7 @@ https://gerrit.googlesource.com/git-repo/+/HEAD/docs/manifest-format.md
 </manifest>
 ```
 
-可以看到只是导入了default.xml文件。查看这个配置文件。
+可以看到内部其实导入了一个default.xml文件。查看这个配置文件。
 
 ```
 <manifest>
@@ -767,27 +767,20 @@ https://gerrit.googlesource.com/git-repo/+/HEAD/docs/manifest-format.md
 </manifest>
 ```
 
-​	可以看到，这个文件实际上是一份git仓库清单，`repo init`初始化的过程就是下载git仓库清单文件，以及下载repo工具的仓库也就是git-repo项目，使用国内网络进行初始化时的速度非常慢的主要原因就在于git-repo项目较大且必须通过外网访问，所以很多人使用国内源进行`repo init`前还需要通过设置环境变量`REPO_URL`修改git-repo的拉取地址。而`repo sync`步骤就是就是将清单文件中对应的子模块全部拉取下来。而default.xml中的元素主要为以下几种。
+​	这个文件的内容实际上是一份`git`仓库清单，`repo init`初始化的过程就是下载`git`仓库清单文件，以及下载`repo`工具的仓库也就是git-repo项目，使用国内网络进行初始化时的速度非常慢的主要原因，在于git-repo项目较大且必须通过外网访问，很多读者使用国内源进行`repo init`前还需要通过设置环境变量`REPO_URL`修改git-repo的拉取地址。而`repo sync`步骤就是就是将清单文件中对应的子模块全部拉取下来。而default.xml中的元素主要为以下几种。
 
-​	1、manifest：根元素，所有元素都要定义再根元素中
+1. manifest：根元素，所有元素都要定义再根元素中。
+2. remote：git仓库的地址以及名称。
+3. default：仓库默认的属性，比如路径、分支、远程仓库名称。
+4. project：子模块仓库的名称、路径、默认分支等信息。
+5. remove-project：需要从清单中删除的仓库。
+6. copyfile：同步代码时，要复制的文件和目录。
+7. include：导入另外一个清单文件，比如觉得一个清单看起来太复杂，可以根据目录分类存放。
+​8. linkfile：定义对应的文件或目录的软连接。
 
-​	2、remote：git仓库的地址以及名称
+​	在配置文件中，有大量的`project`元素，在这里先记住以下信息，`project`元素中的`path`指的是项目拉取到本地之后存放的路径，`name`才是指在`git`仓库中存放的路径。
 
-​	3、default：仓库默认的属性，比如路径、分支、远程仓库名称
-
-​	4、project：子模块仓库的名称、路径、默认分支等信息
-
-​	5、remove-project：需要从清单中删除的仓库
-
-​	6、copyfile：同步代码时，要复制的文件和目录
-
-​	7、include：导入另外一个清单文件，比如觉得一个清单看起来太复杂，可以根据目录分类存放
-
-​	8、linkfile：定义对应的文件或目录的软连接
-
-​	在配置文件中,可以看到有大量的project元素，在这里先记录下一个信息，在project元素中的path指的是项目拉取到本地之后存放的路径，而name才是指在git仓库中存放的路径。
-
-​	清楚了使用repo同步代码的原理，以及git清单中元素的作用后，就可以开始搭建自己的Android源码远程仓库了。由于项目较大，可以在本地搭建一个gitlab服务，然后将项目上传至gitlab中进行管理，如下是搭建gitlab服务的步骤。
+​	清楚了使用`repo`同步代码的原理，以及`git`清单中元素的作用后，就可以开始搭建自己的Android源码远程仓库了。项目较大，可以在本地搭建一个`gitlab`服务，然后将项目上传至`gitlab`中进行管理，如下是搭建`gitlab`服务的步骤。
 
 ```
 // 安装gitlab服务的依赖
@@ -815,7 +808,7 @@ sudo gitlab-ctl start
 
 ```
 
-​	接下来直接在浏览器中输入局域网ip来访问gitlab页面，比如我的是`http://192.168.2.189/`。然后注册一个账号。在登录的时候出现了下面这个错误
+​	接下来在浏览器中输入局域网ip地址来访问`gitlab`页面，比如`http://192.168.2.189/`。然后注册一个账号。在登录的时候出现了下面这个错误
 
 ```
 Your account has been blocked. Please contact your GitLab administrator if you think this is an error.
@@ -838,25 +831,25 @@ user.save
 exit
 ```
 
-​	到这里，gitlab服务准备就绪，登录账号后就可以创建aosp的子模块仓库了。
+​	到这里，gitlab服务准备就绪，登录账号后就可以创建AOSP的子模块仓库了。
 
-​	根据前面repo的介绍，我们知道了源码一共是三个部分：git-repo.git的工具仓库、manifests.git的子模块清单仓库、aosp源码子模块仓库。接下来，将代码同步的流程分割为下面几个步骤。
+​	根据前面`repo`的介绍，知道了源码一共是三个部分：git-repo.git的工具仓库、manifests.git的子模块清单仓库、AOSP源码子模块仓库。接下来，将代码同步的流程分割为下面几个步骤。
 
-​	1、参考.repo/manifests/default.xml配置修改为自己的gitlab地址并创建一个manifests.git仓库。
+​1. 参考.repo/manifests/default.xml配置修改为自己的gitlab地址并创建一个manifests.git仓库。
 
-​	2、使用脚本批量创建子模块仓库
+2. 使用脚本批量创建子模块仓库。
 
-​	3、使用脚本批量同步子模块代码
+​3. 使用脚本批量同步子模块代码。
 
-​	4、使用自己的gitlab地址同步代码测试
+​4. 使用自己的gitlab地址同步代码测试。
 
-​	一会需要创建大量的子模块仓库，所以不可能在web页面上手动一个个的创建，下面使用命令来创建一个manifests.git仓库。而命令创建仓库，需要gitlab账号的Access Token。可以通过在web中登录账号，点击右上角的用户图标，选择Preferences来到用户设置页面，然后进入Access Tokens栏目，填写token名称以及勾选权限，最后点击生成，我生成的token为`27zctxyWZP9Txksenkxb`。流程见下图。
+​	后面需要创建大量的子模块仓库，不可能在web页面上手动一个个的创建，下面使用命令来创建一个manifests.git仓库。这种方式需要gitlab账号的Access Token。可以在web中登录账号，点击右上角的用户图标，选择`Preferences`来到用户设置页面，然后进入Access Tokens栏目，填写token名称以及勾选权限，最后点击生成，例如生成的token为`27zctxyWZP9Txksenkxb`。流程见下图。
 
 ![image-20230216211544482](.\images\image-20230216211544482.png)
 
-​	首选，在gitlab中手动创建一个根目录的group，我这里创建了一个android12_r3的组，所有的子模块仓库都将在这个分组下。在gitlab页面中点击左上角Groups->your Groups。然后点击New group创建分组。成功创建后，记录下这个分组的id，比如我的根目录组id是6.
+​	首选，在gitlab中手动创建一个根目录的group，这里创建了一个android12_r3的组，所有的子模块仓库都将在这个分组下。在gitlab页面中点击左上角Groups->your Groups。点击New group创建分组。成功创建后，记录下这个分组的id，比如我的根目录组id是6.
 
-然后就可以使用curl命令通过token访问gitlab的api创建一个空白的仓库
+然后就可以使用`curl`命令通过token访问`gitlab`的API，创建一个空白的仓库。
 
 ```
 // 创建一个名称为manifests的空白仓库，namespace_id是根目录的分组id
@@ -894,14 +887,14 @@ vim default.xml
   .....
 </manifest>
 
-//保存上面的修改,然后提交到仓库
+// 保存上面的修改,然后提交到仓库
 git init
 git remote add origin git@192.168.2.189:android12_r3/manifest.git
 git add . && git commit -m "init"
 git push
 ```
 
-​	准备好清单文件后，接下来就需要准备所有子模块仓库了。首先，得知道一共有哪些子模块需要上传，而这个通过default.xml中的project元素，很容易得到。可以编写一个python脚本来匹配出所有project中的path属性，然后创建group和仓库。下面贴上一份网上找到读取default.xml自动创建所有仓库。
+​	准备好清单文件后，接下来创建所有子模块仓库了。首先，需要了解有哪些子模块需要上传，而这个通过default.xml中的project元素，很容易查找到。编写一个python脚本来匹配出所有project中的path属性，然后创建group和仓库。下面是一份读取default.xml文件，自动创建所有仓库的代码。
 
 ```python
 #!/usr/bin/python3
@@ -1031,7 +1024,7 @@ if __name__ == '__main__':
 
 ```
 
-​	子模块仓库建立完成，最后，还需要将代码上传到对应的仓库中。同样参考网上找的上传代码，修改一部分细节，这里一定要注意default.xml中，project元素的属性path的是本地路径，而name才是指的git仓库的路径，代码如下
+​	子模块仓库建立完成，最后，还需要将代码上传到对应的仓库中。下面的代码可以完成这个工作。要注意的是default.xml文件中，`project`元素的属性`path`的是本地路径，而`name`才是指的`git`仓库的路径，代码如下。
 
 ```python
 #!/usr/bin/python3
@@ -1125,14 +1118,6 @@ def wrapper_push_source_code_write_log():
         push_source_code_by_folder(strWriter)
         strWriter.close()
 
-# def test_only_dot_git_folder():
-#     subdir_and_file = os.listdir(os.getcwd())
-#     print("subdir_and_file=" + str(subdir_and_file))
-#     with open(LOG_FILE_PATH, 'wb+') as strWriter:
-#         strWriter.write(str(subdir_and_file).encode())
-#         strWriter.write("\r\n".encode())
-#         strWriter.write(str(subdir_and_file).encode())
-#         strWriter.close()
 
 if __name__ == '__main__':
     parse_repo_manifest()
@@ -1140,7 +1125,7 @@ if __name__ == '__main__':
 
 ```
 
-​	上传过程较慢，等待所有仓库上传完成，最后将git-repo工具子模块上传到仓库。首先在gitlab中创建一个分组android-tools。然后在分组中手动创建一个仓库git-repo。然后从github下载一份git-repo的工具源码传到gitlab。过程如下。
+​	上传过程较慢，等待所有仓库上传完成，最后将git-repo工具子模块上传到仓库。首先在`gitlab`中创建一个分组`android-tools`。在分组中创建一个仓库git-repo。然后从github下载一份git-repo的工具源码传到`gitlab`。过程如下。
 
 ```
 // 从github下载git-repo源码并上传到gitlab仓库
@@ -1180,7 +1165,7 @@ repo init -u git@192.168.2.189:android12_r3/manifest.git --repo-url=git@192.168.
 repo sync -j8
 ```
 
-​	在同步的过程中，出现了两个问题。首先第一个是出现如下错误
+​	在同步的过程中，可能出现以下两个问题。首先第一个是出现如下错误。
 
 ```
 remote:
@@ -1197,7 +1182,7 @@ fatal: 无法读取远程仓库。
 platform/build/bazel:
 ```
 
-​	检测代码后发现bazel仓库在路径build中不存在，这个仓库被建立在了platform下。导致这个问题的原因是由于前面的创建git的脚本中，发现build被指定为project，所以创建为仓库，而bazel必须是在一个group下，路径才会成立。而build的仓库已经存在，创建这个group失败后，就默认使用了更上一层的group。而解决办法也非常简单，直接将default中的几个build路径下的几个project重新命名，不要放在build的group下即可。下面是解决后的default.xml配置。
+​	检测代码后发现`bazel`仓库在路径build中不存在，这个仓库被建立在了`platform`下。导致这个问题的原因是，前面的创建git的脚本中，发现`build`被指定为`project`，所以创建为仓库，而`bazel`必须是在一个`group`下，路径才会成立。而`build`的仓库已经存在，创建这个`group`失败后，就默认使用了更上一层的`group`。而解决办法也非常简单，直接将default中的几个`build`路径下的几个project重新命名，不要放在`build`的`group`下即可。下面是解决后的default.xml配置。
 
 ```
 <project path="build/make" name="platform/build" groups="pdk" >
@@ -1229,15 +1214,15 @@ platform/build/bazel:
 device/mediatek/wembley-sepolicy: sleeping 4.0 seconds before retrying
 ```
 
-​	经过检查后发现，这是由于这个仓库在default.xml中的配置如下
+​	这是由于这个仓库在default.xml中的配置如下
 
 ```
 <project name="device/mediatek/wembley-sepolicy" path="device/mediatek/wembley-sepolicy" groups="device"/>
 ```
 
-​	然后看了创建仓库和批量提交代码的逻辑就明白了，是的，name和path的顺序反了，导致正则表达式未能成功匹配到这个仓库，调整一下name和path的顺序即可。
+​	看了创建仓库和批量提交代码的逻辑就明白了，是的，`name`和`path`的顺序反了，导致正则表达式未能成功匹配到这个仓库，调整一下`name`和`path`的顺序即可。
 
-​	成功拉取完成后，如果在编译时碰到找不到文件的问题，这是由于有些子模块仓库下的子目录中有`.gitignore`文件，将一些应该提交的文件给过滤掉了。回到同步代码的目录中，找到指定的git仓库，使用下面的方式重新提交一下。回到同步下来的代码处，重新拉取更新的代码。
+​	成功拉取完成后，如果在编译时碰到找不到文件的问题，这是由于有些子模块仓库下的子目录中有`.gitignore`文件，将一些应该提交的文件给过滤掉了。回到同步代码的目录中，找到指定的`git`仓库，使用下面的方式重新提交一下。回到同步下来的代码处，重新拉取更新的代码。
 
 ```
 // 进入缺少文件的子模块仓库目录
@@ -1249,7 +1234,7 @@ cd ~/android_src/myandroid12/
 repo sync -j8
 ```
 
-​	到这里就完成了gitlab源码管理android源码开发了。最后如何使用git提交和查看历史记录我就不在这里叙述了。
+​	到这里就完成了`gitlab`源码管理AOSP源码开发了。最后如何使用`git`提交和查看历史记录我就不在这里叙述了。
 
 ## 2.10 小结
 
