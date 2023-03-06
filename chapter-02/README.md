@@ -138,11 +138,13 @@ pip install pytest
 到这里，Ubuntu系统上的AOSP编译开发环境就补步准备好了。
 
 
-### 2.3 如何选择源码版本
+### 2.3 源码拉取与同步
 
 ​	在开始拉取代码前，首选需要了解自己需要编译的AOSP分支版本，可以参考官网对版本的说明链接。https://source.android.com/docs/setup/about/build-numbers?hl=zh-cn
 
-​	然后根据需求，比如想要在Android10的基础上进行二次开发，那么就找到对应的版本描述，根据下图，可以看到各个版本号关联的代码分支，Android版本，支持哪些设备。
+#### 2.3.1 分支选择策略
+
+​	根据需求，比如想要在Android10的基础上进行二次开发，那么就找到对应的版本描述，根据下图，可以看到各个版本号关联的代码分支，Android版本，支持哪些设备。
 
 ![image-20230103220519836](.\images\image-20230103220519836.png)
 
@@ -158,11 +160,12 @@ pip install pytest
 
 ![image-20230103220838404](.\images\image-20230103220838404.png)
 
-### 2.3.1 编译
 
-​	上面知道了需要的目标分支，接下来的步骤是拉取代码。
+#### 2.3.2 repo配置
 
-​	AOSP官方使用`repo`管理项目。`repo`是一个以`git`为基础包装的代码版本管理工具，内部是由`python`脚本构成的，对`git`命令进行包装，方便管理大型的项目。下面开始拉取代码。
+​	AOSP官方使用`repo`管理项目。`repo`是一个以`git`为基础包装的代码版本管理工具，内部是由`python`脚本构成的，对`git`命令进行包装，方便管理大型的项目。
+
+​	repo配置前，需要先安装与配置好`git`。执行如下命令：
 
 ```
 // 安装git
@@ -171,13 +174,17 @@ sudo apt-get install git
 //设置git身份
 git config --global user.email "xxxx@qq.com"
 git config --global user.name "xxxx"
+```
 
-// 安装curl
-sudo apt-get install curl
+​	接着，下载配置repo。执行：
 
+```
 // 创建bin目录，并加入PATH
 mkdir ~/bin
 PATH=~/bin:$PATH
+
+// 安装curl
+sudo apt-get install curl
 
 // 下载repo，并设置权限
 curl https://mirrors.tuna.tsinghua.edu.cn/git/git-repo > ~/bin/repo
@@ -185,7 +192,14 @@ chmod a+x ~/bin/repo
 
 // 设置使用国内源拉取代码
 export REPO_URL='https://mirrors.tuna.tsinghua.edu.cn/git/git-repo/'
+```
 
+#### 2.3.3 源码拉取与同步
+
+​	上面知道了需要的目标分支，接下来的步骤是拉取代码。执行如下命令：
+
+
+```
 // 创建源码存放的目录
 mkdir aosp_12 && cd aosp_12
 
@@ -212,7 +226,15 @@ repo sync -c -j16
 repo sync -c -j$(nproc --all)
 ```
 
-​	代码同步完成后，会提示`Success`，如果失败了，就重新拉取即可，多拉取几次后，基本都能同步成功。接下来，开始安装编译的底层依赖。
+代码同步完成后，会提示`Success`，如果失败了，就重新拉取即可，多拉取几次后，基本都能同步成功。
+
+### 2.4 系统编译
+
+​	接下来，开始安装编译的底层依赖。
+
+#### 2.4.1 AOSP编译依赖库安装
+
+执行下面的命令，安装相关依赖：
 
 ```
 // AOSP编译的相关依赖安装
@@ -221,6 +243,8 @@ sudo apt-get install -y git-core gnupg flex bison build-essential \
 	x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip \
 	fontconfig libncurses5 procps rsync libsqlite3-0
 ```
+
+#### 2.4.2 系统编译
 
 ​	注意：编译AOSP需要大量的磁盘空间，通常300G的空间足够存放代码与编译输出的结果。如果你希望将输出的结果存放在其它目录。这一点通过设置`OUT_DIR`环境变量来调整编译结果的输出目录。如下所示，
 
