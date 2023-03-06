@@ -468,9 +468,9 @@ make bootimage
 
 ### 2.6.1 线刷
 
-​	通过上面编译中的步骤，在目录`aosp12_out/target/product/blueline/`中能看到若干个后缀为`img`的镜像文件。我的输出路径`aosp12_out`是由于我手动指定了输出目录，如果你没有设置，那么默认是在`aosp12/out/target/product/blueline/`目录下。最后的目录`blueline`是对应编译的版本，如果你是其他版本，就在对应的目录下查看。
+​	上面编译操作完成后，在目录`aosp12_out/target/product/blueline/`中能看到若干个后缀为`img`的镜像文件。笔者的输出路径`aosp12_out`是手动指定的输出目录，如果读者没有设置，这些文件默认存放在`aosp12/out/target/product/blueline/`目录下，目录中的`blueline`是对应编译的设备的代号，如果你是其他型号的机器，就需要在对应的其它代号目录下查看。
 
-​	首先进入刷机模式，然后设置环境变量编译结果的路径`ANDROID_PRODUCT_OUT`，然后使用命令完整刷机即可。详细流程如下
+​	执行`adb reboot bootloader`进入刷机模式，然后设置环境变量`ANDROID_PRODUCT_OUT`指定系统镜像的路径，然后使用`fastboot`命令完成刷机。详细流程如下。
 
 ```
 // 进入刷机模式
@@ -489,7 +489,7 @@ fastboot devices
 fastboot flashall -w
 ```
 
-​	等待刷机结束即可，刷机结束后会自动进入Android系统。如果只想刷单个分区镜像，也是可以的。流程如下
+​	等待刷机结束即可，刷机结束后会自动进入Android系统。如果只想刷单个分区镜像，流程如下。
 
 ```
 // 进入刷机模式
