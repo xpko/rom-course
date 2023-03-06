@@ -10,20 +10,21 @@
 
 ## 2.2 环境准备
 
-安卓系统在低于版本10之前，是支持macOS系统上编译AOSP代码的。在新版本系统的演进过程中，安卓官方已经放弃在macOS系统平台上做AOSP开发的支持，官方开发指导环境采用了Linux上比较有名的Ubuntu发行版本。
+安卓系统在版本10之前，是支持macOS系统上编译AOSP代码的。在新版本系统的演进过程中，安卓官方已经放弃在macOS系统平台上做AOSP开发的支持，官方开发指导环境采用了Linux上比较流行的Ubuntu发行版本。
 
 在实际的开发过程中，可以使用Windows系统下的WSL2或Docker来构建一个Ubuntu系统运行环境，同样可以完成AOSP编译与开发工作。
 
 这一节将会介绍在Windows系统与Linux系统上，如何完成环境准备工作。
+
 ### 2.2.1 Windows
 
-​	由于在Windows中缺少了各种底层支持，所以一般情况我们不会直接在Windows环境中编译，而是选择在Windows中创建一个Linux的虚拟环境，然后在虚拟环境中安装编译所需要用到的底层依赖。而Windows的虚拟机环境我们有多种选择，例如Docker、WSL2、Vmware。
+​	由于在Windows中缺少了各种底层编译器与开发库的支持，一般情况下，开发人员不会直接在Windows环境中编译，而是选择在Windows中创建一个Linux的虚拟环境，然后在虚拟环境中安装编译所需要用到的底层依赖。在Windows系统上部署Ubuntu虚拟环境有多种可选方案，例如Docker、WSL（Windows Subsystem for Linux）、Vmware虚拟机，QEMU、HyperV虚拟机平台等等。
 
-​	三种虚拟环境我都尝试过编译，其中Docker在Windows的体验并不怎么好，特别是在我们编译需要较大体积硬盘的情况下，完整编译后，下次开机耗时明显变高。如果不擅长折腾的话，不太建议在Windows下采用Docker来编译源码。
+​	几种方案经过编译对比测试，发现Docker在Windows系统上的体验并不怎么好，主要体现在编译这类大型项目时，需要较大的磁盘存储空间，选择外挂磁盘映射时，编译时IO性能较弱，而选择创建虚拟磁盘时，对宿主机的开机耗时明显变高。这里不太建议在Windows下采用Docker来编译源码。
 
-​	WSL2是Windows下内置的Linux子系统，是一个非常轻量化的Linux系统，如果你是属于那种又想在Windows中编译，但是又不想打开虚拟机，那选择WSL2就没错了。使用起来的感觉就好似直接使用命令行一样。并且编译性能相比Vmware要更加高效。在我的笔记本环境中，WSL2完整编译的耗时为130分钟，而Vmware的耗时是170分钟，这是因为它是完全直连计算机硬件，无需虚拟化硬件的。所以性能是有较为显著的提升。
+​	WSL是Windows下内置的Linux子系统，最新的版本号为2，通常将其称为WSL2。它是一个非常轻量化的Linux系统，让那些想在Windows中编译与运行Linux程序的开发人员爱不释手。安装好WSL2后，只要在终端中输入一个`wsl`命令就可以启动环境。使用起来的感觉就好似直接使用命令行一样。并且编译性能相比`Vmware`这类虚拟机要更加高效。在我的笔记本环境中，WSL2完整编译的耗时为130分钟，而`Vmware`虚拟机的耗时是170分钟，这是因为WSL2采用直通计算机硬件，IO性能有着较为显著的提升。
 
-​	如果你是Windows10的环境，那么你需要先查询当前系统版本，必须是18917或更高的版本才支持WSL2。在cmd命令行中输入`winver`查看当前版本
+​	如果你的系统上Windows10，那么你需要先查询当前系统版本，必须是18917或更高的版本才支持WSL2。在cmd命令行中输入`winver`命令查看当前系统版本号。
 
 ![image-20230102183339463](.\images\image-20230102183339463.png)
 
@@ -31,50 +32,51 @@
 
 ![img](.\images\69ba546fd55c4fea8ef9b5d55a9bd354.png)
 
-​	或者是采用命令的方式开启虚拟机平台和Linux子系统，使用管理员权限启动PowerShell。
+​	或者是采用命令的方式开启虚拟机平台和Linux子系统，使用管理员权限启动` `。
 
 ![image-20230102183708998](.\images\image-20230102183708998.png)
 
 ​	执行下面的命令开启功能
 
-~~~
+```
 //启用虚拟机平台
 Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform
 //启用Linux子系统
 Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
-~~~
+```
 
-​	启动完成后重启计算机，然后我们就可以开始安装一个ubuntu了。直接打开Microsoft Store应用商店搜索ubuntu，然后选择自己需要的版本即可，例如我安装的是22.04版本，如下图。
+​	启动完成这些特性后，重新启动计算机，然后我们就可以开始安装一个`Ubuntu`系统了。打开Microsoft Store应用商店搜索`Ubuntu`系统，然后选择自己需要的版本即可，例如我安装的是22.04版本，如下图。
 
 ![image-20230102184626538](.\images\image-20230102184626538.png)
 
-​	成功获取ubuntu后，从应用中启动ubuntu即开始正式安装。安装完成后，我们点细节需要处理，子系统需要迁移，由于应用商店默认会给我们安装在C盘中，而我们编译系统会占用相当大的空间，所以必须将子系统迁移到其他硬盘中。首先打开命令行工具查询当前的子系统名称。
+​	成功获取`Ubuntu`系统后，从应用中启动系统即开始正式安装。安装过程只需要设置好用户名与密码即可。完成后会进行一个shell环境供用户输入。
+​	需要注意的是，应用商店默认会将WSL安装在C盘中，而我们编译系统会占用相当大的空间，如果你的系统盘空间不够，需要做一个迁移操作，将子系统迁移到其他硬盘中。操作方法是：桌面任意位置右键选择终端，在打开的终端环境中自毁长城下面的命令，查询当前的子系统名称。
 
-~~~
+```
 wsl -l -v
 
   NAME        STATE           VERSION
 * ubuntu22    Running         2
-~~~
+```
 
-然后我们将这个子系统导出，并且注销掉，然后再重新导入放在其他磁盘的子系统。
+然后，执行`wsl --export`命令，将子系统导出到其它较大空间的分区中；接着，执行`wsl --unregister`将其注销，最后，执行`wsl --import `再重新导入放在其他分区或磁盘上的子系统。如下所示。
 
-~~~
+```
 //导出子系统
 wsl --export ubuntu22 E:\wsl2\ubuntu22.tar
 //注销之前的虚拟机
 wsl --unregister ubuntu22
 //重新导入虚拟机,并且指定新的虚拟机存放位置
 wsl --import ubuntu22 E:\wsl2\ubuntu22_wsl E:\wsl2\ubuntu22.tar
-~~~
+```
 
-​	这时我们在直接在命令行执行`wsl`即可进入子系统。
+​	现在，再次执行`wsl`命令，即可进入子系统的shell环境。
 
-​	使用WSL2主要是在于轻量级和更优的高性能，一般都是命令模式的linux，即使我们在WSL2中安装了图形界面，也会存在一些依赖缺陷，所以使用WSL2开发时，一般是在Windows使用插件来远程代码管理进行开发。例如使用vscode就直接用wsl插件可以快速的远程访问代码，或者是安装ssh服务后，使用remote ssh插件进行代码修改。
+​	使用WSL2主要是在于轻量级和更优的高性能，一般都是命令模式的Linux，图形界面的程序可以通过安装一些依赖来解决，但这不是WSL2的强项。使用WSL2搭建开发环境时，使用远程开发模式不失为一种优雅的技术方案，典型的有使用`vscode`配合wsl插件，可以快速的远程访问WSL2环境上的代码与程序，另外，WSL2安装ssh服务后，`vscode`配合使用remote ssh插件也可以进行开发环境的搭建。
 
-​	如果我们需要完整的Linux虚拟机，使用VMware会更加的省事。步骤也非常简单流程如下。
+​	如果需要完整的Linux系统环境，使用`VMware`虚拟机会更加的合适。步骤也非常简单，流程如下。
 
-​	1、下载并安装VMware虚拟机，然后下载ubuntu22.04镜像。
+​	1、下载并安装`VMware`虚拟机，然后下载Ubuntu22.04系统ISO镜像文件。
 
 ​	2、VWware创建虚拟机，选择指定镜像
 
@@ -84,7 +86,7 @@ wsl --import ubuntu22 E:\wsl2\ubuntu22_wsl E:\wsl2\ubuntu22.tar
 
 ![image-20230102194243774](.\images\image-20230102194243774.png)
 
-4、选择虚拟机保存位置，这里不要保存在c盘，记得磁盘要有至少300G的空间
+4、选择虚拟机保存位置，这里不要保存在C盘，记得磁盘要有至少300G的空间
 
 ![image-20230102194331141](.\images\image-20230102194331141.png)
 
@@ -100,7 +102,7 @@ wsl --import ubuntu22 E:\wsl2\ubuntu22_wsl E:\wsl2\ubuntu22.tar
 
 ![image-20230102194952517](.\images\image-20230102194952517.png)
 
-​	虚拟机开机后将默认进入Ubuntu安装界面，按照提示进行选择语言，区域等待安装完成即可。
+​	虚拟机开机后，将默认进入Ubuntu安装界面，按照提示进行选择语言，区域等待安装完成即可。
 
 ### 2.2.2 Linux
 
@@ -114,7 +116,7 @@ wsl --import ubuntu22 E:\wsl2\ubuntu22_wsl E:\wsl2\ubuntu22.tar
 
 ​	然后用命令更新一下软件，并安装一下基本的工具
 
-~~~
+```
 // 更新软件列表
 sudo apt update -y && sudo apt upgrade -y
 
@@ -131,7 +133,7 @@ echo -e '\n[install]\ntrusted-host=pypi.douban.com\n[global]\nindex-url=http://p
 cat ~/.pip/pip.conf
 pip install pytest
 
-~~~
+```
 
 
 
@@ -159,7 +161,7 @@ pip install pytest
 
 ​	上面知道了我们需要的目标分支，接下来要拉取代码。repo是一个以git为基础包装的代码版本管理工具，内部是由python脚本构成的，对git命令进行包装，主要为了方便管理大型的项目，使用repo可以非常方便的拉取对应的分支节点。下面我们开始拉取代码。
 
-~~~
+```
 // 安装git
 sudo apt-get install git
 
@@ -192,11 +194,11 @@ repo init -u https://aosp.tuna.tsinghua.edu.cn/platform/manifest -b android-12.0
 
 // 同步代码
 repo sync -c -j8
-~~~
+```
 
 ​	同步代码`repo sync -c -j8`的命令其中`-c`表示只同步当前分支代码，可以提高同步速度，而`-j`是设置同步使用的线程数，这里我使用了8条线程，但并不是线程越多速度越快，而是根据cpu的核心使用最合理的线程数才能达到最佳的并发效果。
 
-~~~
+```
 // 查看可用cpu数量，我的环境显示为16
 nproc --all
 
@@ -205,25 +207,25 @@ repo sync -c -j16
 
 //也可以直接省略成一句
 repo sync -c -j$(nproc --all)
-~~~
+```
 
 ​	代码同步完成后,会提示`Success`，如果失败了，就重新拉取即可，多拉取几次后，基本都能同步成功。接下来我们开始安装编译的底层依赖。
 
-~~~
+```
 // AOSP编译的相关依赖安装
 sudo apt-get install -y git-core gnupg flex bison build-essential \
 	zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 lib32ncurses5-dev \
 	x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip \
 	fontconfig libncurses5 procps rsync libsqlite3-0
-~~~
+```
 
 ​	依赖安装完成后，我们再进行一个细节调整，由于我们经常需要备份代码，将整个源码进行打包备份，但是编译出来的输出目录`out`的体积非常庞大，所以我备份时会选择移走`out`目录，或者干脆删除掉，这样非常的麻烦，所以我会选择直接修改编译输出的目录。通过设置环境变量`OUT_DIR`就可以调整编译结果的输出目录了。
 
-~~~
+```
 vim ./build/envsetup.sh
 // 在底部加上环境变量设置为和源码同一级的目录，我当前源码路径为~/android_src/aosp12
 export OUT_DIR=~/android_src/aosp12_out
-~~~
+```
 
 ​	在开始编译前，我们还需要准备对应设备的驱动，根据我们前面选择的版本号`SP1A.210812.016.A1`,在官网地址：`https://developers.google.com/android/drivers`中找到对应的版本号，并且可以看到`Pixel 3`的手机对应的代号是`blueline`。
 
@@ -235,7 +237,7 @@ export OUT_DIR=~/android_src/aosp12_out
 
 ​	点击`Link`下载，然后将下载的文件拷贝到Android源码根目录下。然后解压，并导出相关驱动文件。
 
-~~~
+```
 // 解压驱动文件
 tar -xvf qcom-blueline-sp1a.210812.016.a1-33e668b9.tgz
 tar -xvf google_devices-blueline-sp1a.210812.016.a1-d10754e0.tgz
@@ -244,11 +246,11 @@ tar -xvf google_devices-blueline-sp1a.210812.016.a1-d10754e0.tgz
 // 依次运行两个文件，运行后会提示许可说明，按回车键，然后按q跳过，最后手动输入I ACCEPT后回车即可
 ./extract-google_devices-blueline.sh
 ./extract-qcom-blueline.sh
-~~~
+```
 
 ​	导入设备驱动完成后，准备工作基本完成，可以开始编译源码了。
 
-~~~
+```
 // 初始化环境，执行后会导入多个命令，辅助我们进行编译。
 // 这里也可以使用. build/envsetup.sh 是同样的效果
 source ./build/envsetup.sh
@@ -275,7 +277,7 @@ Which would you like? [aosp_arm-eng]
 
 // 和上面一样。直接使用当前cpu的核心数作为编译的并发线程
 make -j$(nproc --all)
-~~~
+```
 
 ​	在上面选择版本中可以看到`aosp_arm-eng`和`aosp_arm64-eng`的选项，这两个是模拟器使用的版本。而模拟器使用的版本是可以不需要导入设备驱动文件的。如果在`lunch`的菜单中没有看到你要编译的版本，并且直接`lunch aosp_blueline-userdebug `也提示错误，可能是没有成功导入驱动文件，或者下载的驱动文件不对。
 
@@ -289,7 +291,7 @@ make -j$(nproc --all)
 
 ​	第一次完整编译非常的漫长，我的电脑耗时2个小时成功编译。编译成功后我们检查一下输出的文件。
 
-~~~
+```
 // 查看输出目录的所有镜像文件
 ls /root/android_src/aosp12_out/target/product/blueline | grep img
 
@@ -313,7 +315,7 @@ system_other.img
 userdata.img
 vbmeta.img
 vendor.img
-~~~
+```
 
 ​	确定有编译出`vendor.img、system.img、boot.img`等等镜像文件，就说明编译成功了。
 
@@ -321,7 +323,7 @@ vendor.img
 
 ​	前文在编译的过程中介绍到，我们使用`source ./build/envsetup.sh`初始化环境的时候，导入了多个命令来帮助我们进行编译。我们可以通过命令`hmm`查看提供的命令帮助。
 
-~~~
+```
 hmm
 
 Run "m help" for help with the build system itself.
@@ -344,7 +346,7 @@ Invoke ". build/envsetup.sh" from your shell to add the following functions to y
               To limit the modules being built use the syntax: mmm
 // 省略
 ......
-~~~
+```
 
 ​	`croot` 命令可以跳转根目录，或者是根目录下的任意子目录
 
@@ -358,7 +360,7 @@ Invoke ". build/envsetup.sh" from your shell to add the following functions to y
 
 ​	我们可以通过`m help`查看可以单独编译哪些选项
 
-~~~
+```
 m help
 
 Common goals are:
@@ -392,7 +394,7 @@ Common goals are:
                             Stands for "VendorDlkm, NO Dependencies"
     odnod                   Quickly rebuild the odm_dlkm image from built packages
                             Stands for "OdmDlkm, NO Dependencies"
-~~~
+```
 
 ​	通过帮助命令的提示，我们可以看到`m snod`就是单独编译`System`,命令`m vnod`就是单独编译`Vendor`。大多数时候我们修改的内容都是在`System`中。我们可以根据自己的变动情况，模块编译即可。
 
@@ -406,7 +408,7 @@ Common goals are:
 
 ​	接下来我们按照官网的说明拉取代码并编译。
 
-~~~
+```
 // 内核编译的相关依赖安装
 sudo apt install p7zip-full wget curl git tree -y
 sudo apt-get install dialog file python3 python3-pip python2 libelf-dev gpg gpg-agent tree flex bison libssl-dev zip unzip curl wget tree build-essential bc software-properties-common libstdc++6 libpulse0 libglu1-mesa locales lcov --no-install-recommends -y
@@ -426,11 +428,11 @@ build/build.sh
 
 // 编译完成后，查看编译结果，最后输出显示Image.lz4文件就表示内核编译是成功的。
 ls /root/android_src/android-kernel/out/android-msm-pixel-4.9/dist |grep Image
-~~~
+```
 
 ​	编译成功后，我们还需要指定Android源码编译时使用这个内核文件。只需要设置环境变量指定路径即可。方式如下。
 
-~~~
+```
 // 为了以后方便，环境路径相关的，我们都写在这个初始化导入环境命令的地方
 vim ./build/envsetup.sh
 
@@ -445,7 +447,7 @@ lunch aosp_blueline-userdebug
 
 // 单独编译内核镜像
 make bootimage
-~~~
+```
 
 ### 2.6 刷机
 
@@ -457,7 +459,7 @@ make bootimage
 
 ​	首先我们要进入刷机模式，然后环境变量设置编译结果的路径，然后使用命令完整刷机即可。详细流程如下
 
-~~~
+```
 // 进入刷机模式
 adb reboot bootloader
 
@@ -472,11 +474,11 @@ fastboot devices
 
 // 完整刷机
 fastboot flashall -w
-~~~
+```
 
 ​	等待刷机结束即可，刷机结束后会自动进入Android系统。如果我们只想刷单个分区镜像，也是可以的。流程如下
 
-~~~
+```
 // 进入刷机模式
 adb reboot bootloader
 
@@ -510,30 +512,30 @@ fastboot flash vendor ./vendor.img
 
 // 重启
 fastboot reboot
-~~~
+```
 
 ### 2.6.2 卡刷
 
 ​	我们前面编译出来的是线刷包，如果我们需要卡刷包，就需要使用下面的方式进行编译
 
-~~~
+```
 // 下面是简单的编译卡刷包
 cd aosp12
 source ./build/envsetup.sh
 lunch aosp_blueline-userdebug
 make otapackage
-~~~
+```
 
 ​	编译完成后，我们可以在前面线刷包的路径下看到卡刷包文件，我这里的文件名是`aosp_blueline-ota-eng.king.zip`。除了上面的方式，我们还可以完整编译卡刷包，编译方式如下
 
-~~~
+```
 //下面是完整编译卡刷包
 cd aosp12
 source ./build/envsetup.sh
 lunch aosp_blueline-userdebug
 mkdir dist_output
 make dist DIST_DIR=dist_output
-~~~
+```
 
 ​	编译完成后，可以在目录`dist_output`中看到完整卡刷包结果。
 
@@ -543,10 +545,10 @@ make dist DIST_DIR=dist_output
 
 ​		首先进入fastbootd
 
-~~~
+```
 adb reboot bootloader
 fastboot reboot fastboot
-~~~
+```
 
 ​		这时的界面如下图，使用音量键减，切换到`Enter recovery`，然后按电源键进入`recovery`模式
 
@@ -564,7 +566,7 @@ fastboot reboot fastboot
 
 ​	Android系统是一个非常庞大的项目，所以我们需要采用合适的编辑器或者是`ide`来修改代码，如果你的改动不多，那么我们简单的使用`VsCode`导入工作区即可开始修改代码。但是`VsCode`的智能提示和跳转较为简陋，所以如果想要更加友好的开发体验，我们可以选择将源码导入`Android Studio`中编辑java部分代码，导入`Clion`中编辑`native`部分代码。下面简单介绍如何将源码导入Android Studio。
 
-~~~
+```
 cd ~/aosp12
 source build/envsetup.sh
 lunch aosp_blueline-userdebug
@@ -602,11 +604,11 @@ vim ./android.iml
 <excludeFolder url="file://$MODULE_DIR$/system"/>
 <excludeFolder url="file://$MODULE_DIR$/tools"/>
 <excludeFolder url="file://$MODULE_DIR$/kernel"/>
-~~~
+```
 
 ​	修改好配置后，最后使用Android studio打开`android.ipr`文件即可。接下来简单介绍将代码导入Clion。
 
-~~~
+```
 // 设置环境变量,在编译时生成CMakeLists.txt文件
 export SOONG_GEN_CMAKEFILES=1
 export SOONG_GEN_CMAKEFILES_DEBUG=1
@@ -661,7 +663,7 @@ add_subdirectory(system/core/logd/logd-arm64-android)
 add_subdirectory(system/core/logd/liblogd-arm64-android)
 add_subdirectory(system/core/lmkd/liblmkd_utils-arm64-android)
 add_subdirectory(system/core/lmkd/lmkd-arm64-android)
-~~~
+```
 
 ​	配置好cmake文件后，使用clion打开项目，选择刚刚配置好的`CMakeLists.txt`文件的目录`out/development/ide/clion/`。导入成功后，我们需要修改工程的根目录，`Tools->Cmake->Change Project Root`，然后选择源码根目录即可。
 
@@ -671,7 +673,7 @@ add_subdirectory(system/core/lmkd/lmkd-arm64-android)
 
 ​	首先我们需要对repo进行一定的了解，在前文中，有简单的介绍到，repo是python脚本实现的，是对git命令的封装，用来管理大型项目关联多个子项目的。现在我们重新回顾一下下载android代码的过程。前文中，我们使用repo进行初始化指定分支，在完成初始化后，会在当前目录生成一个.repo的目录，首先我们查看目录中的manifest.xml文件，内容如下。
 
-~~~
+```
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 DO NOT EDIT THIS FILE!  It is generated by repo and changes will be discarded.
@@ -686,11 +688,11 @@ https://gerrit.googlesource.com/git-repo/+/HEAD/docs/manifest-format.md
 <manifest>
   <include name="default.xml" />
 </manifest>
-~~~
+```
 
 可以看到只是导入了default.xml文件。接着我们查看这个配置文件。
 
-~~~
+```
 <manifest>
   <remote  name="aosp"
            fetch=".."
@@ -726,7 +728,7 @@ https://gerrit.googlesource.com/git-repo/+/HEAD/docs/manifest-format.md
   <project path="bionic" name="platform/bionic" groups="pdk" />
   .....
 </manifest>
-~~~
+```
 
 ​	可以看到，这个文件实际上是一份git仓库清单，`repo init`初始化的过程就是下载git仓库清单文件，以及下载repo工具的仓库也就是git-repo项目，使用国内网络进行初始化时的速度非常慢的主要原因就在于git-repo项目较大且必须通过外网访问，所以很多人使用国内源进行`repo init`前还需要通过设置环境变量`REPO_URL`修改git-repo的拉取地址。而`repo sync`步骤就是就是将清单文件中对应的子模块全部拉取下来。而default.xml中的元素主要为以下几种。
 
@@ -750,7 +752,7 @@ https://gerrit.googlesource.com/git-repo/+/HEAD/docs/manifest-format.md
 
 ​	清楚了使用repo同步代码的原理，以及git清单中元素的作用后我们就可以开始搭建自己的Android源码远程仓库了。由于项目较大，所以我们可以在本地搭建一个gitlab服务，然后将项目上传至gitlab中进行管理，如下是搭建gitlab服务的步骤。
 
-~~~
+```
 // 安装gitlab服务的依赖
 sudo apt-get update
 sudo apt-get install -y curl openssh-server ca-certificates
@@ -774,17 +776,17 @@ sudo gitlab-ctl reconfigure
 // 启动gitlab
 sudo gitlab-ctl start
 
-~~~
+```
 
 ​	接下来直接在浏览器中输入局域网ip来访问gitlab页面，比如我的是`http://192.168.2.189/`。然后注册一个账号。在登录的时候出现了下面这个错误
 
-~~~
+```
 Your account has been blocked. Please contact your GitLab administrator if you think this is an error.
-~~~
+```
 
 ​	这是因为注册的账号需要审批激活后才能使用。我们回到终端上通过下面的命令激活账号
 
-~~~
+```
 // 进入gitlab的控制台
 gitlab-rails console
 
@@ -797,7 +799,7 @@ user.state = "active"
 // 保存修改并退出
 user.save
 exit
-~~~
+```
 
 ​	到这里，gitlab服务准备就绪，登录账号后就可以创建aosp的子模块仓库了。
 
@@ -819,16 +821,16 @@ exit
 
 然后就可以使用curl命令通过token访问gitlab的api创建一个空白的仓库
 
-~~~
+```
 // 创建一个名称为manifests的空白仓库，namespace_id是根目录的分组id
 curl --header "PRIVATE-TOKEN: 27zctxyWZP9Txksenkxb" \
      --data "name=manifest&namespace_id=6" \
      --request POST "http://192.168.2.189/api/v4/projects"
-~~~
+```
 
 ​	接下来修改配置，并且将清单项目上传到gitlab中
 
-~~~
+```
 // 创建项目目录
 mkdir manifest && cd manifest
 
@@ -860,11 +862,11 @@ git init
 git remote add origin git@192.168.2.189:android12_r3/manifest.git
 git add . && git commit -m "init"
 git push
-~~~
+```
 
 ​	准备好清单文件后，接下来就需要准备所有子模块仓库了。首先我们得知道一共有哪些子模块需要上传，而这个通过default.xml中的project元素，很容易得到。我们可以编写一个python脚本来匹配出所有project中的path属性，然后创建group和仓库。下面贴上一份网上找到读取default.xml自动创建所有仓库。
 
-~~~python
+```python
 #!/usr/bin/python3
 
 import gitlab
@@ -990,11 +992,11 @@ if __name__ == '__main__':
     create_group_and_project()
     # test_create_project_with_dot_name()
 
-~~~
+```
 
 ​	子模块仓库建立完成，最后我们还需要将代码上传到对应的仓库中。同样参考网上找的上传代码，修改一部分细节，这里一定要注意default.xml中，project元素的属性path的是本地路径，而name才是指的git仓库的路径，代码如下
 
-~~~python
+```python
 #!/usr/bin/python3
 
 import os
@@ -1099,11 +1101,11 @@ if __name__ == '__main__':
     parse_repo_manifest()
     wrapper_push_source_code_write_log()
 
-~~~
+```
 
 ​	上传过程较慢，等待所有仓库上传完成，最后将git-repo工具子模块上传到我们的仓库。首先在gitlab中创建一个分组android-tools。然后在分组中手动创建一个仓库git-repo。然后从github下载一份git-repo的工具源码传到我们的gitlab。过程如下。
 
-~~~
+```
 // 从github下载git-repo源码并上传到gitlab仓库
 git clone https://github.com/GerritCodeReview/git-repo.git && cd git-repo
 rm .git -rf
@@ -1116,11 +1118,11 @@ git push -u origin master
 // 将这里的repo拿来使用
 cp ./repo ~/bin/
 PATH=~/bin:$PATH
-~~~
+```
 
 ​	终于一切准备就绪，那么开始拉取我们自己的代码吧。
 
-~~~
+```
 // 创建存放源码的目录
 mkdir myandroid12 && cd myandroid12
 
@@ -1139,11 +1141,11 @@ repo init -u git@192.168.2.189:android12_r3/manifest.git --repo-url=git@192.168.
 
 //同步代码
 repo sync -j8
-~~~
+```
 
 ​	在同步的过程中，出现了两个问题。首先第一个是出现如下错误
 
-~~~
+```
 remote:
 remote: ========================================================================
 remote:
@@ -1156,11 +1158,11 @@ fatal: 无法读取远程仓库。
 请确认您有正确的访问权限并且仓库存在。
 
 platform/build/bazel:
-~~~
+```
 
 ​	检测代码后发现bazel仓库在路径build中不存在，这个仓库被建立在了platform下。导致这个问题的原因是由于前面的创建git的脚本中，发现build被指定为project，所以创建为仓库，而bazel必须是在一个group下，路径才会成立。而build的仓库已经存在，创建这个group失败后，就默认使用了更上一层的group。而解决办法也非常简单，直接将default中的几个build路径下的几个project重新命名，不要放在build的group下即可。下面是解决后的default.xml配置。
 
-~~~
+```
 <project path="build/make" name="platform/build" groups="pdk" >
     <copyfile src="core/root.mk" dest="Makefile" />
     <linkfile src="CleanSpec.mk" dest="build/CleanSpec.mk" />
@@ -1181,26 +1183,26 @@ platform/build/bazel:
     <linkfile src="root.bp" dest="Android.bp" />
     <linkfile src="bootstrap.bash" dest="bootstrap.bash" />
 </project>
-~~~
+```
 
 ​	另外一个问题也非常类似。错误如下。
 
-~~~
+```
 请确认您有正确的访问权限并且仓库存在。
 device/mediatek/wembley-sepolicy: sleeping 4.0 seconds before retrying
-~~~
+```
 
 ​	经过检查后发现，这是由于这个仓库在default.xml中的配置如下
 
-~~~
+```
 <project name="device/mediatek/wembley-sepolicy" path="device/mediatek/wembley-sepolicy" groups="device"/>
-~~~
+```
 
 ​	然后看了创建仓库和批量提交代码的逻辑就明白了，是的，name和path的顺序反了，导致正则表达式未能成功匹配到这个仓库，所以我们调整一下name和path的顺序即可。
 
 ​	成功拉取完成后，如果在编译时碰到找不到文件的问题，这是由于有些子模块仓库下的子目录中有`.gitignore`文件，将一些应该提交的文件给过滤掉了。就回到我们同步代码的目录中，找到指定的git仓库，使用下面的方式重新提交一下。然后回到我们同步下来的代码处重新拉取更新的代码。
 
-~~~
+```
 // 进入缺少文件的子模块仓库目录
 cd ~/external/angle/
 git add . -f
@@ -1208,7 +1210,7 @@ git commit -m "init"
 git push -u origin master
 cd ~/android_src/myandroid12/
 repo sync -j8
-~~~
+```
 
 ​	到这里就完成了gitlab源码管理android源码开发了。最后如何使用git提交和查看历史记录我就不在这里叙述了。
 
