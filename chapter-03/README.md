@@ -8,53 +8,53 @@
 
 ​	1、art：该目录是Android 5.0中新增加的，主要是实现Android RunTime（ART）的目录，它作为Android 4.4中的Dalvik虚拟机的替代，主要处理Java字节码。
 
-​	2、bionic：这是Android的C库，包含了很多标准的C库函数和头文件，还有一些Android特有的函数和头文件。 
+​	2、bionic：这是Android的C库，包含了很多标准的C库函数和头文件，还有一些Android特有的函数和头文件。
 
 ​	3、bootable：包含了一些用于生成引导程序相关代码的工具和脚本，以及引导程序相关的一些源代码，但并不包含完整的引导程序代码。
 
-​	4、build：该目录包含了编译Android源代码所需要的脚本，包括makefile文件和一些构建工具。 
+​	4、build：该目录包含了编译Android源代码所需要的脚本，包括makefile文件和一些构建工具。
 
-​	5、compatibility：该目录收集了Android设备的兼容性测试套件（CTS）和兼容性实现（Compatibility Implementation）。 
+​	5、compatibility：该目录收集了Android设备的兼容性测试套件（CTS）和兼容性实现（Compatibility Implementation）。
 
-​	6、cts：该目录包含了Android设备兼容性测试套件（CTS），主要用来测试设备是否符合Android标准。 
+​	6、cts：该目录包含了Android设备兼容性测试套件（CTS），主要用来测试设备是否符合Android标准。
 
-​	7、dalvik：该目录包含了Dalvik虚拟机，它是Android 2.3版本之前的主要虚拟机，它主要处理Java字节码。 
+​	7、dalvik：该目录包含了Dalvik虚拟机，它是Android 2.3版本之前的主要虚拟机，它主要处理Java字节码。
 
-​	8、developers：该目录包含了Android开发者文档和样例代码。 
+​	8、developers：该目录包含了Android开发者文档和样例代码。
 
-​	9、development：该目录包含了一些调试工具，如systrace、monkey、ddms等。 
+​	9、development：该目录包含了一些调试工具，如systrace、monkey、ddms等。
 
-​	10、device：该目录包含了特定的Android设备的驱动程序。 
+​	10、device：该目录包含了特定的Android设备的驱动程序。
 
 ​	11、external：该目录包含了一些第三方库，如WebKit、OpenGL等。
 
-​	12、frameworks：该目录提供了Android应用程序调用底层服务的API，它也是Android应用程序开发的重要组成部分。 
+​	12、frameworks：该目录提供了Android应用程序调用底层服务的API，它也是Android应用程序开发的重要组成部分。
 
-​	13、hardware：该目录包含了Android设备硬件相关的驱动代码，如摄像头驱动、蓝牙驱动等。 
+​	13、hardware：该目录包含了Android设备硬件相关的驱动代码，如摄像头驱动、蓝牙驱动等。
 
-​	14、kernel：该目录包含了Android系统内核的源代码，它是Android系统的核心部分。 
+​	14、kernel：该目录包含了Android系统内核的源代码，它是Android系统的核心部分。
 
-​	15、libcore：该目录包含了Android底层库，它提供了一些基本的API，如文件系统操作、网络操作等。 
+​	15、libcore：该目录包含了Android底层库，它提供了一些基本的API，如文件系统操作、网络操作等。
 
 ​	16、libnativehelper：该目录提供了一些C++库，它们可以帮助我们调用本地代码。
 
 ​	17、packages：该目录包含了Android框架、应用程序和其他模块的源代码。 包含了 Android 系统中的所有应用程序，例如短信、电话、浏览器、相机等
 
-​	18、pdk：该目录是一个Android平台开发套件，它包含了一些工具和API，以便开发者快速开发Android应用程序。 
+​	18、pdk：该目录是一个Android平台开发套件，它包含了一些工具和API，以便开发者快速开发Android应用程序。
 
-​	19、platform_testing：该目录包含了一些测试工具，用于测试Android平台的稳定性和性能。 
+​	19、platform_testing：该目录包含了一些测试工具，用于测试Android平台的稳定性和性能。
 
-​	20、prebuilts：该目录包含了一些预先编译的文件，如编译工具、驱动程序等。 
+​	20、prebuilts：该目录包含了一些预先编译的文件，如编译工具、驱动程序等。
 
-​	21、sdk：该目录是Android SDK的源代码，它包含了Android SDK的API文档、代码示例、工具等。 
+​	21、sdk：该目录是Android SDK的源代码，它包含了Android SDK的API文档、代码示例、工具等。
 
-​	22、system：该目录包含了Android系统的核心部分，如系统服务、应用程序、内存管理机制、文件系统、网络协议等。 
+​	22、system：该目录包含了Android系统的核心部分，如系统服务、应用程序、内存管理机制、文件系统、网络协议等。
 
-​	23、test：该目录包含了一些测试代码，用于测试Android系统的各个组件。 
+​	23、test：该目录包含了一些测试代码，用于测试Android系统的各个组件。
 
-​	24、toolchain：该目录包含了一些编译器和工具链，如GCC、Clang等，用于编译Android源代码。 
+​	24、toolchain：该目录包含了一些编译器和工具链，如GCC、Clang等，用于编译Android源代码。
 
-​	25、tools：该目录包含了一些开发工具，如Android SDK工具、Android Studio、Eclipse等。 
+​	25、tools：该目录包含了一些开发工具，如Android SDK工具、Android Studio、Eclipse等。
 
 ​	26、vendor：该目录包含了一些硬件厂商提供的驱动程序，如摄像头驱动、蓝牙驱动等。
 
@@ -85,7 +85,7 @@
 
 ​	这里注意，我们现在并需要完全看懂内核中的汇编部分代码，主要是为了解执行的流程，所以并不需要你有汇编的功底，只需要能看懂简单的几个指令即可，接下来打开我们编译内核源码时的目录，找到文件`~/android_src/android-kernel/private/msm-google/arch/arm64/kernel/head.S`查看汇编代码如下。
 
-~~~assembly
+```assembly
 	__HEAD
 _head:
 	/*
@@ -100,11 +100,11 @@ _head:
 	b	stext
 #else
 	b	stext				// branch to kernel start, magic
-~~~
+```
 
 ​	在arm指令集中，指令b表示跳转，所以我们继续找到stext的定义部分。
 
-~~~assembly
+```assembly
 	/*
 	 * The following callee saved general purpose registers are used on the
 	 * primary lowlevel boot path:
@@ -131,11 +131,11 @@ ENTRY(stext)
 	bl	__cpu_setup			// // 初始化处理器 initialise processor
 	b	__primary_switch
 ENDPROC(stext)
-~~~
+```
 
 ​	能看到最后一行是跳转到__primary_switch，接下来继续看它的实现代码
 
-~~~assembly
+```assembly
 __primary_switch:
 #ifdef CONFIG_RANDOMIZE_BASE
 	mov	x19, x0				// preserve new SCTLR_EL1 value
@@ -176,11 +176,11 @@ __primary_switch:
 	adrp	x0, __PHYS_OFFSET
 	br	x8
 ENDPROC(__primary_switch)
-~~~
+```
 
 接着我们继续跟踪__primary_switched函数，然后我们就能看到一个重点函数start_kernel了。
 
-~~~assembly
+```assembly
 __primary_switched:
 	adrp	x4, init_thread_union
 	add	sp, x4, #THREAD_SIZE
@@ -228,11 +228,11 @@ __primary_switched:
 #endif
 	b	start_kernel		// 内核的入口函数
 ENDPROC(__primary_switched)
-~~~
+```
 
 ​		上面能看到最后一个指令就是start_kernel了，这个函数是内核的入口函数，同时也是c语言部分的入口函数。接下来我们查看文件`~/android_src/android-kernel/private/msm-google/init/main.c`，可以看到其中大量的init初始化各种子系统的函数调用。
 
-~~~c
+```c
 asmlinkage __visible void __init start_kernel(void)
 {
     // 加载各种子系统
@@ -243,11 +243,11 @@ asmlinkage __visible void __init start_kernel(void)
 
 	prevent_tail_call_optimization();
 }
-~~~
+```
 
 ​	这里我们继续追踪关键的函数rest_init，就是在这里开启的内核初始化线程以及创建内核线程。
 
-~~~c
+```c
 static noinline void __ref rest_init(void)
 {
 	...
@@ -256,11 +256,11 @@ static noinline void __ref rest_init(void)
 	pid = kernel_thread(kthreadd, NULL, CLONE_FS | CLONE_FILES);
 	...
 }
-~~~
+```
 
 接着看看kernel_init线程执行的内容。
 
-~~~c
+```c
 static int __ref kernel_init(void *unused)
 {
 	int ret;
@@ -305,11 +305,11 @@ static int __ref kernel_init(void *unused)
 	panic("No working init found.  Try passing init= option to kernel. "
 	      "See Linux Documentation/init.txt for guidance.");
 }
-~~~
+```
 
 ​	在这里我们看到了原来init进程是用try_to_run_init_process启动的，运行失败的情况下会依次执行上面的4个进程。我们继续看看这个函数是如何启动进程的。
 
-~~~c
+```c
 static int try_to_run_init_process(const char *init_filename)
 {
 	int ret;
@@ -323,11 +323,11 @@ static int try_to_run_init_process(const char *init_filename)
 
 	return ret;
 }
-~~~
+```
 
 这里简单包装调用的run_init_process，继续看下面的代码
 
-~~~c
+```c
 static int run_init_process(const char *init_filename)
 {
 	argv_init[0] = init_filename;
@@ -335,7 +335,7 @@ static int run_init_process(const char *init_filename)
 		(const char __user *const __user *)argv_init,
 		(const char __user *const __user *)envp_init);
 }
-~~~
+```
 
 ​	这里能看到最后是通过execve拉起来的init进程。到这里内核就成功拉起了在最后，我们总结内核启动的简单流程图如下。
 
@@ -351,15 +351,15 @@ static int run_init_process(const char *init_filename)
 
 ​	 3、加载设备驱动：init进程会加载设备的驱动，使设备可以正常使用；
 
-​	 4、加载系统环境变量：init进程会加载系统所需要的环境变量，如PATH、LD_LIBRARY_PATH等； 
+​	 4、加载系统环境变量：init进程会加载系统所需要的环境变量，如PATH、LD_LIBRARY_PATH等；
 
-​	 5、加载系统配置文件：init进程会加载系统所需要的配置文件，以便系统正常运行； 
+​	 5、加载系统配置文件：init进程会加载系统所需要的配置文件，以便系统正常运行；
 
 ​	 6、启动用户进程：init进程会启动用户进程，如桌面程序、默认浏览器等。
 
 ​	init进程的入口是在Android源码的`system/core/init/main.cpp`。下面我们看看入口函数main
 
-~~~cpp
+```cpp
 int main(int argc, char** argv) {
 #if __has_feature(address_sanitizer)
     __asan_set_error_report_callback(AsanReportCallback);
@@ -369,7 +369,7 @@ int main(int argc, char** argv) {
     if (!strcmp(basename(argv[0]), "ueventd")) {
         return ueventd_main(argc, argv);
     }
-	
+
     if (argc > 1) {
         if (!strcmp(argv[1], "subcontext")) {
             android::base::InitLogging(argv, &android::base::KernelLogger);
@@ -389,11 +389,11 @@ int main(int argc, char** argv) {
 	// 第一步 挂载设备节点
     return FirstStageMain(argc, argv);
 }
-~~~
+```
 
 ​	根据上一章的启动init的参数，可以判断第一次启动时，执行的是FirstStageMain函数，我们继续看看这个函数的实现，可以看到初始化了一些基础系统支持的目录，以及使用mount进行挂载。
 
-~~~cpp
+```cpp
 
 int FirstStageMain(int argc, char** argv) {
     ...
@@ -432,18 +432,18 @@ int FirstStageMain(int argc, char** argv) {
     close(fd);
     // 使用execv再次调用起init进程
     execv(path, const_cast<char**>(args));
-	
+
     // execv() only returns if an error happened, in which case we
     // panic and never fall through this conditional.
     PLOG(FATAL) << "execv(\"" << path << "\") failed";
 
     return 1;
 }
-~~~
+```
 
 ​	在目录初始化完成后，又拉起了一个init进程，并且传了参数selinux_setup，所以接下来我们直接看前面main入口函数中判断出现该参数时调用的SetupSelinux函数。
 
-~~~cpp
+```cpp
 int SetupSelinux(char** argv) {
     SetStdioToDevNull(argv);
     InitKernelLogging(argv);
@@ -493,11 +493,11 @@ int SetupSelinux(char** argv) {
 
     return 1;
 }
-~~~
+```
 
 ​	上面的代码可以看到，在完成selinux的加载处理后，又拉起了一个init进程，并且传参数second_stage。接下来我们看第三步SecondStageMain函数
 
-~~~cpp
+```cpp
 
 int SecondStageMain(int argc, char** argv) {
     ...
@@ -506,18 +506,18 @@ int SecondStageMain(int argc, char** argv) {
 
     // 开启属性服务
     StartPropertyService(&property_fd);
-	
+
     // 解析init.rc 以及启动其他相关进程
     LoadBootScripts(am, sm);
 
     ...
     return 0;
 }
-~~~
+```
 
 ​	接下来我们看看LoadBootScripts这个函数的处理
 
-~~~cpp
+```cpp
 
 static void LoadBootScripts(ActionManager& action_manager, ServiceList& service_list) {
     Parser parser = CreateParser(action_manager, service_list);
@@ -546,36 +546,36 @@ static void LoadBootScripts(ActionManager& action_manager, ServiceList& service_
     }
 }
 
-~~~
+```
 
 ​	继续看看解析的逻辑，可以看到参数可以是目录或者文件
 
-~~~cpp
+```cpp
 bool Parser::ParseConfig(const std::string& path) {
     if (is_dir(path.c_str())) {
         return ParseConfigDir(path);
     }
     return ParseConfigFile(path);
 }
-~~~
+```
 
 ​	如果是目录，则遍历所有文件再调用解析文件，所以我们下面直接看ParseConfigFile就好了
 
-~~~cpp
+```cpp
 bool Parser::ParseConfigFile(const std::string& path) {
     ...
     ParseData(path, &config_contents.value());
 	...
 }
-~~~
+```
 
 ​	最后看看ParseData是如何解析数据的
 
-~~~cpp
+```cpp
 
 void Parser::ParseData(const std::string& filename, std::string* data) {
     ...
-    
+
     for (;;) {
         switch (next_token(&state)) {
             case T_EOF:
@@ -604,7 +604,7 @@ void Parser::ParseData(const std::string& filename, std::string* data) {
                         parse_error_count_++;
                         LOG(ERROR) << filename << ": " << state.line << ": " << result.error();
                     }
-                } 
+                }
                 ...
             }
             case T_TEXT:
@@ -613,11 +613,11 @@ void Parser::ParseData(const std::string& filename, std::string* data) {
         }
     }
 }
-~~~
+```
 
 ​	这里我们简单解读一下这里的代码，首先这里看到从section_parsers_中找到指定的节点解析对象来执行ParseSection或者ParseLineSection进行解析.rc文件中的数据，我们看下parse创建的函数CreateParser
 
-~~~cpp
+```cpp
 void Parser::AddSectionParser(const std::string& name, std::unique_ptr<SectionParser> parser) {
     section_parsers_[name] = std::move(parser);
 }
@@ -633,7 +633,7 @@ Parser CreateParser(ActionManager& action_manager, ServiceList& service_list) {
 
     return parser;
 }
-~~~
+```
 
 ​	如果了解过init.rc文件格式的，看到这里就很眼熟了，这就是.rc文件中配置时使用的节点名称了。他们的功能简单的描述如下。
 
@@ -645,7 +645,7 @@ Parser CreateParser(ActionManager& action_manager, ServiceList& service_list) {
 
 ​	那么我们再解读上面的代码就是，根据rc文件的配置不同，来使用ServiceParser、ActionParser、ImportParser这三种节点解析对象的ParseSection或者ParseLineSection函数来处理。接下来我们看看这三个对象的处理函数把。
 
-~~~cpp
+```cpp
 // service节点的解析处理
 Result<void> ServiceParser::ParseSection(std::vector<std::string>&& args,
                                          const std::string& filename, int line) {
@@ -730,7 +730,7 @@ Result<void> ImportParser::ParseSection(std::vector<std::string>&& args,
     return {};
 }
 
-~~~
+```
 
 ​	到这里大致的init进程的启动流程相信大家已经有了一定了解。明白init的原理后，对于init.rc相信大家已经有了简单的印象，接下来将详细展开讲解init.rc文件。
 
@@ -742,7 +742,7 @@ Result<void> ImportParser::ParseSection(std::vector<std::string>&& args,
 
 ​	init.rc是由多个section节点组成的，而节点的类型分别主要是service、on、import三种。而这三种在上一节的原理介绍中，有简单的介绍，它们的作用分别是定义服务、事件触发、导入其他rc文件。下面我们来看init.rc文件中的几个例子，查看文件`system/core/rootdir/init.rc`。
 
-~~~
+```
 // 导入另一个rc文件
 import /init.environ.rc
 import /system/etc/init/hw/init.usb.rc
@@ -797,11 +797,11 @@ service console /system/bin/sh
     group shell log readproc
     seclabel u:r:shell:s0
     setenv HOSTNAME console
-~~~
+```
 
 ​	看完各种节点的样例后，我们大概了解init.rc中应该如何添加一个section了。import非常简单，只需要指定一个rc文件的路径即可。on节点在源码中我们看到对应的处理是ActionParser，这个节点就是当触发了一个Action的事件后就自上而下，依次执行节点下的所有命令，所以我们就得了解一下一共有哪些Action事件提供使用。详细介绍参考自`http://www.gaohaiyan.com/4047.html`
 
-~~~
+```
 on boot                     #系统启动触发
 on early-init               #在初始化之前触发
 on init                     #在初始化时触发（在启动配置文件/init.conf被装载之后）
@@ -814,11 +814,11 @@ on device-added-<path>      #在指定设备被添加时触发
 on device-removed-<path>    #在指定设备被移除时触发
 on service-exited-<name>    #在指定service退出时触发
 on <name>=<value>           #当属性<name>等于<value>时触发
-~~~
+```
 
 ​	在触发Action事件后执行的命令一共有如下这些
 
-~~~
+```
 chdir <dirc>                                  更改工作目录为<dirc>
 chmod <octal-mode> <path>                     更改文件访问权限
 chown <owner> <group> <path>                  更改文件所有者和组群
@@ -833,7 +833,7 @@ ifup <interface>                              使网络接口<interface>成功�
 import <filename>                             引入一个名为<filename>的文件
 insmod <path>                                 在<path>路径上安装一个模块
 mkdir <path> [mode] [owner] [group]           在<path>路径上新建一个目录
-mount <type> <device> <dir> [<mountoption>]*  尝试在指定路径上挂载一个设备 
+mount <type> <device> <dir> [<mountoption>]*  尝试在指定路径上挂载一个设备
 setprop <name> <value>                        设置系统属性<name>的值为<value>
 setrlinit <resource> <cur> <max>              设置一种资源的使用限制。这个概念亦存在于Linux系统中，<cur>表示软限制，<max>表示硬限制
 start <service>                               启动一个服务
@@ -842,11 +842,11 @@ symlink <target> <path>                       创建一个<path>路径的软链�
 sysclk <mins_west_of_gmt>                     设置基准时间，如果当前时间时GMT，这个值是0
 trigger <event>                               触发一个事件
 write <path> <string> [<string>]*             打开一个文件，并写入字符串
-~~~
+```
 
 ​	而service节点主要是将可执行程序作为服务启动，上面的例子我们看到节点下面有一系列的参数，下面是这些参数的详细描述。
 
-~~~
+```
 class <name>                                       为该服务指定一个class名，同一个class的所有服务必须同时启动或者停止。
                                                    默认情况下服务的class名是“default”。另外还有core(其它服务依赖的基础性核心服务)、main(java须要的基本服务)、late_start(厂商定制的服务)
 critical                                           表示这是一个对设备至关重要的一个服务，如果它在四分钟内退出超过四次，则设备将重启进入恢复模式
@@ -857,11 +857,11 @@ onrestart                                          当此服务重启时，执�
 setenv <name> <value>                              设置环境变量<name>为某个值<value>
 socket <name> <type> <perm> [ <user> [<group>]]    创建一个名为/dev/socket/<name>的unix domain socket，然后将它的fd值传给启动它的进程，有效的<type>值包括dgram，stream和seqacket，而user和group的默认值是0
 user <username>                                    在启动服务前将用户组切换为<username>，默认情况下用户都是root
-~~~
+```
 
 ​	到这里，相信大家应该能够看懂init.rc中的大多数section的意义了。下面的例子我们将组合使用，定义一个自己的服务，并且启动它。
 
-~~~
+```
 service kservice /system/bin/app_process -Djava.class.path=/system/framework/ksvr.jar /system/bin cn.mik.ksvr.kSystemSvr svr
     class main
     user root
@@ -872,7 +872,7 @@ service kservice /system/bin/app_process -Djava.class.path=/system/framework/ksv
 on property:sys.boot_completed=1
     bootchart stop
     start kservice
-~~~
+```
 
 ​	上面的案例中，我定义了一个kservice的服务，使用`/system/bin/app_process`作为进程启动，并设置目标jar作为应用的classpath，最后设置jar文件的入口类`cn.mik.ksvr.kSystemSvr`，最后的svr是做为参数传递给kSystemSvr中的main函数。接下来是当属性sys.boot_completed变更为1时表示手机完成引导，执行节点下的命令启动刚刚定义的服务。
 
@@ -880,7 +880,7 @@ on property:sys.boot_completed=1
 
 ​	在前面init进程的最后，我们知道了是解析处理init.rc文件，在上一节学习了init.rc中的各节点的详细介绍，这时我们已经可以继续阅读init.rc追踪后续的启动流程了。
 
-~~~
+```
 # 导入含有zygote服务定义的rc文件，这个会根据系统所支持的对应架构导入
 import /system/etc/init/hw/init.${ro.zygote}.rc
 
@@ -900,12 +900,12 @@ on zygote-start && property:ro.crypto.state=unencrypted
     start netd
     start zygote
     start zygote_secondary
-    
-~~~
+
+```
 
 ​	zygote服务定义的rc文件在路径`system/core/rootdir/`中。分别是init.zygote32.rc、init.zygote64.rc、init.zygote32_64.rc、init.zygote64_32.rc，其中32_64表示32位是主模式而64_32的则表示64位是主模式。下面我们查看zygote64的是如何定义的。
 
-~~~
+```
 // --zygote 传递给app_process程序的参数,表示这是启动一个孵化器。
 // --start-system-server 传递给app_process程序的参数，表示进程启动后需要启动system_server进程
 service zygote /system/bin/app_process64 -Xzygote /system/bin --zygote --start-system-server
@@ -924,13 +924,13 @@ service zygote /system/bin/app_process64 -Xzygote /system/bin --zygote --start-s
     onrestart restart wificond
     writepid /dev/cpuset/foreground/tasks
     critical window=${zygote.critical_window.minute:-off} target=zygote-fatal
-~~~
+```
 
 ​	前面我们定义和启动一个自己定义的java服务时也看到是通过app_process启动的。app_process是Android系统的主要进程，它是其他所有应用程序的容器，它负责创建新的进程，并启动它们。此外，它还管理应用程序的生命周期，防止任何一个应用程序占用资源过多，或者做出不良影响。app_process还负责在应用运行时为它们提供上下文，以及管理应用进程之间的通信。
 
 ​	接下来我们跟踪app_process的实现，它的入口是在目录`frameworks/base/cmds/app_process/app_main.cpp`中。
 
-~~~c++
+```c++
 #if defined(__LP64__)
 static const char ABI_LIST_PROPERTY[] = "ro.product.cpu.abilist64";
 static const char ZYGOTE_NICE_NAME[] = "zygote64";
@@ -987,7 +987,7 @@ int main(int argc, char* const argv[])
         LOG_ALWAYS_FATAL("app_process: no class name or --zygote supplied.");
     }
 }
-~~~
+```
 
 ​	从代码中可以看到主要是对参数进行处理包装后，然后根据是否携带--zygote选择启动ZygoteInit或者是RuntimeInit。
 
@@ -997,7 +997,7 @@ int main(int argc, char* const argv[])
 
 ​	下面继续看看runtime.start的实现，查看对应文件`frameworks/base/core/jni/AndroidRuntime.cpp`
 
-~~~cpp
+```cpp
 void AndroidRuntime::start(const char* className, const Vector<String8>& options, bool zygote)
 {
     ...
@@ -1050,11 +1050,11 @@ void AndroidRuntime::start(const char* className, const Vector<String8>& options
     if (mJavaVM->DestroyJavaVM() != 0)
         ALOGW("Warning: VM did not shut down cleanly\n");
 }
-~~~
+```
 
 ​	看到这里通过JNI函数CallStaticVoidMethod调用了ZygoteInit的main入口函数，现在我们就来到了java层中，查看文件代码`frameworks/base/core/java/com/android/internal/os/ZygoteInit.java`
 
-~~~java
+```java
 public static void main(String[] argv) {
         ZygoteServer zygoteServer = null;
 		...
@@ -1108,11 +1108,11 @@ public static void main(String[] argv) {
             caller.run();
         }
     }
-~~~
+```
 
 ​	这里的重点是创建了一个zygoteServer，然后根据参数决定是否forkSystemServer，最后runSelectLoop等待AMS发送消息创建应用程序的进程。我们依次从代码观察他们的本质。首先是ZygoteServer的构造函数，可以看到，主要是创建Socket套接字。
 
-~~~java
+```java
 ZygoteServer(boolean isPrimaryZygote) {
         mUsapPoolEventFD = Zygote.getUsapPoolEventFD();
 
@@ -1131,11 +1131,11 @@ ZygoteServer(boolean isPrimaryZygote) {
         mUsapPoolSupported = true;
         fetchUsapPoolPolicyProps();
     }
-~~~
+```
 
 ​	然后就是forkSystemServer的返回值到底是什么，最后的run会调用到哪里呢
 
-~~~java
+```java
 private static Runnable forkSystemServer(String abiList, String socketName,
             ZygoteServer zygoteServer) {
 		// 服务启动的相关参数，这里注意到类名是com.android.server.SystemServer
@@ -1168,13 +1168,13 @@ private static Runnable forkSystemServer(String abiList, String socketName,
         } catch (IllegalArgumentException ex) {
             throw new RuntimeException(ex);
         }
-		
+
         /* For child process */
         if (pid == 0) {
             if (hasSecondZygote(abiList)) {
                 waitForSecondaryZygote(socketName);
             }
-			
+
             zygoteServer.closeServerSocket();
             // pid为0的部分，就是由这里fork出来的SystemServer执行的了。
             return handleSystemServerProcess(parsedArgs);
@@ -1283,11 +1283,11 @@ static class MethodAndArgsCaller implements Runnable {
 }
 
 
-~~~
+```
 
 ​	forkSystemServer函数走到最后是通过反射获取com.android.server.SystemServer的入口函数main，并封装到MethodAndArgsCaller对象中返回。最后的返回结果调用run时，就会执行到SystemServer中的main函数。继续看看main函数的实现，查看文件`frameworks/base/services/java/com/android/server/SystemServer.java`
 
-~~~java
+```java
 public static void main(String[] args) {
 	new SystemServer().run();
 }
@@ -1296,10 +1296,10 @@ private void run() {
     	...
         // 创建主线程Looper
         Looper.prepareMainLooper();
-        
+
         // 初始化系统Context上下文
         createSystemContext();
-    	
+
         // 创建SystemServiceManager，由它管理系统的所有服务
         mSystemServiceManager = new SystemServiceManager(mSystemContext);
         mSystemServiceManager.setStartInfo(mRuntimeRestart,
@@ -1307,7 +1307,7 @@ private void run() {
         mDumper.addDumpable(mSystemServiceManager);
         LocalServices.addService(SystemServiceManager.class, mSystemServiceManager);
         ...
-        
+
     // 启动各种服务
     try {
         t.traceBegin("StartServices");
@@ -1370,14 +1370,14 @@ public void systemReady(final Runnable goingCallback, @NonNull TimingsTraceAndSl
             mAtmInternal.startHomeOnAllDisplays(currentUserId, "systemReady");
             t.traceEnd();
         }
-		...	
+		...
 }
 
-~~~
+```
 
 ​	到这里大致的服务启动流程我们就清楚了，最后成功抵达了Luncher的启动，后面的章节会介绍到应该如何添加一个自定义的系统服务。现在我们重新回到流程中，继续看看runSelectLoop函数是如何实现的
 
-~~~java
+```java
 Runnable runSelectLoop(String abiList) {
         ...
         socketFDs.add(mZygoteSocket.getFileDescriptor());
@@ -1391,7 +1391,7 @@ Runnable runSelectLoop(String abiList) {
 
             int[] usapPipeFDs = null;
             StructPollfd[] pollFDs;
-			
+
             int pollReturnValue;
             try {
                 pollReturnValue = Os.poll(pollFDs, pollTimeoutMs);
@@ -1421,11 +1421,11 @@ Runnable runSelectLoop(String abiList) {
             }
         }
     }
-~~~
+```
 
 ​	重点主要放在返回值的跟踪上，所以我们直接看fillUsapPool函数做了些什么
 
-~~~java
+```java
 Runnable fillUsapPool(int[] sessionSocketRawFDs, boolean isPriorityRefill) {
         ...
         while (--numUsapsToSpawn >= 0) {
@@ -1439,7 +1439,7 @@ Runnable fillUsapPool(int[] sessionSocketRawFDs, boolean isPriorityRefill) {
 		...
         return null;
     }
-    
+
 // 继续追踪关键返回值的函数forkUsap
 // 对应文件frameworks/base/core/java/com/android/internal/os/Zygote.java
 static @Nullable Runnable forkUsap(LocalServerSocket usapPoolSocket,
@@ -1493,19 +1493,19 @@ private static Runnable childMain(@Nullable ZygoteCommandBuffer argBuffer,
                                      args.mDisabledCompatChanges,
                                      args.mRemainingArgs,
                                      null /* classLoader */);
-        
+
     }
-~~~
+```
 
 ​	由于我们前面分析过了zygoteInit，所以这里就不需要再继续进去看了，我们直接看看孵化器进程是如何初始化应用程序环境的，追踪specializeAppProcess函数。
 
-~~~java
+```java
 private static void specializeAppProcess(int uid, int gid, int[] gids, int runtimeFlags,
             int[][] rlimits, int mountExternal, String seInfo, String niceName,
             boolean startChildZygote, String instructionSet, String appDataDir, boolean isTopApp,
             String[] pkgDataInfoList, String[] allowlistedDataInfoList,
             boolean bindMountAppDataDirs, boolean bindMountAppStorageDirs) {
-    	
+
     	// 可以看到准备的一大堆参数，继续传递到了native层进行初始化处理了。
         nativeSpecializeAppProcess(uid, gid, gids, runtimeFlags, rlimits, mountExternal, seInfo,
                 niceName, startChildZygote, instructionSet, appDataDir, isTopApp,
@@ -1524,7 +1524,7 @@ static void com_android_internal_os_Zygote_nativeSpecializeAppProcess(
         jobjectArray allowlisted_data_info_list, jboolean mount_data_dirs,
         jboolean mount_storage_dirs) {
     jlong capabilities = CalculateCapabilities(env, uid, gid, gids, is_child_zygote);
-	
+
     SpecializeCommon(env, uid, gid, gids, runtime_flags, rlimits, capabilities, capabilities,
                      mount_external, se_info, nice_name, false, is_child_zygote == JNI_TRUE,
                      instruction_set, app_data_dir, is_top_app == JNI_TRUE, pkg_data_info_list,
@@ -1545,7 +1545,7 @@ static void SpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray gids, 
     const char* process_name = is_system_server ? "system_server" : "zygote";
     auto fail_fn = std::bind(ZygoteFailure, env, process_name, managed_nice_name, _1);
     auto extract_fn = std::bind(ExtractJString, env, process_name, managed_nice_name, _1);
-	
+
     auto se_info = extract_fn(managed_se_info);
     auto nice_name = extract_fn(managed_nice_name);
     auto instruction_set = extract_fn(managed_instruction_set);
@@ -1583,19 +1583,19 @@ static void SpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray gids, 
                               is_system_server, is_child_zygote, managed_instruction_set);
     ...
 }
-~~~
+```
 
 ​	我们可以在这里插入一个日志，看看在android启动完成时，为我们孵化出了哪些进程。
 
-~~~cpp
+```cpp
 env->CallStaticVoidMethod(gZygoteClass, gCallPostForkChildHooks, runtime_flags,
                               is_system_server, is_child_zygote, managed_instruction_set);
 ALOGW("start CallStaticVoidMethod current process:%s", nice_name_ptr);
-~~~
+```
 
 ​	然后编译aosp后刷入手机中。
 
-~~~
+```
 // 执行脚本初始化编译环境
 source ./build/envsetup.sh
 // 选择要编译的版本
@@ -1610,11 +1610,11 @@ adb reboot bootloader
 fastboot devices
 // 将刚刚编译的系统刷入手机
 fastboot flashall -w
-~~~
+```
 
 ​	然后我们使用android studio的logcat查看日志，或者直接使用命令`adb logcat > tmp.log`将日志输出到文件中，再进行观察。
 
-~~~
+```
 system_process                       W  start CallStaticVoidMethod current process:(null)
 com.android.bluetooth                W  start CallStaticVoidMethod current process:com.android.bluetooth
 com.android.systemui                 W  start CallStaticVoidMethod current process:com.android.systemui
@@ -1662,7 +1662,7 @@ pid-3595                             W  start CallStaticVoidMethod current proce
 pid-3615                             W  start CallStaticVoidMethod current process:com.android.cellbroadcastreceiver.module
 pid-3638                             W  start CallStaticVoidMethod current process:com.android.externalstorage
 
-~~~
+```
 
 ​	从日志中可以看到system_process进程是孵化出来的一个进程，然后还孵化了一堆系统相关的进程，包括launcher桌面应用管理的系统应用。
 
@@ -1692,7 +1692,7 @@ pid-3638                             W  start CallStaticVoidMethod current proce
 
 ​	查看代码`frameworks/base/core/java/android/app/LauncherActivity.java`。
 
-~~~java
+```java
 public abstract class LauncherActivity extends ListActivity {
 	...
 	@Override
@@ -1702,13 +1702,13 @@ public abstract class LauncherActivity extends ListActivity {
     }
 	...
 }
-~~~
+```
 
 ​	如果你是一名android开发人员，相信你对startActivity这个函数非常熟悉了，但是startActivity是如何打开一个应用的呢，很多人不会深入了解，但是我们有了前文中的一系列基础铺垫，这时你已经能尝试追踪调用链了。现在我们继续深入挖掘startActivity的原理。
 
 ​	查看代码`frameworks/base/core/java/android/app/Activity.java`
 
-~~~java
+```java
 public void startActivity(Intent intent, @Nullable Bundle options) {
         ...
         if (options != null) {
@@ -1720,11 +1720,11 @@ public void startActivity(Intent intent, @Nullable Bundle options) {
         }
     }
 
-~~~
+```
 
 ​	继续追踪startActivityForResult
 
-~~~java
+```java
 
 // 继续追踪startActivityForResult
 public void startActivityForResult(
@@ -1745,11 +1745,11 @@ public void startActivityForResult(
         }
         cancelInputsAndStartExitTransition(options);
     }
-~~~
+```
 
 ​	接下来的关键函数是execStartActivity，我们继续深入
 
-~~~java
+```java
 // 继续追踪execStartActivity
 public ActivityResult execStartActivity(
             Context who, IBinder contextThread, IBinder token, Activity target,
@@ -1770,13 +1770,13 @@ public ActivityResult execStartActivity(
     }
 
 
-~~~
+```
 
 ​	接下来发现是ActivityTaskManager对应的service调用的startActivity。
 
 ​	查看代码`frameworks/base/services/core/java/com/android/server/wm/ActivityTaskManagerService.java`
 
-~~~java
+```java
 
 public final int startActivity(IApplicationThread caller, String callingPackage,
                                String callingFeatureId, Intent intent, String resolvedType, IBinder resultTo,
@@ -1809,22 +1809,22 @@ private int startActivityAsUser(IApplicationThread caller, String callingPackage
 
     }
 
-~~~
+```
 
 ​	最后是调用的execute，我们先看看obtainStarter返回的对象类型
 
-~~~java
+```java
 ActivityStarter obtainStarter(Intent intent, String reason) {
         return mFactory.obtain().setIntent(intent).setReason(reason);
     }
-~~~
+```
 
 ​	看到返回的是ActivityStarter类型，我们到找到对应的excute的实现
 
 ​	TODO 下面的代码帮我补充下细节描述
 
-~~~java
-// 处理 Activity 启动请求的接口 
+```java
+// 处理 Activity 启动请求的接口
 int execute() {
         ...
         res = executeRequest(mRequest);
@@ -1879,7 +1879,7 @@ int startActivityInner(final ActivityRecord r, ActivityRecord sourceRecord,
                         && !mRootWindowContainer.isTopDisplayFocusedRootTask(mTargetRootTask)) {
                     mTargetRootTask.moveToFront("startActivityInner");
                 }
-                
+
                 mRootWindowContainer.resumeFocusedTasksTopActivities(
                         mTargetRootTask, mStartActivity, mOptions, mTransientLaunch);
             }
@@ -1903,7 +1903,7 @@ boolean resumeFocusedTasksTopActivities(
                 result |= resumeHomeActivity(null /* prev */, "no-focusable-task",
                                              display.getDefaultTaskDisplayArea());
             }
-            
+
         }
 
         return result;
@@ -1921,18 +1921,18 @@ boolean resumeTopActivityUncheckedLocked(ActivityRecord prev, ActivityOptions op
 private boolean resumeTopActivityInnerLocked(ActivityRecord prev, ActivityOptions options,
             boolean deferPause) {
         ...
-        
+
         mTaskSupervisor.startSpecificActivity(next, true, true);
         ...
 
         return true;
     }
 
-~~~
+```
 
 ​	接下来startProcessAsync判断目标Activity的应用是否在运行，在运行的则直接启动，否则启动新进程。
 
-~~~java
+```java
 void startSpecificActivity(ActivityRecord r, boolean andResume, boolean checkConfig) {
         // Is this activity's application already running?
         final WindowProcessController wpc =
@@ -1959,11 +1959,11 @@ void startSpecificActivity(ActivityRecord r, boolean andResume, boolean checkCon
         final boolean isTop = andResume && r.isTopRunningActivity();
         mService.startProcessAsync(r, knownToBeDead, isTop, isTop ? "top-activity" : "activity");
     }
-~~~
+```
 
 ​	我们主要关注开启一个新应用的流程，所以这里只追踪startProcessAsync调用即可。
 
-~~~java
+```java
 void startProcessAsync(ActivityRecord activity, boolean knownToBeDead, boolean isTop,
             String hostingType) {
         try {
@@ -1981,11 +1981,11 @@ void startProcessAsync(ActivityRecord activity, boolean knownToBeDead, boolean i
             Trace.traceEnd(TRACE_TAG_WINDOW_MANAGER);
         }
     }
-~~~
+```
 
 ​	上面开启新进程的代码是异步发送消息给了ActivityManagerService。找到AMS中对应的startProcess
 
-~~~java
+```java
 @Override
         public void startProcess(String processName, ApplicationInfo info, boolean knownToBeDead,
                 boolean isTop, String hostingType, ComponentName hostingName) {
@@ -2027,13 +2027,13 @@ boolean startProcessLocked(ProcessRecord app, HostingRecord hostingRecord,
         	...
             // the PID of the new process, or else throw a RuntimeException.
             final String entryPoint = "android.app.ActivityThread";
-			
+
             return startProcessLocked(hostingRecord, entryPoint, app, uid, gids,
                     runtimeFlags, zygotePolicyFlags, mountExternal, seInfo, requiredAbi,
                     instructionSet, invokeWith, startTime);
     }
 
-// 
+//
 boolean startProcessLocked(HostingRecord hostingRecord, String entryPoint, ProcessRecord app,
             int uid, int[] gids, int runtimeFlags, int zygotePolicyFlags, int mountExternal,
             String seInfo, String requiredAbi, String instructionSet, String invokeWith,
@@ -2047,7 +2047,7 @@ boolean startProcessLocked(HostingRecord hostingRecord, String entryPoint, Proce
                                            startSeq, false);
             ...
     		return app.getPid() > 0;
-        
+
     }
 
 // 继续查看startProcess
@@ -2100,7 +2100,7 @@ private Process.ProcessStartResult startProcess(HostingRecord hostingRecord, Str
             return startResult;
     }
 
-~~~
+```
 
 ​	这里我们看到了zygote有三种类型，根据启动的应用信息使用不同类型的zygote来启动。
 
@@ -2112,7 +2112,7 @@ private Process.ProcessStartResult startProcess(HostingRecord hostingRecord, Str
 
 ​	三种zygote类型的启动流程差不多的，所以我们看常规进程启动即可。首先看getProcess返回的是什么类型
 
-~~~java
+```java
 public ChildZygoteProcess getProcess() {
         synchronized (mLock) {
             if (mZygote != null) return mZygote;
@@ -2121,29 +2121,29 @@ public ChildZygoteProcess getProcess() {
             return mZygote;
         }
     }
-~~~
+```
 
 ​	所以我们应该找ChildZygoteProcess的start函数，然后找到类定义后，发现没有start，那么应该就是父类中的实现。
 
-~~~java
+```java
 public class ChildZygoteProcess extends ZygoteProcess {
     private final int mPid;
-    
+
     ChildZygoteProcess(LocalSocketAddress socketAddress, int pid) {
         super(socketAddress, null);
         mPid = pid;
     }
-    
+
     public int getPid() {
         return mPid;
     }
 }
 
-~~~
+```
 
 ​	继续找到父类ZygoteProcess的start函数，参数太长，这里省略掉参数的描述
 
-~~~java
+```java
 public final Process.ProcessStartResult start(...) {
         ...
         return startViaZygote(processClass, niceName, uid, gid, gids,
@@ -2230,13 +2230,13 @@ private Process.ProcessStartResult attemptZygoteSendArgsAndGetResult(
             throw new ZygoteStartFailedEx(ex);
         }
     }
-~~~
+```
 
 ​	那么到这里，我们回首看看前文中介绍ZygoteServer启动进程的流程，我们当时看到执行到最后是findStaticMain函数，是获取一个类名下的main函数，并返回后进行调用。然后现在我们启动进程时，在startProcessLocked函数中能看到类名赋值是android.app.ActivityThread，所以这里和ZygoteServer进行通信创建线程，最后调用的函数就是android.app.ActivityThread中的main函数。这样一来，启动流程就衔接上了。
 
 ​	ActivityThread是Android应用程序运行的UI主线程，负责处理应用程序的所有生命周期事件，接收系统消息并处理它们，main函数就是安卓应用的入口函数。prepareMainLooper函数将实例化一个Looper对象，然后由Looper对象创建一个消息队列，当loop函数调用时，UI线程就会进入消息循环，不断从消息队列获取到消息去进行相应的处理。
 
-~~~java
+```java
 public static void main(String[] args) {
     	...
         Looper.prepareMainLooper();
@@ -2257,11 +2257,11 @@ private void attach(boolean system, long startSeq) {
         mgr.attachApplication(mAppThread, startSeq);
         ...
     }
-~~~
+```
 
 ​	我们先看看这个loop函数，在这里直接是一个死循环进行loopOnce调用
 
-~~~java
+```java
 public static void loop() {
         ...
         for (;;) {
@@ -2270,11 +2270,11 @@ public static void loop() {
             }
         }
     }
-~~~
+```
 
 ​	继续看看loopOnce的实现，看到了从队列中获取一条消息，并且将消息派发给对应的Handler来执行。
 
-~~~java
+```java
 private static boolean loopOnce(final Looper me,
             final long ident, final int thresholdOverride) {
         Message msg = me.mQueue.next(); // might block
@@ -2283,25 +2283,25 @@ private static boolean loopOnce(final Looper me,
             return false;
         }
 		...
-        msg.target.dispatchMessage(msg); 
+        msg.target.dispatchMessage(msg);
         ...
         return true;
     }
-~~~
+```
 
 ​	对应的消息处理的Handler就是前面在入口函数main中看到的sMainThreadHandler对象前面看到是通过getHandler函数获取的，我们跟进去寻找具体的对象。
 
-~~~java
+```java
 public Handler getHandler() {
         return mH;
     }
 // 继续查看mH是如何赋值，找到代码如下。
 final H mH = new H();
-~~~
+```
 
 ​	找到的这个H类型就是对应的主线程消息处理Handler了。我们看看相关实现。
 
-~~~java
+```java
 class H extends Handler {
         public static final int BIND_APPLICATION        = 110;
         @UnsupportedAppUsage
@@ -2337,11 +2337,11 @@ class H extends Handler {
             ...
         }
     }
-~~~
+```
 
 ​	接着我们再回头看看attch中的处理，mgr就是AMS，所以来到ActivityManagerService查看attachApplication
 
-~~~java
+```java
 public final void attachApplication(IApplicationThread thread, long startSeq) {
         if (thread == null) {
             throw new SecurityException("Invalid application interface");
@@ -2391,11 +2391,11 @@ private boolean attachApplicationLocked(@NonNull IApplicationThread thread,
             }
 			...
     }
-~~~
+```
 
 ​	最后重新调用回ActivityThread的bindApplication，继续跟进去查看
 
-~~~java
+```java
 public final void bindApplication(...) {
             ...
             AppBindData data = new AppBindData();
@@ -2421,11 +2421,11 @@ public final void bindApplication(...) {
             data.mSerializedSystemFontMap = serializedSystemFontMap;
             sendMessage(H.BIND_APPLICATION, data);
         }
-~~~
+```
 
 ​	这时AppBindData数据初始化完成了，最后发送消息BIND_APPLICATION通知准备就绪，并将准备好的数据发送过去，接着我们查看消息循环的处理部分handleMessage函数，看这个数据传给哪个函数处理了。
 
-~~~java
+```java
 public void handleMessage(Message msg) {
             if (DEBUG_MESSAGES) Slog.v(TAG, ">>> handling: " + codeToString(msg.what));
             switch (msg.what) {
@@ -2437,11 +2437,11 @@ public void handleMessage(Message msg) {
                     break;
              ...
 }
-~~~
+```
 
 ​	发现调用到了handleBindApplication，继续追踪这个函数
 
-~~~java
+```java
 private void handleBindApplication(AppBindData data) {
         ...
         //前面准备好的data数据赋值给了mBoundApplication
@@ -2486,7 +2486,7 @@ public Application makeApplication(boolean forceDefaultAppClass,
 
 // 继续看newApplication的实现
 static public Application newApplication(Class<?> clazz, Context context)
-            throws InstantiationException, IllegalAccessException, 
+            throws InstantiationException, IllegalAccessException,
             ClassNotFoundException {
         Application app = (Application)clazz.newInstance();
         // 最后发现调用了attach
@@ -2494,16 +2494,16 @@ static public Application newApplication(Class<?> clazz, Context context)
         return app;
     }
 
-~~~
+```
 
 ​	在上面我们看到了Context的创建和Application的创建，最后我们继续看看怎么调用到自己开发的app中的onCreate的，继续追踪callApplicationOnCreate的实现
 
-~~~java
+```java
 public void callApplicationOnCreate(Application app) {
     	...
         app.onCreate();
     }
-~~~
+```
 
 ​	到这里我们成功跟踪到最后调用app应用的onCreate函数，并且发现为什么很多人喜欢hook attach函数，因为在Application创建出来最早先调用了这个函数，所以这里是一个较早hook时机。下面是结合我们跟踪的代码总结的简单的启动流程图。
 
@@ -2521,13 +2521,13 @@ TODO 流程图
 
 ​	除了AMS外，也有其他重要的Service为Android应用提供基础的功能，下面简单介绍这些常用的Service。
 
-​	 WindowManagerService是Android系统中一个非常重要的服务，它主要功能是负责管理系统上所有窗口的显示和操作，包括管理全屏窗口、小窗口、弹窗、菜单和其他应用程序的窗口，使窗口在手机屏幕上正确的显示。 它包括以下几个部分： 
+​	 WindowManagerService是Android系统中一个非常重要的服务，它主要功能是负责管理系统上所有窗口的显示和操作，包括管理全屏窗口、小窗口、弹窗、菜单和其他应用程序的窗口，使窗口在手机屏幕上正确的显示。 它包括以下几个部分：
 
-​	1、布局管理器：负责管理系统中所有窗口的位置和大小，实现窗口的移动、调整大小、切换窗口等功能。 
+​	1、布局管理器：负责管理系统中所有窗口的位置和大小，实现窗口的移动、调整大小、切换窗口等功能。
 
-​	2、窗口管理器：负责管理系统中所有窗口的显示和操作，比如添加、移除、隐藏、显示窗口，以及设置窗口的属性如背景、边框、大小等。 
+​	2、窗口管理器：负责管理系统中所有窗口的显示和操作，比如添加、移除、隐藏、显示窗口，以及设置窗口的属性如背景、边框、大小等。
 
-​	3、动画管理器：负责实现窗口的过渡动画，比如淡入淡出、缩放、旋转等。 
+​	3、动画管理器：负责实现窗口的过渡动画，比如淡入淡出、缩放、旋转等。
 
 ​	4、事件处理器：负责处理窗口上的触摸、按键等事件，实现窗口的响应功能。
 
@@ -2557,9 +2557,9 @@ TODO 流程图
 
 ​	InputMethodManagerService是Android系统中输入法服务的核心，它负责处理用户输入，管理输入法状态，以及向应用程序提供输入服务。
 
-​	1、输入法管理：负责管理当前输入法，它可以安装、卸载和更新输入法，还可以管理系统的输入法开关，以及支持多种输入法语言切换。 
+​	1、输入法管理：负责管理当前输入法，它可以安装、卸载和更新输入法，还可以管理系统的输入法开关，以及支持多种输入法语言切换。
 
-​	2、 输入法状态管理：管理输入法的状态，包括输入法最近使用的语言，以及输入法当前输入的内容和应用程序上下文。 
+​	2、 输入法状态管理：管理输入法的状态，包括输入法最近使用的语言，以及输入法当前输入的内容和应用程序上下文。
 
 ​	3、输入服务：可以通过服务接口为应用程序提供输入服务，例如，应用程序可以通过它来访问输入法的当前状态和内容，以及实时输入的文本内容。
 
@@ -2583,35 +2583,35 @@ TODO 流程图
 
 ​	1、负责管理Android系统的输入设备，如触摸屏、虚拟按键、键盘、轨迹球等。
 
-​	2、会将输入事件传递给应用程序，以便处理和响应。 
+​	2、会将输入事件传递给应用程序，以便处理和响应。
 
-​	3、负责输入设备的管理和控制，能够根据应用程序的需求，对输入设备进行调整和控制。 
+​	3、负责输入设备的管理和控制，能够根据应用程序的需求，对输入设备进行调整和控制。
 
 ​	4、负责处理Android系统中所有输入事件，并将处理结果传递给相应的应用程序。
 
-​	AlarmManagerService负责处理所有系统定时任务，如闹钟，定时器等。它可以安排可执行的任务，使它们在指定的时刻开始执行。 
+​	AlarmManagerService负责处理所有系统定时任务，如闹钟，定时器等。它可以安排可执行的任务，使它们在指定的时刻开始执行。
 
-​	1、监控系统中的各种时间事件，以执行指定的任务。 
+​	1、监控系统中的各种时间事件，以执行指定的任务。
 
 ​	2、可以安排可执行的任务，使它们在指定的时刻开始执行。
 
-​	3、可以发送唤醒广播，以启动指定的服务或应用程序。 
+​	3、可以发送唤醒广播，以启动指定的服务或应用程序。
 
-​	4、可以安排周期性的任务，可以在指定的时间间隔内重复执行指定的任务。 
+​	4、可以安排周期性的任务，可以在指定的时间间隔内重复执行指定的任务。
 
-​	5、可以用于处理设备睡眠、唤醒等系统状态切换。 
+​	5、可以用于处理设备睡眠、唤醒等系统状态切换。
 
 ​	6、可以按照特定的时间间隔定期更新设备的时间。
 
-​	NetworkManagementService是Android操作系统中的一种网络管理服务。它是Android操作系统的一部分，用于控制和管理Android系统中的网络连接，并且能够在不同的网络之间进行切换。 
+​	NetworkManagementService是Android操作系统中的一种网络管理服务。它是Android操作系统的一部分，用于控制和管理Android系统中的网络连接，并且能够在不同的网络之间进行切换。
 
-​	1、能够检查和管理手机的网络状态，能够监控网络设备的连接状态，如WiFi、蓝牙、移动数据等，能够有效地检测当前手机所连接的网络信息和状态，并进行相应的网络状态管理。  	
+​	1、能够检查和管理手机的网络状态，能够监控网络设备的连接状态，如WiFi、蓝牙、移动数据等，能够有效地检测当前手机所连接的网络信息和状态，并进行相应的网络状态管理。
 
-​	2、能够为Android系统中的应用提供网络接入服务，提供网络连接状态的反馈，以及网络设备连接状态的反馈，以便应用能够更好的控制网络连接。  
+​	2、能够为Android系统中的应用提供网络接入服务，提供网络连接状态的反馈，以及网络设备连接状态的反馈，以便应用能够更好的控制网络连接。
 
-​	3、能够实现网络连接的切换，并且能够在不同的网络之间进行切换，从而实现最优路由，有效地提升网络性能和体验。 
+​	3、能够实现网络连接的切换，并且能够在不同的网络之间进行切换，从而实现最优路由，有效地提升网络性能和体验。
 
-​	4、能够实现网络安全管理，可以针对不同的网络设备进行安全管理，以防止网络攻击，保护系统的安全性。  
+​	4、能够实现网络安全管理，可以针对不同的网络设备进行安全管理，以防止网络攻击，保护系统的安全性。
 
 ​	5、能够实现网络信息的统计和分析，可以统计网络设备的使用情况，并对其进行分析，以便对网络的管理更加有效。
 
@@ -2642,7 +2642,7 @@ TODO 流程图
 
 ​	可以看到前文中的各种系统服务就是属于Framework中的一部分，但是用户层并不能直接的访问系统服务提供的功能，而是通过各服务对应的管理器来对系统服务进行调用。接下来我们开始跟踪，在开发应用中当我们调用一个系统服务提供的功能时发生了哪些调用，使用Android Studio创建一个项目，添加如下代码。
 
-~~~java
+```java
 protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -2656,11 +2656,11 @@ protected void onCreate(Bundle savedInstanceState) {
         int state= tm.getCallState();//int
         Log.i("MainActivity","phone state "+state);
     }
-~~~
+```
 
 ​	通过getSystemService函数提供了一个系统服务的名称，获取到了对应系统服务对应管理器，通过调用管理器的函数来触发对应系统服务的功能，我们看看具体是如何获取到系统服务的。我们找到Android源码中Activity.java文件。
 
-~~~java
+```java
 public Object getSystemService(@ServiceName @NonNull String name) {
         if (getBaseContext() == null) {
             throw new IllegalStateException(
@@ -2675,11 +2675,11 @@ public Object getSystemService(@ServiceName @NonNull String name) {
         }
         return super.getSystemService(name);
     }
-~~~
+```
 
 ​	如果是WINDOW_SERVICE或者SEARCH_SERVICE就快速的返回对应的管理器了，其他系统服务则继续调用父类的函数。Activity继承自ContextThemeWrapper，找到对应实现代码如下。
 
-~~~java
+```java
 public Object getSystemService(String name) {
         if (LAYOUT_INFLATER_SERVICE.equals(name)) {
             if (mInflater == null) {
@@ -2689,20 +2689,20 @@ public Object getSystemService(String name) {
         }
         return getBaseContext().getSystemService(name);
     }
-~~~
+```
 
 ​	找到ContextImpl中的对应实现
 
-~~~java
+```java
 public Object getSystemService(String name) {
         ...
         return SystemServiceRegistry.getSystemService(this, name);
     }
-~~~
+```
 
 ​	继续查看SystemServiceRegistry中的实现
 
-~~~java
+```java
 public static Object getSystemService(ContextImpl ctx, String name) {
         if (name == null) {
             return null;
@@ -2718,22 +2718,22 @@ public static Object getSystemService(ContextImpl ctx, String name) {
         ...
         return ret;
     }
-~~~
+```
 
 ​	发现服务是从SYSTEM_SERVICE_FETCHERS中获取出来，然后返回的。所以我们看看这个对象的值是如何插进去的。搜索该对象的put函数调用处找到相关函数如下。
 
-~~~java
+```java
 private static <T> void registerService(@NonNull String serviceName,
             @NonNull Class<T> serviceClass, @NonNull ServiceFetcher<T> serviceFetcher) {
         SYSTEM_SERVICE_NAMES.put(serviceClass, serviceName);
         SYSTEM_SERVICE_FETCHERS.put(serviceName, serviceFetcher);
         SYSTEM_SERVICE_CLASS_NAMES.put(serviceName, serviceClass.getSimpleName());
     }
-~~~
+```
 
 ​	从名字就能看的出来，这是一个注册系统服务的函数，现在我们知道了想要查找到一个系统服务，必须通过registerService函数注册。顺着这个函数，我们找到了在SystemServiceRegistry类中进行了大量的系统服务注册，如果我们添加一个自定义的系统服务，同样也是需要在这里进行系统服务的注册。接着我们看看TelephonyManager中getCallState函数的实现
 
-~~~java
+```java
 public @CallState int getCallState() {
         if (mContext != null) {
             TelecomManager telecomManager = mContext.getSystemService(TelecomManager.class);
@@ -2743,11 +2743,11 @@ public @CallState int getCallState() {
         }
         return CALL_STATE_IDLE;
     }
-~~~
+```
 
 ​	这里又通过另一个管理器进行的函数调用，继续跟进去
 
-~~~java
+```java
 public @CallState int getCallState() {
         ITelecomService service = getTelecomService();
         if (service != null) {
@@ -2760,11 +2760,11 @@ public @CallState int getCallState() {
         }
         return TelephonyManager.CALL_STATE_IDLE;
     }
-~~~
+```
 
 ​	然后就看到了，管理器并不负责业务相关的处理，主要是调用对应的系统服务来获取结果。继续查看getCallStateUsingPackage函数实现
 
-~~~java
+```java
 public int getCallStateUsingPackage(String callingPackage, String callingFeatureId) {
             try {
                 Log.startSession("TSI.getCallStateUsingPackage");
@@ -2785,19 +2785,19 @@ public int getCallStateUsingPackage(String callingPackage, String callingFeature
                 Log.endSession();
             }
         }
-~~~
+```
 
 ​	在系统服务中就看到了管理状态相关的具体业务代码了，继续观察getCallStae的实现
 
-~~~java
+```java
 int getCallState() {
         return mPhoneStateBroadcaster.getCallState();
     }
-~~~
+```
 
 ​	最后是由PhoneStateBroadcaster对象维护着电话的状态信息了，PhoneStateBroadcaster是Android中的一个系统广播机制，它用于在电话状态发生变化时发出通知，以便其他组件和应用程序能够接收和处理这些变化。它可以发出包括新来电，挂断电话，拨号等状态变化的通知，以使系统中的其他组件能够更新和处理这些变化。PhoneStateBroadcaster还提供了一些其他的功能，例如电话状态监控，用于检测电话状态的变化，以便能够及时响应。简单的贴一下相关的代码如下。
 
-~~~java
+```java
 final class PhoneStateBroadcaster extends CallsManagerListenerBase {
 	...
     @Override
@@ -2847,7 +2847,7 @@ final class PhoneStateBroadcaster extends CallsManagerListenerBase {
     int getCallState() {
         return mCurrentState;
     }
-    
+
     private void sendPhoneStateChangedBroadcast(Call call, int phoneState) {
         if (phoneState == mCurrentState) {
             return;
@@ -2859,7 +2859,7 @@ final class PhoneStateBroadcaster extends CallsManagerListenerBase {
 	...
 }
 
-~~~
+```
 
 ## 3.9 了解libcore
 
@@ -2880,7 +2880,7 @@ final class PhoneStateBroadcaster extends CallsManagerListenerBase {
 
 ​	在Android应用程序开发中，ojluni子库也是非常重要的一部分，它提供了Java语言的核心类和接口，以及Java集合类和I/O类等，在使用Java标准库时需要注意一些Android系统特殊性的修改。我们可以通过在这里阅读和修改openjdk中的实现，或添加一些目录和类为我们开发定制功能提供便利。下面我们用tree命令展开目录的树状图。
 
-~~~
+```
 tree ./libcore/ojluni/src/main/java/ -d
 
 ├── com
@@ -2994,7 +2994,7 @@ tree ./libcore/ojluni/src/main/java/ -d
         │   └── provider
         ├── logging
         └── resources
-~~~
+```
 
 ## 3.11 了解sepolicy
 
@@ -3035,10 +3035,10 @@ tree ./libcore/ojluni/src/main/java/ -d
 
 ​	对安全策略有一个大致的了解后，我们先看一个简单的例子，找到文件`./system/sepolicy/public/adbd.te`
 
-~~~
+```
 type adbd, domain;
 allow adbd shell_test_data_file:dir create_dir_perms;
-~~~
+```
 
 ​	这里使用了三个类型：
 
@@ -3052,16 +3052,16 @@ allow adbd shell_test_data_file:dir create_dir_perms;
 
 ​	通常情况下我是采用按需修改的方式调整安全策略，当添加的功能被安全策略拦住时，会打印提示。例如当我在文件`com_android_internal_os_Zygote.cpp`的`SpecializeCommon`函数中加入如下代码，访问data目录。
 
-~~~cpp
+```cpp
 std::string filepath="/data/app/demo";
 ReadFileToString(filepath,&file_contents)
-~~~
+```
 
 ​	然后就会被selinux给拦截并提示警告信息如下
 
-~~~
+```
 avc: denied { search } for name="app" dev="dm-8" ino=100 scontext=u:r:zygote:s0 tcontext=u:object_r:apk_data_file:s0 tclass=dir permissive=0
-~~~
+```
 
 ​	在SELinux中，`avc: denied`是出现最频繁的提示之一，表示SELinux权限被拒绝的操作。给出的操作名在花括号中。如果提示被拒绝的进程、文件或目录有更多的上下文信息。
 
@@ -3105,7 +3105,7 @@ scontext和tcontext中的“u”，“r”和“s0”是安全上下文标记的
 
 ​	我们可以通过命令`ps -eZ`来查看进程的scontext。
 
-~~~
+```
 ps -eZ
 
 u:r:servicemanager:s0          system         672     1 10860740  3784 SyS_epoll+          0 S servicemanager
@@ -3113,29 +3113,29 @@ u:r:hwservicemanager:s0        system         673     1 10880928  4648 SyS_epoll
 u:r:kernel:s0                  root           674     2       0      0 worker_th+          0 S [kworker/7:1H]
 u:r:vndservicemanager:s0       system         675     1 10813436  2884 SyS_epoll+          0 S vndservicemanager
 u:r:kernel:s0                  root           676     2       0      0 kthread_w+          0 S [psimon]
-~~~
+```
 
 ​	可以通过命令`ls -Z`来查看文件的scontext
 
-~~~
+```
 cd /data/app
 ls -Z -all
 
 drwxrwxr-x  3 system system u:object_r:apk_data_file:s0          3488 2023-02-26 21:50:57.968696920 +0800 ~~QZ-rYHaywe6nr2ryYn3UoQ==
 drwxrwxr-x  3 system system u:object_r:apk_data_file:s0          3488 2023-03-02 22:12:29.802016689 +0800 ~~W9dmzmphiDsjJm79RiBwdg==
-~~~
+```
 
 ​	现在我们可以重新对下面的这个提示进行一次解读了。selinux拒绝搜索一个目录，目录名称为app，所在设备为dm-8，被拒绝的进程上下文特征是`u:r:zygote:s0`，角色是zygote，目标文件上下文特征是`u:object_r:apk_data_file:s0`，用户级别为object_r，文件的所属类型是apk_data_file，表示应用程序的数据文件。tclass表示请求对象的类型，dir为适用于目录，file表示适用于文件
 
-~~~
+```
 avc: denied { search } for name="app" dev="dm-8" ino=100 scontext=u:r:zygote:s0 tcontext=u:object_r:apk_data_file:s0 tclass=dir permissive=0
-~~~
+```
 
 ​	解读完成后我们可以开始调整安全策略了，找到文件`system/sepolicy/private/zygote.te`，然后添加策略如下
 
-~~~
+```
 allow zygote apk_data_file:dir search;
-~~~
+```
 
 ​	修改完成后编译时，会报错，提示diff对比文件时发现内容不一致。最后再将文件`system/sepolicy/prebuilts/api/31.0/private/zygote.te`下添加相同的策略即可成功编译。
 
@@ -3143,7 +3143,7 @@ allow zygote apk_data_file:dir search;
 
 ​	有时我们按照警告信息提示，添加了对应策略后无法编译通过提示违反了neverallow。这种情况我们可以找到对应的neverallow，进行修改添加一个白名单来放过我们添加的规则。例如下面这个例子
 
-~~~
+```
   neverallow {
     coredomain
     -fsck
@@ -3151,7 +3151,7 @@ allow zygote apk_data_file:dir search;
     -ueventd
     -zygote
   } device:{ blk_file file } no_rw_file_perms;
-~~~
+```
 
 ​	这个规则禁止上述进程以可读可写权限读写 `device` 类型的文件，其中-zygote，这种前面带有`-`表示排除掉这种进程，如果被设置了永不允许，只要找到对应的设置处，添加上排除对应进程即可成功编译了。
 
@@ -3332,7 +3332,7 @@ allow zygote apk_data_file:dir search;
 
 ​	以上是Linker动态加载的主要步骤及涉及到的主要逻辑。Linker动态加载是Android操作系统的底层技术之一，对于Android应用开发具有重要作用。接着我们从源码层面跟踪动态加载的具体过程。打开我们前面创建的样例app。
 
-~~~java
+```java
 public class MainActivity extends AppCompatActivity {
     // Used to load the 'linkertest' library on application startup.
     static {
@@ -3341,19 +3341,19 @@ public class MainActivity extends AppCompatActivity {
 	...
     public native String stringFromJNI();
 }
-~~~
+```
 
 ​	在应用层直接通过调用loadLibrary就可以完成一系列的加载动态库的操作了，接着我们看看内部是如何实现的。这里发现是System下的loadLibrary函数，前文有介绍过libcore中存放着openjdk的核心库的实现，而java.lang.System就是其中，我们找到文件`libcore/ojluni/src/main/java/java/lang/System.java`查看函数实现如下。
 
-~~~java
+```java
 public static void loadLibrary(String libname) {
         Runtime.getRuntime().loadLibrary0(Reflection.getCallerClass(), libname);
     }
-~~~
+```
 
 ​	继续在ojluni的目录中搜索loadLibrary0的函数实现
 
-~~~java
+```java
 void loadLibrary0(Class<?> fromClass, String libname) {
         ClassLoader classLoader = ClassLoader.getClassLoader(fromClass);
         loadLibrary0(classLoader, fromClass, libname);
@@ -3368,7 +3368,7 @@ private synchronized void loadLibrary0(ClassLoader loader, Class<?> callerClass,
             if (filename == null &&
                     (loader.getClass() == PathClassLoader.class ||
                      loader.getClass() == DelegateLastClassLoader.class)) {
-                
+
                 filename = System.mapLibraryName(libraryName);
             }
             ...
@@ -3394,11 +3394,11 @@ private static String nativeLoad(String filename, ClassLoader loader) {
 // 三个参数重载的是一个native函数
 private static native String nativeLoad(String filename, ClassLoader loader, Class<?> caller);
 
-~~~
+```
 
 ​	搜索nativeLoad的相关实现如下
 
-~~~c++
+```c++
 // 调用了JVM_NativeLoad
 JNIEXPORT jstring JNICALL
 Runtime_nativeLoad(JNIEnv* env, jclass ignored, jstring javaFilename,
@@ -3406,11 +3406,11 @@ Runtime_nativeLoad(JNIEnv* env, jclass ignored, jstring javaFilename,
 {
     return JVM_NativeLoad(env, javaFilename, javaLoader, caller);
 }
-~~~
+```
 
 ​	JVM_NativeLoad的代码在art目录中，我们继续查看相关实现
 
-~~~cpp
+```cpp
 
 JNIEXPORT jstring JVM_NativeLoad(JNIEnv* env,
                                  jstring javaFilename,
@@ -3515,11 +3515,11 @@ bool JavaVMExt::LoadNativeLibrary(JNIEnv* env,
   return was_successful;
 }
 
-~~~
+```
 
 ​	在这个函数中，我们看到了使用OpenNativeLibrary来加载一个动态库，然后将加载动态库的信息包装成SharedLibrary对象，存入`libraries_`中，下次再加载时，会在`libraries_`查看是否存在，存在则直接返回。接着又通过函数FindSymbol查找JNI_OnLoad的符号地址，然后进行调用。接下来我们先继续跟踪加载动态库的具体实现，然后再回头看看查找符号的实现。
 
-~~~cpp
+```cpp
 
 
 void* OpenNativeLibrary(JNIEnv* env, int32_t target_sdk_version, const char* path,
@@ -3575,7 +3575,7 @@ void* OpenNativeLibrary(JNIEnv* env, int32_t target_sdk_version, const char* pat
   return nullptr;
 #endif
 }
-~~~
+```
 
 ​	在这里函数看到，使用多种方式尝试进行动态加载，分别是android_dlopen_ext、TryLoadNativeloaderExtraLib、OpenSystemLibrary。它们都是在 Android 平台上用来加载动态库的方法，但是它们各自的使用场景略有不同：
 
@@ -3587,16 +3587,16 @@ void* OpenNativeLibrary(JNIEnv* env, int32_t target_sdk_version, const char* pat
 
 ​	我们选一条路线分析即可，这里继续从android_dlopen_ext深入分析，该函数的相关代码在libdl.cpp中实现。
 
-~~~cpp
+```cpp
 void* android_dlopen_ext(const char* filename, int flag, const android_dlextinfo* extinfo) {
   const void* caller_addr = __builtin_return_address(0);
   return __loader_android_dlopen_ext(filename, flag, extinfo, caller_addr);
 }
-~~~
+```
 
 ​	继续跟踪文件dlfcn.cpp中的实现
 
-~~~cpp
+```cpp
 void* __loader_android_dlopen_ext(const char* filename,
                            int flags,
                            const android_dlextinfo* extinfo,
@@ -3618,11 +3618,11 @@ static void* dlopen_ext(const char* filename,
   }
   return result;
 }
-~~~
+```
 
 ​	到这里do_dlopen则执行到了Linker部分的实现了，找到linker.cpp文件查看
 
-~~~cpp
+```cpp
 
 void* do_dlopen(const char* name, int flags,
                 const android_dlextinfo* extinfo,
@@ -3645,11 +3645,11 @@ void* do_dlopen(const char* name, int flags,
   }
   return nullptr;
 }
-~~~
+```
 
 ​	这里看到通过find_library进行查找的，找到后又调用了call_constructors函数。我们先看看call_constructors函数的处理。
 
-~~~cpp
+```cpp
 
 void soinfo::call_constructors() {
   if (constructors_called || g_is_ldd) {
@@ -3660,11 +3660,11 @@ void soinfo::call_constructors() {
   call_array("DT_INIT_ARRAY", init_array_, init_array_count_, false, get_realpath());
   ...
 }
-~~~
+```
 
 ​	根据上面代码发现这里就是.init和.initarray执行的地方，接着我们再继续看看加载的流程。
 
-~~~cpp
+```cpp
 
 static soinfo* find_library(android_namespace_t* ns,
                             const char* name, int rtld_flags,
@@ -3799,7 +3799,7 @@ bool read(const char* realpath, off64_t file_size) {
     ElfReader& elf_reader = get_elf_reader();
     return elf_reader.Read(realpath, fd_, file_offset_, file_size);
   }
-~~~
+```
 
 ​	ElfReader是Android源文件中的工具，位于系统核心库libcore中，代码主要由 C++ 编写。它可以读取ELF文件的所有信息，并将其解析为指定格式，以便于在Android系统中使用。
 

@@ -90,17 +90,17 @@
 
 ​	首先我们找到一个新的壁纸素材命令为`new_wallpaper.png`，然后放到目录`frameworks/base/core/res/res/drawable-nodpi/`下，并且在res目录下的`values/symbols.xml`中添加相应的配置。
 
-~~~
+```
 ...
 <!-- 在default_wallpaper下面添加一条新数据 -->
 <java-symbol type="drawable" name="default_wallpaper" />
 <java-symbol type="drawable" name="new_wallpaper" />
 ...
-~~~
+```
 
 接下来我们先看看源码了解一下壁纸设置的关键逻辑。
 
-~~~java
+```java
 public class WallpaperManager {
     ...
     private static final String PROP_WALLPAPER = "ro.config.wallpaper";
@@ -152,7 +152,7 @@ public class WallpaperManager {
         }
         return null;
     }
-    
+
     private static String getCmfWallpaperPath() {
         return Environment.getProductDirectory() + WALLPAPER_CMF_PATH + "default_wallpaper_"
                 + VALUE_CMF_COLOR;
@@ -160,7 +160,7 @@ public class WallpaperManager {
     ...
 }
 
-~~~
+```
 
 ​	从源码中看到可以从三个地方获取默认壁纸，同样想要修改也能从这三个方式着手，比如添加一个属性设置默认壁纸路径，或者修改cmfpath的路径设置默认壁纸，最后就是修改资源文件名来设置默认壁纸。这里我们采用的是最后一种。
 
