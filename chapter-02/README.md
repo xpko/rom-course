@@ -2,11 +2,11 @@
 
 ## 2.1 重新看待系统定制
 
-  经过第一章的学习，对AOSP定制进行简略的了解后，相信这时，在读者的心中已经对系统定制开发有了大致的理解。简单来说，所谓的系统定制，相当于在一款成熟的产品上进行二次开发。和我们二次开发其他软件项目的学习步骤不会有太大的出入，细节的区别就在于Android源码相比其他软件项目要更加庞大。
+​	经过第一章的学习，对AOSP定制进行简略的介绍后，相信此时，系统定制开发这个领域，在读者的心中会有大致的了解。简单来说，所谓的系统定制，相当于在一款成熟的产品上进行二次开发。和常见的软件项目的二次开发的学习步骤类似，不会有太大的出入，细节的区别就在于，Android源码相比其他软件项目要更加庞大复杂，修改编译以及测试系统所花费的时间周期更长。
 
-​	尽管Android源码非常庞大，但对于初学者，并不需要完整的吃透所有代码。重要的是学会分析的思路，学会看代码，了解Android的部分运行原理，然后思考如何达到自己的目的，最后自已去尝试实现。
+​	尽管Android源码结构非常庞大，但对于初学者，并不需要完整的吃透所有代码。重点的是，掌握系统代码分析的思路，阅读理解工程的整体结构，了解Android系统框架的运行原理，结合思考与实践，达到自定义定制的目标。
 
-​	学习的流程和我们二次开发其他应用一样，第一步是要了解如何将项目成功编译并运行。这一章将详细讲解在各种不同的环境下，我们应该如何编译Android源码，并将其刷入手机中。
+​	学习的流程需要循序渐进，有的放矢，以免迷失在纷繁复杂的代码海洋中。通常，第一步需要了解如何将整个系统项目成功编译并刷机。这一章将详细讲解在各种不同的环境下，我们应该如何编译Android源码，并将其刷入手机中。
 
 ## 2.2 环境准备
 
@@ -609,7 +609,7 @@ vim ./android.iml
 ~~~
 // 设置环境变量,在编译时生成CMakeLists.txt文件
 export SOONG_GEN_CMAKEFILES=1
-export SOONG_GEN_CMAKEFILES_DEBUG=1 
+export SOONG_GEN_CMAKEFILES_DEBUG=1
 
 // 正常编译一次
 cd ~/aosp12
@@ -757,7 +757,7 @@ sudo apt-get install -y curl openssh-server ca-certificates
 sudo apt-get install -y postfix
 
 // 信任gitlab的GPG公钥
-curl https://packages.gitlab.com/gpg.key 2> /dev/null | sudo apt-key add - &>/dev/null  
+curl https://packages.gitlab.com/gpg.key 2> /dev/null | sudo apt-key add - &>/dev/null
 
 // 添加gitlab的源
 vim /etc/apt/sources.list.d/gitlab-ce.list
@@ -840,7 +840,7 @@ vim default.xml
 
 //修改内容如下
 <manifest>
-  
+
   // 修改name为orgin，修改review为我们自己的服务器地址
   <remote  name="origin"
            fetch=".."
@@ -856,7 +856,7 @@ vim default.xml
 </manifest>
 
 //保存上面的修改,然后提交到仓库
-git init 
+git init
 git remote add origin git@192.168.2.189:android12_r3/manifest.git
 git add . && git commit -m "init"
 git push
@@ -917,7 +917,7 @@ def create_group_and_project():
         print("paths=" + str(paths))
 
         last_path_index = len(paths) - 1
-		
+
         group = group_parent
         for index in range(0, last_path_index):
             p = paths[index]
@@ -1027,7 +1027,7 @@ def parse_repo_manifest():
 
     print("manifest_xml_project_paths=" + str(manifest_xml_project_paths))
     print("manifest_xml_project_paths len=" + str(len(manifest_xml_project_paths)))
-    
+
 # 上传源码
 def push_source_code_by_folder(str_writer):
     # 遍历所有路径
@@ -1038,7 +1038,7 @@ def push_source_code_by_folder(str_writer):
         if os.path.exists(abs_path):
             # change current work dir
             os.chdir(abs_path + "/")
-            # 1\. delete .git & .gitignore folder 
+            # 1\. delete .git & .gitignore folder
             rm_git_cmd = "rm -rf .git"
             rm_gitignore_cmd = "rm -rf .gitignore"
             os.system(rm_git_cmd)
@@ -1130,7 +1130,7 @@ repo init -u git@192.168.2.189:android12_r3/manifest.git --repo-url=git@192.168.
 // 出现了下面的错误
 repo: error: unable to resolve "stable"
 fatal: double check your --repo-rev setting.
-fatal: cloning the git-repo repository failed, will remove '.repo/repo' 
+fatal: cloning the git-repo repository failed, will remove '.repo/repo'
 
 // 然后我们修改使用master分支，再重新执行上面的repo init命令
 export REPO_REV=refs/heads/master
@@ -1144,13 +1144,13 @@ repo sync -j8
 ​	在同步的过程中，出现了两个问题。首先第一个是出现如下错误
 
 ~~~
-remote: 
+remote:
 remote: ========================================================================
-remote: 
+remote:
 remote: The project you were looking for could not be found or you don't have permission to view it.
-remote: 
+remote:
 remote: ========================================================================
-remote: 
+remote:
 fatal: 无法读取远程仓库。
 
 请确认您有正确的访问权限并且仓库存在。
@@ -1212,7 +1212,7 @@ repo sync -j8
 
 ​	到这里就完成了gitlab源码管理android源码开发了。最后如何使用git提交和查看历史记录我就不在这里叙述了。
 
-## 2.10 小结 
+## 2.10 小结
 
 ​	在这一章里，主要讲述了如何从零开始搭建一个编译Android源码的环境，以及如何选择编译的版本和完整的编译Android源码并使用自己编译的内核，然后将这个我们编译好的镜像尝试多种方式刷入测试手机中。为了后续开发和阅览代码的便利，又讲述了如何使用Android Studio和Clion导入源码。最后为了便于长期维护和持续性的开发，我们又搭建了gitlab+repo管理Android源码。终于将一切准备就绪了。
 
