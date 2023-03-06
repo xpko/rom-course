@@ -601,7 +601,7 @@ fastboot reboot fastboot
 
 ### 2.8 源码的开发环境搭建
 
-​	Android系统是一个非常庞大的项目，所以需要采用合适的编辑器或者是`ide`来修改代码，如果你的改动不多，那么简单的使用`vscode`导入工作区即可开始修改代码。但是`vscode`的智能提示和跳转较为简陋，所以如果想要更加友好的开发体验，可以选择将源码导入`Android Studio`中编辑java部分代码，导入`Clion`中编辑`native`部分代码。下面简单介绍如何将源码导入Android Studio。
+​	Android系统是一个非常庞大的工程，需要采用合适的编辑器或IDE来阅读与修改代码。如果改动不多，使用`vscode`导入工作区即可开始修改代码。`vscode`的智能提示和跳转相对IDE较为简陋，如果想要更加友好的开发体验，可以选择将源码导入`Android Studio`中编辑java部分代码，导入`Clion`中编辑`native`部分代码。下面介绍如何将源码导入`Android Studio`。
 
 ```
 cd ~/aosp12
@@ -643,7 +643,7 @@ vim ./android.iml
 <excludeFolder url="file://$MODULE_DIR$/kernel"/>
 ```
 
-​	修改好配置后，最后使用Android studio打开`android.ipr`文件即可。接下来简单介绍将代码导入Clion。
+​	修改好配置后，使用`Android studio`打开`android.ipr`文件即可。接下来，介绍将代码导入`Clion`。
 
 ```
 // 设置环境变量,在编译时生成CMakeLists.txt文件
@@ -702,7 +702,7 @@ add_subdirectory(system/core/lmkd/liblmkd_utils-arm64-android)
 add_subdirectory(system/core/lmkd/lmkd-arm64-android)
 ```
 
-​	配置好cmake文件后，使用clion打开项目，选择刚刚配置好的`CMakeLists.txt`文件的目录`out/development/ide/clion/`。导入成功后，需要修改工程的根目录，`Tools->Cmake->Change Project Root`，然后选择源码根目录即可。
+​	配置好`cmake`工程后，使用`clion`打开项目，选择配置好的`CMakeLists.txt`文件所在的目录`out/development/ide/clion`。导入成功后，修改工程的根目录，`Tools->Cmake->Change Project Root`，然后选择源码根目录即可。
 
 ## 2.9 gitlab+repo管理源码
 
