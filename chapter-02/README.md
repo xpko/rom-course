@@ -404,13 +404,13 @@ Common goals are:
 
 ### 2.5 内核编译
 
-​	在前面我们编译完成后，可以在编译的镜像结果中看到文件`boot.img`，这个文件就是内核镜像文件。但是这个内核是Android源码树中已经编译好的内核文件，并不是我们编译出来的，如果我们想要修改内核，就需要拉取内核的对应分支，编译内核，将编译结果放入Android源码中的指定路径，然后再重新编译Android。刷入手机后，使用的内核就是我们自己编译的了。
+​	系统编译完成后，可以在编译的镜像结果中看到文件`boot.img`，这个文件是内核镜像文件。但是这个内核默认采用Android源码树中预编译好的内核文件，并不使用编译出来的，如果想要为编译的系统纳入自编译的内核，需要拉取对应分支的内核代码参与编译，并将编译结果放入Android源码树中的指定路径，最后再重新编译打包Android镜像。这样，生成的系统刷入手机后，使用的内核就是自编译的版本了。
 
-​	首先第一步是找到对应我们当前手机的内核分支，官网提供了详细的说明https://source.android.com/docs/setup/build/building-kernels。根据下图可以看到，对应`Pixel 3`测试机分支是`android-msm-crosshatch-4.9-android12`。
+​	首先，找到对应当前手机的内核分支，官网提供了详细的说明文档。https://source.android.com/docs/setup/build/building-kernels。根据下图可以看到，对应`Pixel 3`测试机分支是`android-msm-crosshatch-4.9-android12`。
 
 ![image-20230105221730348](.\images\image-20230105221730348.png)
 
-​	接下来我们按照官网的说明拉取代码并编译。
+​	接下来，按照官网的说明拉取代码并编译。
 
 ```
 // 内核编译的相关依赖安装
@@ -434,10 +434,15 @@ build/build.sh
 ls /root/android_src/android-kernel/out/android-msm-pixel-4.9/dist |grep Image
 ```
 
-​	编译成功后，我们还需要指定Android源码编译时使用这个内核文件。只需要设置环境变量指定路径即可。方式如下。
+​	编译成功后，还需要指定Android源码编译时使用这个内核文件。只需要设置环境变量`TARGET_PREBUILT_KERNEL`，指定内核文件的完整路径即可。方式如下。
 
 ```
-// 为了以后方便，环境路径相关的，我们都写在这个初始化导入环境命令的地方
+export TARGET_PREBUILT_KERNEL=/root/android_src/android-kernel/out/android-msm-pixel-4.9/dist/Image.lz4
+```
+
+为了以后方便，可以将路径相关的环境变量，写在envsetup.sh这个初始化导入环境命令的脚本中。如下所示：
+
+```
 vim ./build/envsetup.sh
 
 // 在最底部添加
@@ -445,7 +450,11 @@ export TARGET_PREBUILT_KERNEL=/root/android_src/android-kernel/out/android-msm-p
 
 // 保存配置后，重新加载一下
 source ./build/envsetup.sh
+```
 
+配置生效后，执行下面的命令再次编译生成内核`boot.img`。
+
+```
 // 选择编译版本
 lunch aosp_blueline-userdebug
 
