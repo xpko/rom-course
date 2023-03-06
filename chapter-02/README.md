@@ -6,7 +6,7 @@
 
 ​	尽管Android源码结构非常庞大，但对于初学者，并不需要完整的吃透所有代码。重点的是，掌握系统代码分析的思路，阅读理解工程的整体结构，了解Android系统框架的运行原理，结合思考与实践，达到自定义定制的目标。
 
-​	学习的流程需要循序渐进，有的放矢，以免迷失在纷繁复杂的代码海洋中。通常，第一步需要了解如何将整个系统项目成功编译并刷机。这一章将详细讲解在各种不同的环境下，我们应该如何编译Android源码，并将其刷入手机中。
+​	学习的流程需要循序渐进，有的放矢，以免迷失在纷繁复杂的代码海洋中。通常，第一步需要了解如何将整个系统项目成功编译并刷机。这一章将详细讲解在各种不同的环境下，应该如何编译Android源码，并将其刷入手机中。
 
 ## 2.2 环境准备
 
@@ -45,12 +45,12 @@ Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform
 Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
 ```
 
-​	启动完成这些特性后，重新启动计算机，然后我们就可以开始安装一个`Ubuntu`系统了。打开Microsoft Store应用商店搜索`Ubuntu`系统，然后选择自己需要的版本即可，例如我安装的是22.04版本，如下图。
+​	启动完成这些特性后，重新启动计算机，然后，就可以开始安装一个`Ubuntu`系统了。打开Microsoft Store应用商店搜索`Ubuntu`系统，然后选择自己需要的版本即可，例如我安装的是22.04版本，如下图。
 
 ![image-20230102184626538](.\images\image-20230102184626538.png)
 
 ​	成功获取`Ubuntu`系统后，从应用中启动系统即开始正式安装。安装过程只需要设置好用户名与密码即可。完成后会进行一个shell环境供用户输入。
-​	需要注意的是，应用商店默认会将WSL安装在C盘中，而我们编译系统会占用相当大的空间，如果你的系统盘空间不够，需要做一个迁移操作，将子系统迁移到其他硬盘中。操作方法是：桌面任意位置右键选择终端，在打开的终端环境中自毁长城下面的命令，查询当前的子系统名称。
+​	需要注意的是，应用商店默认会将WSL安装在C盘中，而编译系统会占用相当大的空间，如果你的系统盘空间不够，需要做一个迁移操作，将子系统迁移到其他硬盘中。操作方法是：桌面任意位置右键选择终端，在打开的终端环境中自毁长城下面的命令，查询当前的子系统名称。
 
 ```
 wsl -l -v
@@ -274,7 +274,7 @@ Lunch menu... pick a combo:
 Which would you like? [aosp_arm-eng]
 
 // 选择版本可以填写直接填写aosp_blueline-userdebug或者是填写编号4
-// 同样我们可以省略成一句，直接lunch 4或者是lunch aosp_blueline-userdebug
+// 同样可以省略成一句，直接lunch 4或者是lunch aosp_blueline-userdebug
 4
 
 // 和上面一样。直接使用当前cpu的核心数作为编译的并发线程
@@ -464,13 +464,13 @@ make bootimage
 
 ### 2.6 刷机
 
-​	大多数情况下，非技术的Android爱好者通常会使用傻瓜式一键刷机工具，例如刷机大师、刷机精灵、奇兔等等。这种刷机方式就是属于软刷（软件刷机），除此之外还有我们第一章中简单介绍到的线刷和卡刷。不论刷机的方式是什么，他们最终的原理都是相同的，都是对刷机包进行处理，然后将ROM文件写入对应的分区，替换掉原始文件。下面我们将简单介绍如何进行线刷和卡刷。
+​	大多数情况下，非技术的Android爱好者通常会使用傻瓜式一键刷机工具，例如刷机大师、刷机精灵、奇兔等等。这种刷机方式就是属于软刷（软件刷机），除此之外，还有第一章中简单介绍到的线刷和卡刷。不论刷机的方式是什么，他们最终的原理都是相同的，都是对刷机包进行处理，然后将ROM文件写入对应的分区，替换掉原始文件。下面，将简单介绍如何进行线刷和卡刷。
 
 ### 2.6.1 线刷
 
 ​	通过上面编译中的步骤，在目录`aosp12_out/target/product/blueline/`中能看到若干个后缀为`img`的镜像文件。我的输出路径`aosp12_out`是由于我手动指定了输出目录，如果你没有设置，那么默认是在`aosp12/out/target/product/blueline/`目录下。最后的目录`blueline`是对应编译的版本，如果你是其他版本，就在对应的目录下查看。
 
-​	首先我们要进入刷机模式，然后环境变量设置编译结果的路径，然后使用命令完整刷机即可。详细流程如下
+​	首先进入刷机模式，然后设置环境变量编译结果的路径`ANDROID_PRODUCT_OUT`，然后使用命令完整刷机即可。详细流程如下
 
 ```
 // 进入刷机模式
@@ -489,7 +489,7 @@ fastboot devices
 fastboot flashall -w
 ```
 
-​	等待刷机结束即可，刷机结束后会自动进入Android系统。如果我们只想刷单个分区镜像，也是可以的。流程如下
+​	等待刷机结束即可，刷机结束后会自动进入Android系统。如果只想刷单个分区镜像，也是可以的。流程如下
 
 ```
 // 进入刷机模式
@@ -511,7 +511,7 @@ fastboot: error: The partition you are trying to flash is dynamic, and should be
 
 And try again. If you are intentionally trying to overwrite a fixed partition, use --force.
 
-// 这种情况我们按照他的提示操作即可，执行下面的命令后，发现进入了fastbootd模式
+// 这种情况按照它的提示操作即可，执行下面的命令后，发现进入了fastbootd模式
 fastboot reboot fastboot
 
 // 重新刷入系统
@@ -529,7 +529,7 @@ fastboot reboot
 
 ### 2.6.2 卡刷
 
-​	我们前面编译出来的是线刷包，如果我们需要卡刷包，就需要使用下面的方式进行编译
+​	前面步骤编译出来的是系统线刷包，如果需要卡刷包，就需要使用下面的方式进行编译
 
 ```
 // 下面是简单的编译卡刷包
@@ -539,7 +539,7 @@ lunch aosp_blueline-userdebug
 make otapackage
 ```
 
-​	编译完成后，我们可以在前面线刷包的路径下看到卡刷包文件，我这里的文件名是`aosp_blueline-ota-eng.king.zip`。除了上面的方式，我们还可以完整编译卡刷包，编译方式如下
+​	编译完成后，可以在前面线刷包的路径下看到卡刷包文件，我这里的文件名是`aosp_blueline-ota-eng.king.zip`。除了上面的方式，还可以完整编译卡刷包，编译方式如下
 
 ```
 //下面是完整编译卡刷包
@@ -577,7 +577,7 @@ fastboot reboot fastboot
 
 ### 2.8 源码的开发环境搭建
 
-​	Android系统是一个非常庞大的项目，所以我们需要采用合适的编辑器或者是`ide`来修改代码，如果你的改动不多，那么我们简单的使用`VsCode`导入工作区即可开始修改代码。但是`VsCode`的智能提示和跳转较为简陋，所以如果想要更加友好的开发体验，我们可以选择将源码导入`Android Studio`中编辑java部分代码，导入`Clion`中编辑`native`部分代码。下面简单介绍如何将源码导入Android Studio。
+​	Android系统是一个非常庞大的项目，所以需要采用合适的编辑器或者是`ide`来修改代码，如果你的改动不多，那么简单的使用`vscode`导入工作区即可开始修改代码。但是`vscode`的智能提示和跳转较为简陋，所以如果想要更加友好的开发体验，可以选择将源码导入`Android Studio`中编辑java部分代码，导入`Clion`中编辑`native`部分代码。下面简单介绍如何将源码导入Android Studio。
 
 ```
 cd ~/aosp12
@@ -635,7 +635,7 @@ make -j$(nproc --all)
 // 查看clion目录下面生成了大量的CMakeLists.txt
 tree out/development/ide/clion/
 
-// 在clion目录下创建一个CMakeLists.txt来合并导入我们需要使用的各个模块
+// 在clion目录下创建一个CMakeLists.txt来合并导入需要使用的各个模块
 touch out/development/ide/clion/CMakeLists.txt
 
 // 配置CMakeLists.txt导入模块
@@ -678,13 +678,13 @@ add_subdirectory(system/core/lmkd/liblmkd_utils-arm64-android)
 add_subdirectory(system/core/lmkd/lmkd-arm64-android)
 ```
 
-​	配置好cmake文件后，使用clion打开项目，选择刚刚配置好的`CMakeLists.txt`文件的目录`out/development/ide/clion/`。导入成功后，我们需要修改工程的根目录，`Tools->Cmake->Change Project Root`，然后选择源码根目录即可。
+​	配置好cmake文件后，使用clion打开项目，选择刚刚配置好的`CMakeLists.txt`文件的目录`out/development/ide/clion/`。导入成功后，需要修改工程的根目录，`Tools->Cmake->Change Project Root`，然后选择源码根目录即可。
 
 ## 2.9 gitlab+repo管理源码
 
-​	虽然我们将源码导入idea中后，已经可以正常的开始修改源码了。但是由于这是一个庞大的项目，所以我们需要考虑到源码的管理，便于我们随时能够查看自己的修改和切换不同的分支进行开发。否则这样一个巨大的项目，一个月后，再想要找齐当时修改的逻辑，就非常困难了。如果你是个人开发，并且修改的逻辑不是特别复杂，或者是刚开始学习，那么可以选择跳过这个部分，直接修改源码即可。
+​	虽然将源码导入idea中后，已经可以正常的开始修改源码了。但是由于这是一个庞大的项目，需要考虑到源码的管理，便于随时能够查看自己的修改和切换不同的分支进行开发。否则这样一个巨大的项目，一个月后，再想要找齐当时修改的逻辑，就非常困难了。如果你是个人开发，并且修改的逻辑不是特别复杂，或者是刚开始学习，那么可以选择跳过这个部分，直接修改源码即可。
 
-​	首先我们需要对repo进行一定的了解，在前文中，有简单的介绍到，repo是python脚本实现的，是对git命令的封装，用来管理大型项目关联多个子项目的。现在我们重新回顾一下下载android代码的过程。前文中，我们使用repo进行初始化指定分支，在完成初始化后，会在当前目录生成一个.repo的目录，首先我们查看目录中的manifest.xml文件，内容如下。
+​	首先,需要对repo进行一定的了解，在前文中，有简单的介绍到，repo是python脚本实现的，是对git命令的封装，用来管理大型项目关联多个子项目的。重新回顾一下下载android代码的过程。前文中，使用repo进行初始化指定分支，在完成初始化后，会在当前目录生成一个.repo的目录，查看目录中的manifest.xml文件，内容如下。
 
 ```
 <?xml version="1.0" encoding="UTF-8"?>
@@ -703,7 +703,7 @@ https://gerrit.googlesource.com/git-repo/+/HEAD/docs/manifest-format.md
 </manifest>
 ```
 
-可以看到只是导入了default.xml文件。接着我们查看这个配置文件。
+可以看到只是导入了default.xml文件。查看这个配置文件。
 
 ```
 <manifest>
@@ -757,13 +757,13 @@ https://gerrit.googlesource.com/git-repo/+/HEAD/docs/manifest-format.md
 
 ​	6、copyfile：同步代码时，要复制的文件和目录
 
-​	7、include：导入另外一个清单文件，比如我们觉得一个清单看起来太复杂，可以根据目录分类存放
+​	7、include：导入另外一个清单文件，比如觉得一个清单看起来太复杂，可以根据目录分类存放
 
 ​	8、linkfile：定义对应的文件或目录的软连接
 
-​	在配置文件中我们可以看到有大量的project元素，在这里我们先记下一个信息，在project元素中的path指的是项目拉取到本地之后存放的路径，而name才是指在git仓库中存放的路径。
+​	在配置文件中,可以看到有大量的project元素，在这里先记录下一个信息，在project元素中的path指的是项目拉取到本地之后存放的路径，而name才是指在git仓库中存放的路径。
 
-​	清楚了使用repo同步代码的原理，以及git清单中元素的作用后我们就可以开始搭建自己的Android源码远程仓库了。由于项目较大，所以我们可以在本地搭建一个gitlab服务，然后将项目上传至gitlab中进行管理，如下是搭建gitlab服务的步骤。
+​	清楚了使用repo同步代码的原理，以及git清单中元素的作用后，就可以开始搭建自己的Android源码远程仓库了。由于项目较大，可以在本地搭建一个gitlab服务，然后将项目上传至gitlab中进行管理，如下是搭建gitlab服务的步骤。
 
 ```
 // 安装gitlab服务的依赖
@@ -797,7 +797,7 @@ sudo gitlab-ctl start
 Your account has been blocked. Please contact your GitLab administrator if you think this is an error.
 ```
 
-​	这是因为注册的账号需要审批激活后才能使用。我们回到终端上通过下面的命令激活账号
+​	这是因为注册的账号需要审批激活后才能使用。回到终端上通过下面的命令激活账号
 
 ```
 // 进入gitlab的控制台
@@ -816,9 +816,9 @@ exit
 
 ​	到这里，gitlab服务准备就绪，登录账号后就可以创建aosp的子模块仓库了。
 
-​	根据前面repo的介绍，我们知道了源码一共是三个部分：git-repo.git的工具仓库、manifests.git的子模块清单仓库、aosp源码子模块仓库。接下来我们将代码同步的流程分割为下面几个步骤。
+​	根据前面repo的介绍，我们知道了源码一共是三个部分：git-repo.git的工具仓库、manifests.git的子模块清单仓库、aosp源码子模块仓库。接下来，将代码同步的流程分割为下面几个步骤。
 
-​	1、参考.repo/manifests/default.xml配置修改为我们自己的gitlab地址并创建一个manifests.git仓库。
+​	1、参考.repo/manifests/default.xml配置修改为自己的gitlab地址并创建一个manifests.git仓库。
 
 ​	2、使用脚本批量创建子模块仓库
 
@@ -826,11 +826,11 @@ exit
 
 ​	4、使用自己的gitlab地址同步代码测试
 
-​	由于我们一会需要创建大量的子模块仓库，所以我们不可能在web页面上手动一个个的创建，所以下面我们使用命令来创建一个manifests.git仓库。而命令创建仓库，我们需要gitlab账号的Access Token。我们可以通过在web中登录账号，点击右上角的用户图标，选择Preferences来到用户设置页面，然后进入Access Tokens栏目，填写token名称以及勾选权限，最后点击生成，我生成的token为`27zctxyWZP9Txksenkxb`。流程见下图。
+​	一会需要创建大量的子模块仓库，所以不可能在web页面上手动一个个的创建，下面使用命令来创建一个manifests.git仓库。而命令创建仓库，需要gitlab账号的Access Token。可以通过在web中登录账号，点击右上角的用户图标，选择Preferences来到用户设置页面，然后进入Access Tokens栏目，填写token名称以及勾选权限，最后点击生成，我生成的token为`27zctxyWZP9Txksenkxb`。流程见下图。
 
 ![image-20230216211544482](.\images\image-20230216211544482.png)
 
-​	首选我们需要在gitlab中手动创建一个根目录的group，我这里创建了一个android12_r3的组，所有的子模块仓库都将在这个分组下。在gitlab页面中点击左上角Groups->your Groups。然后点击New group创建分组。成功创建后，记录下这个分组的id，比如我的根目录组id是6.
+​	首选，在gitlab中手动创建一个根目录的group，我这里创建了一个android12_r3的组，所有的子模块仓库都将在这个分组下。在gitlab页面中点击左上角Groups->your Groups。然后点击New group创建分组。成功创建后，记录下这个分组的id，比如我的根目录组id是6.
 
 然后就可以使用curl命令通过token访问gitlab的api创建一个空白的仓库
 
@@ -856,7 +856,7 @@ vim default.xml
 //修改内容如下
 <manifest>
 
-  // 修改name为orgin，修改review为我们自己的服务器地址
+  // 修改name为orgin，修改review为自己的服务器地址
   <remote  name="origin"
            fetch=".."
            review="http://192.168.2.189/" />
@@ -877,7 +877,7 @@ git add . && git commit -m "init"
 git push
 ```
 
-​	准备好清单文件后，接下来就需要准备所有子模块仓库了。首先我们得知道一共有哪些子模块需要上传，而这个通过default.xml中的project元素，很容易得到。我们可以编写一个python脚本来匹配出所有project中的path属性，然后创建group和仓库。下面贴上一份网上找到读取default.xml自动创建所有仓库。
+​	准备好清单文件后，接下来就需要准备所有子模块仓库了。首先，得知道一共有哪些子模块需要上传，而这个通过default.xml中的project元素，很容易得到。可以编写一个python脚本来匹配出所有project中的path属性，然后创建group和仓库。下面贴上一份网上找到读取default.xml自动创建所有仓库。
 
 ```python
 #!/usr/bin/python3
@@ -1007,14 +1007,14 @@ if __name__ == '__main__':
 
 ```
 
-​	子模块仓库建立完成，最后我们还需要将代码上传到对应的仓库中。同样参考网上找的上传代码，修改一部分细节，这里一定要注意default.xml中，project元素的属性path的是本地路径，而name才是指的git仓库的路径，代码如下
+​	子模块仓库建立完成，最后，还需要将代码上传到对应的仓库中。同样参考网上找的上传代码，修改一部分细节，这里一定要注意default.xml中，project元素的属性path的是本地路径，而name才是指的git仓库的路径，代码如下
 
 ```python
 #!/usr/bin/python3
 
 import os
 import re,time
-# 代码放在我们之前准备好的清单仓库中，然后指定default.xml路径
+# 代码放在之前准备好的清单仓库中，然后指定default.xml路径
 MANIFEST_XML = "./manifests/default.xml"
 ROOT = os.getcwd()
 LOG_FILE_PATH = os.path.join(ROOT, "push.log")
@@ -1116,7 +1116,7 @@ if __name__ == '__main__':
 
 ```
 
-​	上传过程较慢，等待所有仓库上传完成，最后将git-repo工具子模块上传到我们的仓库。首先在gitlab中创建一个分组android-tools。然后在分组中手动创建一个仓库git-repo。然后从github下载一份git-repo的工具源码传到我们的gitlab。过程如下。
+​	上传过程较慢，等待所有仓库上传完成，最后将git-repo工具子模块上传到仓库。首先在gitlab中创建一个分组android-tools。然后在分组中手动创建一个仓库git-repo。然后从github下载一份git-repo的工具源码传到gitlab。过程如下。
 
 ```
 // 从github下载git-repo源码并上传到gitlab仓库
@@ -1133,13 +1133,13 @@ cp ./repo ~/bin/
 PATH=~/bin:$PATH
 ```
 
-​	终于一切准备就绪，那么开始拉取我们自己的代码吧。
+​	终于一切准备就绪，那么开始拉取代码吧。
 
 ```
 // 创建存放源码的目录
 mkdir myandroid12 && cd myandroid12
 
-// 指定使用我们自己的仓库，使用我们自己的git-repo
+// 指定使用自己的git-repo
 repo init -u git@192.168.2.189:android12_r3/manifest.git --repo-url=git@192.168.2.189:android-tools/git-repo.git --no-repo-verify
 
 // 出现了下面的错误
@@ -1147,7 +1147,7 @@ repo: error: unable to resolve "stable"
 fatal: double check your --repo-rev setting.
 fatal: cloning the git-repo repository failed, will remove '.repo/repo'
 
-// 然后我们修改使用master分支，再重新执行上面的repo init命令
+// 修改使用master分支，再重新执行上面的repo init命令
 export REPO_REV=refs/heads/master
 
 repo init -u git@192.168.2.189:android12_r3/manifest.git --repo-url=git@192.168.2.189:android-tools/git-repo.git --no-repo-verify
@@ -1211,9 +1211,9 @@ device/mediatek/wembley-sepolicy: sleeping 4.0 seconds before retrying
 <project name="device/mediatek/wembley-sepolicy" path="device/mediatek/wembley-sepolicy" groups="device"/>
 ```
 
-​	然后看了创建仓库和批量提交代码的逻辑就明白了，是的，name和path的顺序反了，导致正则表达式未能成功匹配到这个仓库，所以我们调整一下name和path的顺序即可。
+​	然后看了创建仓库和批量提交代码的逻辑就明白了，是的，name和path的顺序反了，导致正则表达式未能成功匹配到这个仓库，调整一下name和path的顺序即可。
 
-​	成功拉取完成后，如果在编译时碰到找不到文件的问题，这是由于有些子模块仓库下的子目录中有`.gitignore`文件，将一些应该提交的文件给过滤掉了。就回到我们同步代码的目录中，找到指定的git仓库，使用下面的方式重新提交一下。然后回到我们同步下来的代码处重新拉取更新的代码。
+​	成功拉取完成后，如果在编译时碰到找不到文件的问题，这是由于有些子模块仓库下的子目录中有`.gitignore`文件，将一些应该提交的文件给过滤掉了。回到同步代码的目录中，找到指定的git仓库，使用下面的方式重新提交一下。回到同步下来的代码处，重新拉取更新的代码。
 
 ```
 // 进入缺少文件的子模块仓库目录
@@ -1229,7 +1229,7 @@ repo sync -j8
 
 ## 2.10 小结
 
-​	在这一章里，主要讲述了如何从零开始搭建一个编译Android源码的环境，以及如何选择编译的版本和完整的编译Android源码并使用自己编译的内核，然后将这个我们编译好的镜像尝试多种方式刷入测试手机中。为了后续开发和阅览代码的便利，又讲述了如何使用Android Studio和Clion导入源码。最后为了便于长期维护和持续性的开发，我们又搭建了gitlab+repo管理Android源码。终于将一切准备就绪了。
+​	在这一章里，主要讲述了如何从零开始搭建一个编译Android源码的环境，以及如何选择编译的版本和完整的编译Android源码并使用自己编译的内核，然后将编译好的镜像，尝试多种方式刷入测试手机中。为了后续开发和阅览代码的便利，又讲述了如何使用Android Studio和Clion导入源码。最后为了便于长期维护和持续性的开发，又搭建了gitlab+repo管理Android源码。终于将一切准备就绪了。
 
 ​	TODO 你看看这里是不是小结写的有点简单。看着应该怎么丰富一下。
 
