@@ -529,7 +529,7 @@ fastboot reboot
 
 ### 2.6.2 卡刷
 
-​	前面步骤编译出来的是系统线刷包，如果需要卡刷包，就需要使用下面的方式进行编译
+​	前面步骤编译出来的是系统线刷包，如果需要卡刷包，就需要使用`make otapackage`命令来进行编译。注意这种方式需要预先编译好线刷包。具体的编译方法如下。
 
 ```
 // 下面是简单的编译卡刷包
@@ -539,7 +539,7 @@ lunch aosp_blueline-userdebug
 make otapackage
 ```
 
-​	编译完成后，可以在前面线刷包的路径下看到卡刷包文件，我这里的文件名是`aosp_blueline-ota-eng.king.zip`。除了上面的方式，还可以完整编译卡刷包，编译方式如下
+​	编译完成后，可以在前面线刷包的同样路径下，看到zip格式的卡刷包文件，这里的文件名是`aosp_blueline-ota-eng.king.zip`。除了上面的方式，还可以执行`make dist`命令完整编译卡刷包，具体的编译方式如下。
 
 ```
 //下面是完整编译卡刷包
@@ -550,30 +550,30 @@ mkdir dist_output
 make dist DIST_DIR=dist_output
 ```
 
-​	编译完成后，可以在目录`dist_output`中看到完整卡刷包结果。
+​	编译完成后，在目录`dist_output`中看到卡刷包结果。
 
-​	接下来是如何刷入卡刷包，有两种刷入方式，一种是使用`adb sideload`命令刷入，另一种方式是使用twrp刷入。下面演示两种不同方式的刷机流程。
+​	接下来是如何刷入卡刷包，有两种刷入方式，一种是使用`adb sideload`命令刷入，另一种方式是使用第三方的Recovery工具TWRP刷入。下面演示两种不同方式的刷机流程。
 
-​	1、adb sideload（TODO这里没写完，你补充一下，我这边环境没跑通）
+​	1、adb sideload（TODO：这里待补充）
 
-​		首先进入fastbootd
+首先进入fastbootd
 
 ```
 adb reboot bootloader
 fastboot reboot fastboot
 ```
 
-​		这时的界面如下图，使用音量键减，切换到`Enter recovery`，然后按电源键进入`recovery`模式
+​	这时的界面如下图，使用音量键减，切换到`Enter recovery`，然后按电源键进入`recovery`模式
 
 ![image-20230108190236615](.\images\image-20230108190236615.png)
 
-​		接下来进入下面的界面，选择`Apply update from ADB`
+​	接下来进入下面的界面，选择`Apply update from ADB`
 
 ![image-20230108190631803](.\images\image-20230108190631803.png)
 
 
+​	2、twrp（TODO：这里待补充）
 
-​	2、twrp（TODO这里没写完，你补充一下，我这边环境没跑通）
 
 ### 2.8 源码的开发环境搭建
 
