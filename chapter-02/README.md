@@ -106,7 +106,9 @@ wsl --import ubuntu22 E:\wsl2\ubuntu22_wsl E:\wsl2\ubuntu22.tar
 
 ### 2.2.2 Linux
 
-​	Linux系统的选择非常多，一般情况首选最新的Ubuntu LTS稳定版即可。首先是安装我们必备的开发工具。
+​	Linux系统的选择非常多，本书中选择最新的Ubuntu 22.04 LTS稳定版。这里假定读者已经在自己的硬件上安装好了系统环境（安装方法与Vmware安装系统的操作流程类似）。
+
+首先，安装必备的开发工具。
 
 1、Android Studio下载并安装，下载地址：`https://developer.android.google.cn/studio/`
 
@@ -114,7 +116,7 @@ wsl --import ubuntu22 E:\wsl2\ubuntu22_wsl E:\wsl2\ubuntu22.tar
 
 3、vscode下载并安装，下载地址：`https://code.visualstudio.com/`
 
-​	然后用命令更新一下软件，并安装一下基本的工具
+​	然后，执行下面的命令配置好`python`与`pip`。
 
 ```
 // 更新软件列表
@@ -127,19 +129,18 @@ sudo apt-get install -y apt-utils python3 python3-pip python2
 pip install -U pip
 
 // 设置pip使用国内源
-mkdir ~/.pip
-touch ~/.pip/pip.conf
-echo -e '\n[install]\ntrusted-host=pypi.douban.com\n[global]\nindex-url=http://pypi.douban.com/simple' > ~/.pip/pip.conf
-cat ~/.pip/pip.conf
+python -m pip install --upgrade pip
+pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 pip install pytest
 
 ```
 
+到这里，Ubuntu系统上的AOSP编译开发环境就补步准备好了。
 
 
 ### 2.3 如何选择源码版本
 
-​	在开始拉取代码前，我们首选需要了解自己需要的是哪个分支版本，所以我们先看官网对版本的说明https://source.android.com/docs/setup/about/build-numbers?hl=zh-cn
+​	在开始拉取代码前，首选需要了解自己需要编译的AOSP分支版本，可以参考官网对版本的说明链接。https://source.android.com/docs/setup/about/build-numbers?hl=zh-cn
 
 ​	然后根据我们的需求，比如我想要在Android10的基础上进行二次开发，那么我就找到对应的版本描述，根据下图，可以看到各个版本号关联的代码分支，Android版本，支持哪些设备。
 
