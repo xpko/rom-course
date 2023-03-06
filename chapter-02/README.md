@@ -323,7 +323,9 @@ vendor.img
 
 ### 2.4 模块编译
 
-​	前文在编译的过程中介绍到，我们使用`source ./build/envsetup.sh`初始化环境的时候，导入了多个命令来帮助我们进行编译。我们可以通过命令`hmm`查看提供的命令帮助。
+​	前文在编译的过程中介绍到，使用`source ./build/envsetup.sh`初始化环境的时候，导入了多个命令来辅助编译。接下来，先看看有哪些常用的命令。
+
+通过命令`hmm`查看提供的命令帮助。
 
 ```
 hmm
@@ -352,7 +354,7 @@ Invoke ". build/envsetup.sh" from your shell to add the following functions to y
 
 ​	`croot` 命令可以跳转根目录，或者是根目录下的任意子目录
 
-​	`m` 命令会直接在根目录运行编译，即使我们当前目录是在子目录也是相当于在根目录编译。也可以指定名称来编译单独的目标，例如`m droid`。
+​	`m` 命令会直接在根目录运行编译，即使当前目录是在子目录也是相当于在根目录编译。也可以指定名称来编译单独的目标，例如`m droid`。
 
 ​	`mm ` 编译当前目录中的所有模块及依赖项
 
@@ -360,7 +362,7 @@ Invoke ". build/envsetup.sh" from your shell to add the following functions to y
 
 ​	`clean` 清除编译的结果，相当于删掉out目录中的内容
 
-​	我们可以通过`m help`查看可以单独编译哪些选项
+​	可以通过`m help`查看可以单独编译哪些选项
 
 ```
 m help
@@ -398,7 +400,7 @@ Common goals are:
                             Stands for "OdmDlkm, NO Dependencies"
 ```
 
-​	通过帮助命令的提示，我们可以看到`m snod`就是单独编译`System`,命令`m vnod`就是单独编译`Vendor`。大多数时候我们修改的内容都是在`System`中。我们可以根据自己的变动情况，模块编译即可。
+​	通过帮助命令的提示，可以看到`m snod`就是单独编译`system`模块,命令`m vnod`就是单独编译`Vendor`。大多数时候，修改的内容都是在`system`模块中。可以根据自己对系统的修改情况，执行不同的模块编译。
 
 ### 2.5 内核编译
 
