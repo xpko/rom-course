@@ -387,8 +387,254 @@ android_app_import {
 
 ​	通过修改Android源码的方式，同样可以让开发人员将自己经常使用的jar包也内置到系统中，又或者将定制的业务功能包装在jar包中，在调整时就仅需要修改jar包的代码，最后更新到系统中即可。如此可以节省臃肿的编译时间，还能更加便捷的管理业务代码。
 
-​	内置jar包的方式是有多种的，下面将使用两种方式将一个自己编写的jar包集成到系统中。
+​	内置jar包的方式是有多种的，下面将使用两种方式将一个自己编写的jar包集成到系统中。首先创建一个no Activity的Android项目，项目命名为MyJar，如下图所示。
 
-​
+![image-20230308211039320](.\images\create_no_activity.png)
 
-​
+​	接着简单的写两个测试函数。在最后内置成功后，将对这个函数进行调用测试是否内置成功。
+
+```java
+public class MyCommon {
+    public String getMyJarVer(){
+        return "v1.0";
+    }
+    public int add(int a,int b){
+        return a+b;
+    }
+}
+```
+
+​	然后就可以编译这个项目。编译结束后得到`./build/output/debug/app-debug.apk`文件，需要内置的是一个JAR文件，所以接下来解压apk文件，java代码在解压结果的classes.dex文件中，应用程序编译过程中，如果生成的DEX 文件大小超过 65536 字节，则编译工具链将尝试在同一 APK 包中生成多个 classes.dex 文件以存储所有的字节码。为了方便内置，可以编译前在build.gradle中添加配置，声明不要生成多个DEX文件，相关配置如下。
+
+```
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    compileSdk 33
+    defaultConfig {
+        applicationId "cn.mik.kframework"
+        minSdk 29
+        targetSdk 32
+        versionCode 1
+        versionName "1.0"
+        multiDexEnabled false		// 禁止生成多个dex文件
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    ...
+}
+```
+
+​	经过前面的流程拿到的DEX 文件虽然都是存储着java指令，但是和JAR 文件是有一定区别的。他们的区别如下所示。
+
+1. 目标平台不同：JAR 文件是为 Java 虚拟机（JVM）设计的，而 DEX 文件是为 Dalvik 虚拟机（DVM）和 ART（Android Run Time）设计的。
+2. 字节码格式不同：JAR 文件包含 Java 编译器生成的字节码，而 DEX 文件包含经过转换和优化的字节码，以适应 Android 平台的内存限制和设备特性。
+3. 加载速度不同：由于 Dalvik 虚拟机使用预先处理的 DEX 文件，因此加载速度更快，而 JVM 在运行 JAR 文件时需要实时编译字节码，因此加载速度较慢。
+4. 版本兼容性不同：JAR 文件可以在不同版本的 JVM 上运行，但 DEX 文件只能在支持 DVM 或 ART 的 Android 设备上运行。
+
+​	综上所述，所以DEX文件需要先转换为JAR，然后再将这个JAR文件拷贝到AOSP源码中进行内置。以下是具体的实现步骤。
+
+```
+// 进入编译输出结果目录
+cd ./app/build/outputs/apk/debug/
+
+// APK的本质就是一个压缩文件，直接解压apk文件即可
+unzip app-debug.apk -d ./app-debug
+
+// 将解压目录的DEX文件拷贝到当前目录
+cp ./app-debug/classes.dex ./
+
+// 通过dx工具将DEX转换为JAR
+dx --dex --min-sdk-version=26 --output=./kjar.jar ./classes.dex
+
+// 创建一个目录来存放需要内置的JAR文件
+mkdir /root/android_src/aosp12/frameworks/native/myjar
+
+// 将转换后的JAR文件放入AOSP源码目录中
+cp ./myjar.jar /root/android_src/aosp12/frameworks/native/myjar/kjar.jar
+
+```
+
+​	最后就可以修改编译时的规则，将这个JAR文件拷贝到指定分区中。找到文件`build/target/product/base_system.mk`，在构建规则中添加如下配置，表示将源码路径下的文件拷贝到目标目录。
+
+```
+PRODUCT_COPY_FILES += \
+      frameworks/native/myjar/kjar.jar:system/framework/kjar.jar \
+```
+
+​	`base_system.mk `定义了构建 Android 系统镜像时需要包含哪些模块和库，并指定了这些模块和库在系统镜像中的位置和顺序，以及它们之间的依赖关系。在build目录下的多个mk文件都能添加这个配置进行拷贝文件，并不是只能加在这个`base_system.mk`文件中，在不同的 mk 文件中定义的 PRODUCT_COPY_FILES 规则可能会相互覆盖，因此需要确保它们之间没有冲突，并且按照预期的顺序执行。通常情况下，建议将自己添加的所有的 PRODUCT_COPY_FILES 规则放在同一个文件中，以避免混乱和错误。
+
+​	重新编译系统并刷入手机中，先来到刚刚指定的目录中查看kjar文件是否存在。
+
+```
+adb shell
+cd /system/framework
+ls -all |grep kjar
+
+-rw-r--r--  1 root root  3705442 2023-03-08 21:55:46.000000000 +0800 kjar.jar
+```
+
+​	最后写一个普通的App来对kjar中的函数进行调用，有两种方式加载这个jar文件。DexClassLoader 和 PathClassLoader 是 Android 应用程序中常用的两种类加载器，它们之间的主要区别如下。
+
+1. 加载路径不同：DexClassLoader 可以从任意路径中加载 .dex 文件，包括应用程序中的私有目录和外部存储器等位置；而 PathClassLoader 只能从预定义的系统路径中加载 .dex 文件，如 /system/framework、/system/app 等。
+2. 加载方式不同：DexClassLoader 是通过指定 .dex 文件的路径和输出目录，将该文件加载到内存中的；而 PathClassLoader 则是通过指定 Classpath 路径来加载 .dex 文件，包括系统类库和应用程序类库等。
+3. 安全性和隐私性不同：由于 DexClassLoader 可以加载任意路径中的 .dex 文件，因此可能存在潜在的安全风险和隐私问题，特别是对于多个应用程序之间共享代码的场景；而 PathClassLoader 则更加安全可靠，因为只能加载预定义的路径中的文件，并且具有较高的权限限制。
+
+​	下面是两种加载方式对函数进行调用的实现例子。
+
+```java
+protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+    	// 使用PathClassLoader加载jar文件
+        String jarPath = "/system/framework/kjar.jar";
+        ClassLoader systemClassLoader=ClassLoader.getSystemClassLoader();
+        String javaPath= System.getProperty("java.library.path");
+        PathClassLoader pathClassLoader=new PathClassLoader(jarPath,javaPath,systemClassLoader);
+        Class<?> clazz1 = null;
+        try {
+            // 通过反射调用函数
+            clazz1 = pathClassLoader.loadClass("cn.mik.myjar.MyCommon");
+            Method method = clazz1.getDeclaredMethod("getMyJarVer");
+            Object result = method.invoke(null);
+            Log.i("MainActivity","getMyJarVer:"+result);
+
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+		// 使用DexClassLoader加载jar文件
+        String dexPath = "/system/framework/kjar.jar";
+        String dexOutputDir = getApplicationInfo().dataDir;
+        ClassLoader classLoader = new DexClassLoader(dexPath, dexOutputDir, null,
+                getClass().getClassLoader());
+
+        Class<?> clazz2 = null;
+        try {
+            // 通过反射调用函数
+            clazz2 = classLoader.loadClass("cn.mik.myjar.MyCommon");
+            Method addMethod = clazz2.getDeclaredMethod("add", int.class,int.class);
+            Object result = addMethod.invoke(null, 12,25);
+            Log.i("MainActivity","getMyJarVer:"+result);
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+    }
+```
+
+## 5.5 系统内置so动态库
+
+​	前文介绍的内置方式非常简单，只需通过配置PRODUCT_COPY_FILES即可将指定文件从源码中复制到目标目录中。除了JAR文件外，其他文件也可以使用这种方式进行内置。为了内置so文件，将采用另一种方式。并且，第二种内置方式同样适用于JAR文件。
+
+​	第二种方式是前文采用内置apk的方式，对构建规则进行细节的描述，在内置apk的同时，将指定的so动态库内置到`/system/lib`和`/system/lib64`目录中。并且同时将调用so动态库的JAR文件也内置在`/system/framework`目录中，在内置完成后，将调用JAR文件来访问so动态库，以及直接调用动态库进行测试。
+
+​	首先准备一个测试项目，创建Native C++的项目。见下图。
+
+![image-20230308232615347](.\images\create_so_project.png)
+
+​	这个项目并不需要启动，所以直接删除MainActivity文件，重新创建一个类来加载动态库。并且修改cpp中对应的函数名称，相关修改如下。
+
+```java
+// 在这个类中进行加载动态库
+public class NativeCommon {
+    static {
+        System.loadLibrary("mysodemo");
+    }
+    public native String stringFromJNI();
+}
+
+// native-lib.cpp文件中调整名称来对应新的类
+extern "C" JNIEXPORT jstring JNICALL
+Java_cn_mik_mysodemo_NativeCommon_stringFromJNI(
+        JNIEnv* env,
+        jobject /* this */) {
+    std::string hello = "Hello from C++";
+    return env->NewStringUTF(hello.c_str());
+}
+
+```
+
+​	成功编译测试项目后的步骤和前文基本一致，唯一的区别就是在这里多拷贝了apk文件和so动态库文件，下面是具体流程。
+
+```
+// 进入编译输出结果目录
+cd ./app/build/outputs/apk/debug/
+
+// 解压apk文件
+unzip app-debug.apk -d ./app-debug
+
+// dex转换为jar
+dx --dex --min-sdk-version=26 --output=./mysodemo.jar ./app-debug/classes.dex
+
+// 创建目录存放要内置的文件
+mkdir /root/android_src/aosp12_mikrom/frameworks/base/packages/apps/mysodemo
+
+// 拷贝apk到需要内置的目录
+cp ./app-debug.apk /root/android_src/aosp12/frameworks/base/packages/apps/mysodemo/mysodemo.apk
+
+// 拷贝jar到需要内置的目录
+cp ./mysodemo.jar /root/android_src/aosp12/frameworks/base/packages/apps/mysodemo/mysodemo.jar
+
+// 拷贝64位动态库到需要内置的目录
+cp ./app-debug/lib/arm64-v8a/libmysodemo.so /root/android_src/aosp12/frameworks/base/packages/apps/mysodemo/libmysodemo_arm64.so
+
+// 拷贝32位动态库到需要内置的目录
+cp ./app-debug/lib/armeabi-v7a/libmysodemo.so /root/android_src/aosp12/frameworks/base/packages/apps/mysodemo/libmysodemo_arm.so
+```
+
+​	需要内置的文件准备就绪后，创建一个构建规则Android.mk文件，将相关依赖文件都内置进去。
+
+```
+cd ./frameworks/base/packages/apps/mysodemo
+
+touch Android.mk
+
+gedit Android.mk
+
+// 添加下面的内容到文件
+
+LOCAL_PATH := $(call my-dir)
+include $(CLEAR_VARS)
+
+
+LOCAL_SRC_FILES := mysodemo.apk
+LOCAL_MODULE := kmodule
+LOCAL_MODULE_CLASS := APPS
+LOCAL_MODULE_TAGS := optional
+LOCAL_CERTIFICATE := PRESIGNED
+LOCAL_MODULE_PATH := $(TARGET_OUT)/framework
+LOCAL_INSTALLED_MODULE_STEM := mysodemo.jar
+LOCAL_DEX_PREOPT := false
+LOCAL_SHARED_LIBRARIES := liblog
+
+include $(BUILD_PREBUILT)
+
+#--------------------------------
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libmysodemo
+LOCAL_SRC_FILES_arm := libmysodemo_arm.so
+LOCAL_SRC_FILES_arm64 := libmysodemo_arm64.so
+LOCAL_MODULE_TARGET_ARCHS:= arm arm64
+LOCAL_MULTILIB := both
+LOCAL_MODULE_SUFFIX := .so
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_TAGS := optional
+LOCAL_SHARED_LIBRARIES := liblog
+include $(BUILD_PREBUILT)
+```
+
+
+
