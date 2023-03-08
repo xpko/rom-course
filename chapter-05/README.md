@@ -2,13 +2,13 @@
 
 ## 5.1 什么是系统内置
 
-​	系统内置简单的说就是将镜像刷入手机后默认就在手机中能够使用的功能，例如Android内置的Launcher、Phone、Email、Setting等系统App都是属于内置的。同样开发者也可以制作一个App将其内置在系统中并且作为系统应用，又或者在工作中，每次手机刷机后需要安装的一些环境，也可以内置在系统中，这样每次刷机后都不必重新配置环境。
+​	系统内置简单的说，就是将镜像刷入手机后默认就在手机中能够使用的功能，例如Android内置的Launcher、Phone、Email、Setting等系统App都是属于内置的。同样开发者也可以制作一个App，将其内置在系统中并且作为系统应用，又或者在工作中，每次手机刷机后需要安装的一些环境，也可以内置在系统中，这样每次刷机后都不必重新配置环境。
 
-​	在前几章的学习中，介绍了Android是如何实现启动系统以及打开应用程序的执行流程，并且小牛试刀修改替换了系统的资源文件。将AOSP看做是一个大型的项目，本章需要学习的是如何对这个项目二次开发，在它的基础上扩展一些让我们使用起来更加便利的功能内置在系统中，由于Android系统非常庞大，每次修改后都需要进行编译再刷入手机。而这些功能的业务相关的代码尽量不要直接写在AOSP源码中，避免浪费大量的时间在等待中。
+​	在前几章的学习中，介绍了Android是如何实现启动系统，以及打开应用程序的执行流程，并且小牛试刀修改替换了系统的资源文件。将AOSP看做是一个大型的项目，本章需要学习的是，如何对这个项目二次开发，在它的基础上扩展一些，将一些更加便利的功能内置在系统中，由于Android系统非常庞大，每次修改后都需要进行编译再刷入手机。而这些功能的业务相关的代码，尽量不要直接写在AOSP源码中，避免浪费大量的时间在等待中。
 
 ## 5.2 系统内置App
 
-​	首先找到Android系统自身内置app的所在目录`packages/apps`，在系统中内置的大多数App源码都是在这里，打开任意一个系统内App的目录进去后，能看到这里的结构和我们正常开发的Android App没有什么区别。需要内置的App代码并不是一定要放在这个目录下，可以选择将编译后的apk内置进去，这样就能使用Android Studio单独开发这个App。
+​	首先，找到Android系统自身内置app的所在目录`packages/apps`，在系统中内置的大多数App源码都是在这里，打开任意一个系统内App的目录进去后，能看到这里的结构和正常开发的Android App没有什么区别。需要内置的App代码并不是一定要放在这个目录下，可以选择将编译后的apk内置进去，这样就能使用`Android Studio`单独开发这个App。
 
 ```
 cd ./packages/apps
@@ -32,7 +32,7 @@ ls
 Android.bp  AndroidManifest.xml  build.gradle  CleanSpec.mk  LibraryManifest.xml  OWNERS  res  src
 ```
 
-​	接下来开发一个简单的案例。然后将这个App应用内置到系统中，编译后刷入手机，案例的实现代码直接直接默认的即可。
+​	接下来，开发一个简单的案例。然后将这个App应用内置到系统中，编译后刷入手机，案例的实现代码直接直接默认的即可。
 
 ```java
 
@@ -45,9 +45,9 @@ public class MainActivity extends AppCompatActivity {
 }
 ```
 
-​	`android:shareUserId` 是 AndroidManifest.xml 文件中的一个属性，用于应用程序之间的共享用户 ID。共用用户 ID 可以让应用程序之间更好的进行相互访问和操作。当一个应用程序定义了`android:shareUserId`属性时，另一个相互信任的应用程序可以设置相同的 `android:shareUserId` 属性，从而实现应用程序的数据共享和交互。
+​	`android:shareUserId` 是`AndroidManifest.xml`文件中的一个属性，用于应用程序之间的共享用户ID。共用用户ID可以让应用程序之间更好的进行相互访问和操作。当一个应用程序定义了`android:shareUserId`属性时，另一个相互信任的应用程序，可以设置相同的 `android:shareUserId` 属性，从而实现应用程序的数据共享和交互。
 
-​	在安装和运行应用程序之前，设备会将具有相同共享用户 ID 的应用程序视为同一用户，因此可以访问对方的数据，比如 SharedPreferences 和文件等。如果应用程序没有设置 `android:shareUserId` 属性，则其默认值是该应用程序的包名。以下是AndroidManifest.xml中的配置。
+​	在安装和运行应用程序之前，设备会将具有相同共享用户ID的应用程序，视为同一用户。因此，可以访问对方的数据，比如，`SharedPreferences`和文件等。如果应用程序没有设置`android:shareUserId`属性，则其默认值是该应用程序的包名。以下是`AndroidManifest.xml`中的配置。
 
 ```
 <?xml version="1.0" encoding="utf-8"?>
@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
 </manifest>
 ```
 
-​	如果你直接设置了这个属性后，再使用常规的方式安装就提示下面的错误。
+​	如果直接设置了这个属性，再使用常规的方式安装就提示下面的错误。
 
 ```
 Installation did not succeed.
@@ -70,9 +70,9 @@ List of apks:
 Installation failed due to: 'INSTALL_FAILED_SHARED_USER_INCOMPATIBLE: Package cn.mik.systemappdemo tried to change user null'
 ```
 
-​	测试用例准备就绪后就可以来到源码的目录`packages/apps`，创建一个新的目录`SystemAppDemo`，将刚刚编译的样例App也改名为SystemAppDemo放入这个目录，在这个新目录中添加一个编译的配置文件Android.mk。
+​	测试用例准备就绪后就可以来到源码的目录`packages/apps`，创建一个新的目录`SystemAppDemo`，将刚刚编译的样例App也改名为SystemAppDemo放入这个目录，在这个新目录中，添加一个编译的配置文件Android.mk。
 
-~~~
+```
 cd ./packages/apps/
 mkdir SystemAppDemo && cd SystemAppDemo
 touch Android.mk
@@ -97,17 +97,17 @@ LOCAL_DEX_PREOPT := false
 include $(BUILD_PREBUILT)
 
 
-~~~
+```
 
-​	在 Android 系统编译过程中，`PRODUCT_PACKAGES` 是一个重要的变量，它定义了系统所需构建的软件包列表。`PRODUCT_PACKAGES` 变量定义的是本次构建需要编译打包的软件包，包括一些基础系统组件和应用程序模块，例如音频服务模块、媒体播放库、输入法、设置应用程序等。	
+​	在Android系统编译过程中，`PRODUCT_PACKAGES` 是一个重要的变量，它定义了系统所需构建的软件包列表。`PRODUCT_PACKAGES` 变量定义的是本次构建需要编译打包的软件包，包括一些基础系统组件和应用程序模块，例如音频服务模块、媒体播放库、输入法、设置应用程序等。
 
 ​	在构建规则文件`./build/make/target/product/mainline_system.mk`中添加配置。
 
-~~~
+```
 PRODUCT_PACKAGES += SystemAppDemo \
-~~~
+```
 
-​	到这里就修改完毕了，最后重新编译系统，将其刷入手机中。最后手机成功进入系统后，打开应用查看进程身份即可
+​	到这里就修改完毕了，重新编译系统，将其刷入手机中。手机成功进入系统后，打开应用查看进程身份即可。
 
 ```
 source ./build/envsetup.sh
@@ -121,7 +121,7 @@ adb reboot bootloader
 flashflash all -w
 
 // 等待系统刷机完成后打开桌面上的SystemAppDemo
-adb shell 
+adb shell
 ps -e|grep systemappdemo
 // 发现进程身份已经变成system的了。
 system        5033  1058 14718076 89256 0                   0 S cn.mik.systemappdemo
@@ -130,7 +130,7 @@ system        5033  1058 14718076 89256 0                   0 S cn.mik.systemapp
 
 ## 5.3 构建系统
 
-​	Android提供了两种构建系统方式，在Android7.0之前都是使用基于make的构建系统，在源码中由Android.mk文件描述构建规则，这是Android开发历史中遗留的一种构建方式，由于make在Android中构建缓慢、容易出错、无法扩展难以测试。所以在7.0后引入了soong构建系统，在源码中由Android.bp文件描述soong的构建规则，在soong中采用了kati GNU Make 克隆工具和ninja来加速对系统的构建。
+​	Android提供了两种构建系统方式，在Android7.0之前都是使用基于make的构建系统，在源码中由`Android.mk`文件描述构建规则，这是Android开发历史中遗留的一种构建方式，由于make在Android中构建缓慢、容易出错、无法扩展难以测试。所以在7.0后引入了soong构建系统，在源码中由Android.bp文件描述soong的构建规则，在soong中采用了`kati GNU Make`克隆工具和`ninja`来加速对系统的构建。
 
 ​	Soong构建系统是一个由Google开发的、用于构建Android的构建系统。它是一个用go语言编写的构建系统，旨在解决早期版本的Android构建系统中存在的问题，所以，它现在是Android构建系统的首选。
 
@@ -225,7 +225,7 @@ LOCAL_SRC_FILES := $(call \
 include $(BUILD_SHARED_LIBRARY)
 ```
 
-​	Android.bp 文件使用的是一种名为 Blueprint 的语言来表示模块和它们的依赖关系。Blueprint 是一种声明式语言，它描述了一个系统的构建规则和依赖关系，而无需描述如何构建代码本身。在 Android.bp 文件中，每个模块都表示为一个独立的蓝图，并且该蓝图包含有关模块的信息，例如名称、类型、源文件等。此外，蓝图还可以包含有关与该模块相关的依赖关系的信息，例如库、标头文件等。使用 Android.bp 文件可以使 Android 模块的构建过程更加简单明了，并且易于实现自定义构建规则和自动化构建操作。同时，它还能提高编译效率，特别是在多核 CPU 系统上。下面是 Android.bp 文件的基本格式：
+​	`Android.bp`文件使用的是一种名为`Blueprint`的语言来表示模块和它们的依赖关系。`Blueprint` 是一种声明式语言，它描述了一个系统的构建规则和依赖关系，而无需描述如何构建代码本身。在`Android.bp`文件中，每个模块都表示为一个独立的蓝图，并且该蓝图包含有关模块的信息，例如名称、类型、源文件等。此外，蓝图还可以包含有关与该模块相关的依赖关系的信息，例如库、标头文件等。使用 `Android.bp`文件可以使Android模块的构建过程更加简单明了，并且易于实现自定义构建规则和自动化构建操作。同时，它还能提高编译效率，特别是在多核CPU系统上。下面是`Android.bp`文件的基本格式：
 
 ```
 // Android.bp文件中的模块以模块类型开头，后跟一组 name: "value", 格式的属性
@@ -293,7 +293,7 @@ soong_namespace {
 
 ```
 
-​	除了以上的几种模块定义外，可以通过查看androidmk的源码查看还有哪些模块类型，找到文件`./build/soong/androidmk/androidmk/android.go`
+​	除了以上的几种模块定义外，可通过查看androidmk的源码查看还有哪些模块类型，找到文件`./build/soong/androidmk/androidmk/android.go`
 
 ```go
 var moduleTypes = map[string]string{
@@ -332,7 +332,7 @@ var prebuiltTypes = map[string]string{
 }
 ```
 
-​	androidmk是soong中提供的一个工具，因为基于make的构建系统已经逐渐被soong替代了，但是依然有很多人习惯使用Android.mk的规则来配置构建条件，在这种情况下可以选择写完Android.mk后，再使用androidmk工具将其转换为Android.bp文件。所以文件的相关代码中，可以看到很多是由一个map进行存放数据的，左边是Android.mk的规则，右边则是对应Android.bp中的新名字，在编写的过程中，如果你对Android.bp不是很熟悉，可以借鉴转换工具的源码进行参考，或者直接使用工具进行转换。
+​	androidmk是`soong`中提供的一个工具，因为基于`make`的构建系统已经逐渐被`soong`替代了，但是依然有很多人习惯使用`Android.mk`的规则来配置构建条件，在这种情况下可以选择写完Android.mk后，再使用androidmk工具将其转换为Android.bp文件。所有文件的相关代码中，可以看到很多是由一个map进行存放数据的，左边是Android.mk的规则，右边则是对应Android.bp中的新名字，在编写的过程中，如果对Android.bp不是很熟悉，可以借鉴转换工具的源码进行参考，或者直接使用工具进行转换。
 
 ​	下面讲述如何编译androidmk工具，并使用其进行转换。
 
@@ -389,6 +389,6 @@ android_app_import {
 
 ​	内置jar包的方式是有多种的，下面将使用两种方式将一个自己编写的jar包集成到系统中。
 
-​	
+​
 
-​	
+​
