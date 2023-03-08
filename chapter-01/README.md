@@ -8,7 +8,7 @@
 
 ​	由于Android的开源，各大手机厂商能能够自由的定制系统的源码，适配自己的硬件，由此衍生出了各种产品。我们常见的国产安卓设备的系统，基本厂商开发团队基于AOSP源码不断进行改造和优化的结果，例如小米MIUI系统、华为Harmony的系统、一加的H2OS系统等等，大多数都是基于AOSP的源码修改而来。如今的Android能够百花齐放，占据手机市场的半壁江山，也是主要得益于AOSP的开源。
 
-​	由于AOSP项目过于庞大和复杂，所以我们在了解和学习的过程中，要善于查询官方的说明文档。Android官方文档地址: [https://source.android.com](https://source.android.com)
+​	由于AOSP项目过于庞大和复杂，在了解和学习的过程中，要善于查询官方的说明文档。Android官方文档地址: [https://source.android.com](https://source.android.com)
 
 下图是官方文档中的AOSP的框架结构图。
 
