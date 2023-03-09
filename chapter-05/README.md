@@ -536,9 +536,9 @@ protected void onCreate(Bundle savedInstanceState) {
 
 ## 5.5 系统内置so动态库
 
-​	前文介绍的内置方式非常简单，只需通过配置PRODUCT_COPY_FILES即可将指定文件从源码中复制到目标目录中。除了JAR文件外，其他文件也可以使用这种方式进行内置。为了内置so文件，将采用另一种方式。并且，第二种内置方式同样适用于JAR文件。
+​	上一小节介绍的内置方式非常简单，只需通过配置PRODUCT_COPY_FILES即可将指定文件从源码中复制到目标目录中。除了JAR文件外，其他文件也可以使用这种方式进行内置。为了内置so文件，将采用另一种方式。并且，第二种内置方式同样适用于JAR文件。
 
-​	第二种方式是前文采用内置apk的方式，对构建规则进行细节的描述，在内置apk的同时，将指定的so动态库内置到`/system/lib`和`/system/lib64`目录中。并且同时将调用so动态库的JAR文件也内置在`/system/framework`目录中，在内置完成后，将调用JAR文件来访问so动态库，以及直接调用动态库进行测试。
+​	第二种方式是前文使用内置apk的方式，对构建规则进行细节的描述，在内置apk的同时，将指定的so动态库内置到`/system/lib`和`/system/lib64`目录中。并且同时将调用so动态库的JAR文件也内置在`/system/framework`目录中，在内置完成后，将调用JAR文件来访问so动态库，以及直接调用动态库进行测试。
 
 ​	首先准备一个测试项目，创建Native C++的项目。见下图。
 
@@ -610,11 +610,12 @@ include $(CLEAR_VARS)
 
 
 LOCAL_SRC_FILES := mysodemo.apk
-LOCAL_MODULE := kmodule
+LOCAL_MODULE := mysodemo
 LOCAL_MODULE_CLASS := APPS
 LOCAL_MODULE_TAGS := optional
 LOCAL_CERTIFICATE := PRESIGNED
 LOCAL_MODULE_PATH := $(TARGET_OUT)/framework
+// mysodemo.apk编译后将放在/system/framework/mysodemo/mysodemo.jar
 LOCAL_INSTALLED_MODULE_STEM := mysodemo.jar
 LOCAL_DEX_PREOPT := false
 LOCAL_SHARED_LIBRARIES := liblog
@@ -625,7 +626,7 @@ include $(BUILD_PREBUILT)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmysodemo
-LOCAL_SRC_FILES_arm := libmysodemo_arm.so
+LOCAL_SRC_FILES_arm := libmysodemo.so
 LOCAL_SRC_FILES_arm64 := libmysodemo_arm64.so
 LOCAL_MODULE_TARGET_ARCHS:= arm arm64
 LOCAL_MULTILIB := both
@@ -633,8 +634,100 @@ LOCAL_MODULE_SUFFIX := .so
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_MODULE_TAGS := optional
 LOCAL_SHARED_LIBRARIES := liblog
+
 include $(BUILD_PREBUILT)
 ```
+
+​	规则文件可以看到和前文中的apk内置基本是一致的，前文是在`mainline_system.mk`中添加的配置将新增的模块加入构建，这次在`base_system.mk`文件中将模块加入，最后可以看到同样能内置成功。
+
+```
+PRODUCT_PACKAGES_DEBUG := \
+    adb_keys \
+    arping \
+    dmuserd \
+    gdbserver \
+   	...
+	mysodemo \
+	libmysodemo \
+```
+
+​	编译并刷机后，检查`/system/lib/libmysodemo.so`是否存在，检查`/system/framework/mysodemo/mysodemo.jar`是否存在。
+
+```
+source ./build/envsetup.sh
+
+lunch aosp_blueline-userdebug
+
+make -j$(nproc --all)
+
+adb reboot bootloader
+
+flashflash all -w
+
+// 等待刷机完成，开始检查内置结果
+adb shell 
+ 
+ls -all /system/lib |grep libmy
+
+-rw-r--r--  1 root root  153056 2023-03-09 21:25:52.000000000 +0800 libmysodemo.so
+
+cd /system/framework/mysodemo/
+ 
+ls -all
+
+-rw-r--r-- 1 root root 7937264 2023-03-09 20:58:40.000000000 +0800 mysodemo.jar
+
+// 查看文件的描述，发现其实就是zip，是将刚刚的apk文件重新命名为jar的。
+file mysodemo.jar
+
+mysodemo.jar: Zip archive data
+```
+
+​	到这里内置流程就完成了，最后写一个测试程序来进行调用新方式内置的jar包。
+```java
+protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+		
+		// 加载jar文件
+        String jarPath = "/system/framework/mysodemo/mysodemo.jar";
+        ClassLoader systemClassLoader=ClassLoader.getSystemClassLoader();
+        String javaPath= System.getProperty("java.library.path");
+        PathClassLoader pathClassLoader=new PathClassLoader(jarPath,javaPath,systemClassLoader);
+        Class<?> clazz1 = null;
+        try {
+        	// 这里案例中没有使用静态函数，所以先反射初始化一个对象，再进行调用测试
+            clazz1 = pathClassLoader.loadClass("com.example.mysodemo.NativeCommon");
+            Constructor<?> clazzInitMethod= clazz1.getConstructor();
+            Object obj=clazzInitMethod.newInstance();
+            Method method = clazz1.getDeclaredMethod("stringFromJNI");
+            Object result = method.invoke(obj);
+            Log.i("MainActivity","stringFromJNI:"+result);
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+        }
+    }
+```
+
+​	加载系统中的动态库进行调用我就不再详细写案例测试了，这个流程和正常加载系统中的动态库基本一致。只需要留意案例中的native函数的符号，加载动态库后，查找对应符号，最后调用即可。
+
+## 5.6 修改su
+
+​	
+
+## 5.7 修改testkey
+
+
+
+## 5.8 修改usb默认连接
 
 
 
