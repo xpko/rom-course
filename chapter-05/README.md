@@ -719,15 +719,437 @@ protected void onCreate(Bundle savedInstanceState) {
 
 ​	加载系统中的动态库进行调用我就不再详细写案例测试了，这个流程和正常加载系统中的动态库基本一致。只需要留意案例中的native函数的符号，加载动态库后，查找对应符号，最后调用即可。
 
-## 5.6 修改su
+## 5.6 系统内置证书
+
+​	证书是由证书颁发机构（CA）签发的数字文件，用于验证实体的身份和保护通信。证书包含实体的公钥、名称、有效期、颁发机构等信息，并使用颁发机构的私钥进行签名。常见的证书类型包括SSL/TLS证书、代码签名证书、电子邮件证书等。当客户端与服务器建立HTTPS连接时，服务器将向客户端发送其证书，并由客户端使用根证书或中间证书来验证其合法性。如果验证成功，则客户端会使用服务器的公钥来加密数据，并确保双方通信的机密性和完整性。
+
+​	在源码的路径`system/ca-certificates/files`下的系统证书通常是作为客户端的根证书或中间证书使用的。这些证书由受信任的第三方颁发机构签发，并预先安装在操作系统中，以确保与服务器建立的HTTPS连接的安全性和可信性。客户端会使用这些证书来验证服务器的身份以及保护通信的机密性和完整性。管理员也可以向此目录添加自己的自签名证书，以便其他应用程序可以信任它们。
+
+​	在系统中进行手动安装证书时，这些证书将被划分为用户证书，这些用户证书被认定为个人签发的，所以不被信任，从而拒绝HTTPS连接。相比之下，预先内置在系统证书中的则会认为更加可靠，能正常进行HTTPS请求。所以在一些抓包的需求中，可以将中间人证书直接内置在系统中，达到无需root设备，也能插入系统证书进行抓包的目的。
+
+​	内置的过程非常简单，将证书文件放在`system/ca-certificates/files`目录下即可，这些证书通常是以`.0`作为结尾，例如`0d69c7e1.0`。如果需要内置两个相同名字的证书，第二个则需要将`.0`修改为`.1`。这个证书和抓包工具中导出的文件是有一定区别的，所以先需要进行一层转换，最后将转换后的结果放入源码中的系统证书目录。接下来将演示两种转换方式。
+
+​	以Charles作为例子，首先保存中间人证书到本地中`Help-->SSL Proxying-->Save Charles Root Certificate`，保存为chls.cer的证书文件。然后执行下面的命令。
+
+```
+// 生成基于证书主题的hash值
+openssl x509 -inform DER -subject_hash_old -in chls.cer
+
+// 输出结果如下
+d37a53cc
+-----BEGIN CERTIFICATE-----
+MIIFRjCCBC6gAwIBAgIGAYIMYlRiMA0GCSqGSIb3DQEBCwUAMIGnMTgwNgYDVQQD
+DC9DaGFybGVzIFByb3h5IENBICgxNyBKdWwgMjAyMiwgTEFQVE9QLURRVU5MTUtB
+KTElMCMGA1UECwwcaHR0cHM6Ly9jaGFybGVzcHJveHkuY29tL3NzbDERMA8GA1UE
+CgwIWEs3MiBMdGQxETAPBgNVBAcMCEF1Y2tsYW5kMREwDwYDVQQIDAhBdWNrbGFu
+ZDELMAkGA1UEBhMCTlowHhcNMjIwNzE2MTMzOTA2WhcNMjMwNzE2MTMzOTA2WjCB
+pzE4MDYGA1UEAwwvQ2hhcmxlcyBQcm94eSBDQSAoMTcgSnVsIDIwMjIsIExBUFRP
+UC1EUVVOTE1LQSkxJTAjBgNVBAsMHGh0dHBzOi8vY2hhcmxlc3Byb3h5LmNvbS9z
+c2wxETAPBgNVBAoMCFhLNzIgTHRkMREwDwYDVQQHDAhBdWNrbGFuZDERMA8GA1UE
+CAwIQXVja2xhbmQxCzAJBgNVBAYTAk5aMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
+MIIBCgKCAQEApfuuH/SLT01KNHRVcQBDvT99ikpvgeVCeTLKmjzwHb/TY5vqooCF
+Q51nhw77++D20wXRH1VQAOgrh4NTtQLQvfu+GZ3FJK3FfZzhd3Qqje/CCjB4Es3R
+GiWLGxaCKZftknRFlB0KB0MgqkJoHMZ38hE7m5t/0nSTAtYvn9eFoFZVgGgS1egv
+ptHvtDfGSTCQc7H16w8KtWPTGEL/eq/npSV5f5ClPBIrFuw5BqAq6fT1p984OnoU
+8fEixjZZKbYbWpoDBidmezjBl8b5bWCiXXAeOHRK3oQZvFUZdwd1D3La7J/LMPUJ
+POzPpzpHqESLXnVRyp/gnaiTJac+TtQPKwIDAQABo4IBdDCCAXAwDwYDVR0TAQH/
+BAUwAwEB/zCCASwGCWCGSAGG+EIBDQSCAR0TggEZVGhpcyBSb290IGNlcnRpZmlj
+YXRlIHdhcyBnZW5lcmF0ZWQgYnkgQ2hhcmxlcyBQcm94eSBmb3IgU1NMIFByb3h5
+aW5nLiBJZiB0aGlzIGNlcnRpZmljYXRlIGlzIHBhcnQgb2YgYSBjZXJ0aWZpY2F0
+ZSBjaGFpbiwgdGhpcyBtZWFucyB0aGF0IHlvdSdyZSBicm93c2luZyB0aHJvdWdo
+IENoYXJsZXMgUHJveHkgd2l0aCBTU0wgUHJveHlpbmcgZW5hYmxlZCBmb3IgdGhp
+cyB3ZWJzaXRlLiBQbGVhc2Ugc2VlIGh0dHA6Ly9jaGFybGVzcHJveHkuY29tL3Nz
+bCBmb3IgbW9yZSBpbmZvcm1hdGlvbi4wDgYDVR0PAQH/BAQDAgIEMB0GA1UdDgQW
+BBSE12ZaVt68Q+09qxhIRMgFs6Ls9jANBgkqhkiG9w0BAQsFAAOCAQEAGZ0msJ4Y
+Yz0kHUP+9TB+zgh03ZA7y+/hmLO3T19e3aPBzw75lT2Eb3n/LZBKqVJy32PohglA
+nq2II2KlghVi8VlR7izdmfd1WcilAtMdEfBPM47icV++gWATYLHu64kowyqrvCkm
+PP+kZMPHDrTRxLz3eyqelN/7MsT2PRAPc12IOCpw9DznuZsxD2/krQnmWzzxJ8H0
+cVIzNPcVeOLlm2kBcS1KrtXRLrBpn4sq2/Mfbyk9swIIWErMxPIyvre/0JbTDl4X
+HvGX+UoYuPVbdY7TdD3lXBxGZ+ObciS/ZgIQsVKeHe646qsfZCaF9nQsh3+nbeeT
+fKzQVKiWNTnDew==
+-----END CERTIFICATE-----
+
+// 获取证书详细信息，以上面拿到的hash值作为文件名，将内容重定向
+openssl x509 -inform DER -in chls.cer -text > d37a53cc.0
+
+// 将证书拷贝到源码的系统证书目录
+cp d37a53cc.0 /home/king/android_src/mikrom12_gitlab/system/ca-certificates/files
+```
+
+​	除了这种转换方式，还有另一种更加简便的办法，首先将证书作为用户证书安装，直接将Charles导出的证书上传到手机，在手机中找到`Setting->Security->Encryption & credentials-> install a certificate`最后选中证书完成安装，然后来到用户证书目录` /data/misc/user/0/cacerts-added`中，刚刚导入的证书会被转换好作为用户证书放在这里，将其从手机中传出来，放入源码中的系统证书目录即可。如果你不知道哪个证书名对应你刚刚手动安装的证书，可以直接将全部证书都放入系统证书目录。
+
+## 5.7 修改AOSP的默认签名
+
+​	Android应用程序的签名是一个数字证书，它由开发者使用私钥创建，并可以在应用程序发布前进行校验以确保应用程序未被篡改，签名文件包含应用程序的私钥和公钥。每个签名文件都有一个别名（alias），这个别名可以用于区分不同的签名证书。私钥是用于创建数字签名的关键组成部分，只有拥有该私钥的人才能够对应用程序进行签名。同时，公钥是与私钥匹配的公共密钥，用于验证数字签名是否正确。在验证时，Android系统会比较应用程序的签名文件中的公钥和设备上已安装应用程序的签名文件中的公钥，以确定应用程序是否合法。
+
+​	应用程序的签名证书不仅用于验证应用程序的身份，还用于验证应用程序的完整性。如果应用程序的签名证书被修改，则应用程序将无法通过验证，因为其完整性已经被破坏。在签名证书的有效期内，开发者可以使用相同的签名证书更新应用程序版本，以避免由于不同签名导致的应用程序无法升级的问题。最重要的作用是防止应用程序被恶意篡改。由于Android系统会检查应用程序的签名证书，因此篡改者无法伪造受信任的签名证书来欺骗Android系统。此外，签名证书还可用于保护应用程序的知识产权、验证应用程序开发者的身份等方面。
+
+​	在开发App中，编译release版本时需要指定使用签名的证书，在AOSP中同样是有使用证书签名的，testkey是AOSP中默认测试构建使用的一个测试证书，而testkey的私钥是公开可见的，任何人都可以获取，所以安全系数很低，因此开发者需要生成一个新的密钥证书来作为releasekey替换掉默认的testkey。
+
+​	如何生成前面在文件`./build/target/product/security/README`中有详细介绍流程，文档中的描述如下。
+
+```
+key generation
+--------------
+
+The following commands were used to generate the test key pairs:
+
+  development/tools/make_key testkey       '/C=US/ST=California/L=Mountain View/O=Android/OU=Android/CN=Android/emailAddress=android@android.com'
+  development/tools/make_key platform      '/C=US/ST=California/L=Mountain View/O=Android/OU=Android/CN=Android/emailAddress=android@android.com'
+  development/tools/make_key shared        '/C=US/ST=California/L=Mountain View/O=Android/OU=Android/CN=Android/emailAddress=android@android.com'
+  development/tools/make_key media         '/C=US/ST=California/L=Mountain View/O=Android/OU=Android/CN=Android/emailAddress=android@android.com'
+  development/tools/make_key cts_uicc_2021 '/C=US/ST=California/L=Mountain View/O=Android/OU=Android/CN=Android/emailAddress=android@android.com'
+
+signing using the openssl commandline (for boot/system images)
+--------------------------------------------------------------
+
+1. convert pk8 format key to pem format
+   % openssl pkcs8 -inform DER -nocrypt -in testkey.pk8 -out testkey.pem
+
+2. create a signature using the pem format key
+   % openssl dgst -binary -sha1 -sign testkey.pem FILE > FILE.sig
+
+extracting public keys for embedding
+------------------------------------
+```
+
+​	接下来参考说明来生成`releasekey`签名证书
+
+```
+// 生成release.pk8
+/home/king/android_src/mikrom12_gitlab/development/tools/make_key releasekey '/C=US/ST=California/L=Mountain View/O=Android/OU=Android/CN=Android/emailAddress=android@android.com'
+
+// 将 DER 格式的 releasekey.pk8 私钥文件转换为 PEM 格式，并输出到 releasekey.pem 文件中
+openssl pkcs8 -inform DER -nocrypt -in releasekey.pk8 -out releasekey.pem
+```
+
+​	`testkey`文件在路径`./build/target/product/security/`下，将刚刚生成的两个文件放到这个目录中。然后修改文件`./build/core/config.mk`
+
+```
+ifdef PRODUCT_DEFAULT_DEV_CERTIFICATE
+  DEFAULT_SYSTEM_DEV_CERTIFICATE := $(PRODUCT_DEFAULT_DEV_CERTIFICATE)
+else
+  DEFAULT_SYSTEM_DEV_CERTIFICATE := build/make/target/product/security/testkey
+endif
+
+//修改为
+ifdef PRODUCT_DEFAULT_DEV_CERTIFICATE
+  DEFAULT_SYSTEM_DEV_CERTIFICATE := $(PRODUCT_DEFAULT_DEV_CERTIFICATE)
+else
+  DEFAULT_SYSTEM_DEV_CERTIFICATE := build/make/target/product/security/releasekey
+endif
+```
+
+​	修改`./build/core/sysprop.mk`
+
+~~~
+ifeq ($(DEFAULT_SYSTEM_DEV_CERTIFICATE),build/make/target/product/security/testkey)
+BUILD_KEYS := test-keys
+else
+BUILD_KEYS := dev-keys
+endif
+
+//修改为
+ifeq ($(DEFAULT_SYSTEM_DEV_CERTIFICATE),build/make/target/product/security/releasekey)
+BUILD_KEYS := release-keys
+else
+BUILD_KEYS := dev-keys
+endif
+~~~
+
+​	最后编译后刷入手机，验证是否修改为release-key。
+
+~~~
+adb shell
+
+// 切换到root权限
+su 
+
+//查看设备信息内容中包括-key的
+cat /system/build.prop |grep "\-key"
+
+//得到的结果如下
+ro.system.build.fingerprint=Android/aosp_blueline/blueline:12/SP1A.210812.016.A1/king03111650:userdebug/release-keys
+ro.system.build.tags=release-keys
+ro.build.tags=release-keys
+ro.build.description=aosp_blueline-userdebug 12 SP1A.210812.016.A1 eng.king.20230311.165057 release-keys
+~~~
+
+## 5.8 默认开启adb调试
+
+### 5.8.1 adb介绍
+
+​	ADB（Android Debug Bridge）是一个用于在 Android 设备和计算机之间进行通信的工具，可以通过 ADB 将设备连接到计算机并执行各种操作。ADB 源码是 AOSP源码中的一部分，包含了 ADB 的实现代码。ADB主要由以下几个部分组成。
+
+​	adb client 是运行在开发机上的命令行客户端，用于向设备发送命令和数据，并接收响应和数据。ADB client 可以通过 USB、Wi-Fi 等多种方式连接到设备，并与 `adbd` 建立通道进行通信。
+
+​	adb server 是运行在开发机上的守护进程，负责协调 ADB client 和 `adbd` 之间的通信。ADB server 可以监听多个本地或远程的 `adbd` 连接，并将来自客户端的请求转发给相应的设备和进程。
+
+​	`adbd` 是运行在 Android 设备上的守护进程，负责监听 USB、TCP 等多种接口，并与 ADB client 或 ADB server 建立通道进行通信。`adbd` 可以接收来自 ADB client 的命令和数据，并解析执行相应的操作；也可以向 ADB client 发送响应和数据，并将设备上的状态信息反馈给开发机。
+
+​	ADB client 和 `adbd` 构成了 Android 开发调试的基础，而 ADB server 则提供了更加灵活和高效的通信机制，使得多个设备和客户端可以同时连接并进行交互操作。
+
+​	对adb有了简单的概念后，接下来从代码层面了解adb是如何工作的。首先找到adb client的入口，在文件`./packages/modules/adb/client/main.cpp`中的main函数。
+
+```c++
+int main(int argc, char* argv[], char* envp[]) {
+    __adb_argv = const_cast<const char**>(argv);
+    __adb_envp = const_cast<const char**>(envp);
+    adb_trace_init(argv);
+    return adb_commandline(argc - 1, const_cast<const char**>(argv + 1));
+}
+
+// adb命令处理，在commandline.cpp中
+
+int adb_commandline(int argc, const char** argv) {
+    bool no_daemon = false;
+    bool is_daemon = false;
+    bool is_server = false;
+    int r;
+    TransportType transport_type = kTransportAny;
+    int ack_reply_fd = -1;
+
+#if !defined(_WIN32)
+    // We'd rather have EPIPE than SIGPIPE.
+    signal(SIGPIPE, SIG_IGN);
+#endif
+
+    const char* server_host_str = nullptr;
+    const char* server_port_str = nullptr;
+    const char* server_socket_str = nullptr;
+
+    // We need to check for -d and -e before we look at $ANDROID_SERIAL.
+    const char* serial = nullptr;
+    TransportId transport_id = 0;
+	// 对参数解析处理
+    while (argc > 0) {
+        if (!strcmp(argv[0], "server")) {
+            is_server = true;
+        } else if (!strcmp(argv[0], "nodaemon")) {
+            no_daemon = true;
+        } else if (!strcmp(argv[0], "fork-server")) {
+            /* this is a special flag used only when the ADB client launches the ADB Server */
+            is_daemon = true;
+        } else if (!strcmp(argv[0], "--reply-fd")) {
+            ...
+        } else if (!strncmp(argv[0], "-s", 2)) {
+            ...
+        } else if (!strncmp(argv[0], "-t", 2)) {
+            ...
+        } else if (!strcmp(argv[0], "-d")) {
+            transport_type = kTransportUsb;
+        } else if (!strcmp(argv[0], "-e")) {
+            transport_type = kTransportLocal;
+        } else if (!strcmp(argv[0], "-a")) {
+            gListenAll = 1;
+        } else if (!strncmp(argv[0], "-H", 2)) {
+            ...
+        } else if (!strncmp(argv[0], "-P", 2)) {
+            ...
+        } else if (!strcmp(argv[0], "-L")) {
+            ...
+        } else {
+            /* out of recognized modifiers and flags */
+            break;
+        }
+        argc--;
+        argv++;
+    }
+	...
+	
+    if (is_server) {
+        // 首先检查是否要启用守护进程模式
+        if (no_daemon || is_daemon) {
+            // 启用守护进程并且没有回复消息的描述符就结束掉
+            if (is_daemon && (ack_reply_fd == -1)) {
+                fprintf(stderr, "reply fd for adb server to client communication not specified.\n");
+                return 1;
+            }
+            // 启动ADB服务器进程
+            r = adb_server_main(is_daemon, server_socket_str, ack_reply_fd);
+        } else {
+            // 启动本地ADB服务器进程
+            r = launch_server(server_socket_str);
+        }
+        if (r) {
+            fprintf(stderr,"* could not start server *\n");
+        }
+        return r;
+    }
+
+    if (argc == 0) {
+        help();
+        return 1;
+    }
+
+    // 等待连接设备
+    if (!strncmp(argv[0], "wait-for-", strlen("wait-for-"))) {
+        const char* service = argv[0];
+
+        if (!wait_for_device(service)) {
+            return 1;
+        }
+
+        // Allow a command to be run after wait-for-device,
+        // e.g. 'adb wait-for-device shell'.
+        if (argc == 1) {
+            return 0;
+        }
+
+        /* Fall through */
+        argc--;
+        argv++;
+    }
+
+    /* adb连接成功后的对应命令的处理方式，比如adb devices */
+    if (!strcmp(argv[0], "devices")) {
+        const char *listopt;
+        if (argc < 2) {
+            listopt = "";
+        } else if (argc == 2 && !strcmp(argv[1], "-l")) {
+            listopt = argv[1];
+        } else {
+            error_exit("adb devices [-l]");
+        }
+
+        std::string query = android::base::StringPrintf("host:%s%s", argv[0], listopt);
+        std::string error;
+        if (!adb_check_server_version(&error)) {
+            error_exit("failed to check server version: %s", error.c_str());
+        }
+        printf("List of devices attached\n");
+        // 执行命令的关键函数
+        return adb_query_command(query);
+    } else if (!strcmp(argv[0], "transport-id")) {
+        TransportId transport_id;
+        std::string error;
+        unique_fd fd(adb_connect(&transport_id, "host:features", &error, true));
+        if (fd == -1) {
+            error_exit("%s", error.c_str());
+        }
+        printf("%" PRIu64 "\n", transport_id);
+        return 0;
+    } else if (!strcmp(argv[0], "connect")) {
+        if (argc != 2) error_exit("usage: adb connect HOST[:PORT]");
+
+        std::string query = android::base::StringPrintf("host:connect:%s", argv[1]);
+        return adb_query_command(query);
+    } else if (!strcmp(argv[0], "disconnect")) {
+        if (argc > 2) error_exit("usage: adb disconnect [HOST[:PORT]]");
+
+        std::string query = android::base::StringPrintf("host:disconnect:%s",
+                                                        (argc == 2) ? argv[1] : "");
+        return adb_query_command(query);
+    } else if (!strcmp(argv[0], "abb")) {
+        return adb_abb(argc, argv);
+    } else if (!strcmp(argv[0], "pair")) {
+        if (argc < 2 || argc > 3) error_exit("usage: adb pair HOST[:PORT] [PAIRING CODE]");
+
+        std::string password;
+        if (argc == 2) {
+            printf("Enter pairing code: ");
+            fflush(stdout);
+            if (!std::getline(std::cin, password) || password.empty()) {
+                error_exit("No pairing code provided");
+            }
+        } else {
+            password = argv[2];
+        }
+        std::string query =
+                android::base::StringPrintf("host:pair:%s:%s", password.c_str(), argv[1]);
+
+        return adb_query_command(query);
+    } else if (!strcmp(argv[0], "emu")) {
+        return adb_send_emulator_command(argc, argv, serial);
+    } else if (!strcmp(argv[0], "shell")) {
+        return adb_shell(argc, argv);
+    } 
+    ...
+}
+
+```
+
+​	`adb_server_main()` 和 `launch_server()` 都是 ADB 服务器的启动函数，但它们的实现方式不同，有以下几个区别：
+
+1. `adb_server_main()` 可以作为独立进程运行，也可以在当前进程中直接调用。而 `launch_server()` 只能在当前进程中执行，无法作为独立进程运行。
+2. `adb_server_main()` 启动后会一直监听来自客户端的连接请求，并使用多线程或 epoll 等技术处理并发请求。而 `launch_server()` 只负责启动本地 ADB 服务器，并让其开始监听指定的端口。
+3. `adb_server_main()` 可以通过 `-D` 选项控制是否启用守护进程模式，还可以设置回复文件描述符等高级功能。而 `launch_server()` 没有这些高级功能。
+
+​	因此，一般情况下，如果需要在独立进程中启动 ADB 服务器并处理来自客户端的请求，应该调用 `adb_server_main()` 函数，这种方式适用于需要长时间运行 ADB 服务器并处理大量并发请求的场景，例如 Android 开发中常用的设备调试、应用测试等。如果只需要在当前进程中启动本地 ADB 服务器并监听指定端口，则应该使用 `launch_server()` 函数，例如执行单个文件传输或 shell 操作时，只需要启动一个本地 ADB 服务器即可，无需额外的进程和线程资源。
+
+​	需要注意的是，在实际使用中，`adb_server_main()` 和 `launch_server()` 可能会根据具体需求进行组合使用，例如启动一个本地 ADB 服务器后，再使用 `adb_connect()` 函数连接远程设备上运行的 ADB 服务器。
+
+​	`adbd`运行在 Android 设备上并监听来自主机的 ADB 请求。通过与` adbd` 进程交互，开发人员可以使用 adb 工具执行各种调试和测试任务，例如安装应用程序、查看日志、启动 Activity 等。adbd 通常以 root 用户权限运行。这意味着 `adbd` 进程可以执行许多敏感操作，并访问系统中的各种资源和设置。`adbd `与主机之间通过 USB、Wi-Fi 或其他连接方式进行通信，并使用 ADB 协议进行数据传输和命令交互。`adbd `默认监听 TCP 端口 5555，以便通过网络进行远程调试和管理。在默认情况下，普通应用程序无法直接访问 adbd 进程。
+
+​	下面看看init.rc中`adbd`服务的定义
+
+```
+// --root_seclabel=u:r:su:s0：指定了 adbd 进程的 SELinux 上下文标签。该标签表示 adbd 进程以 root 用户权限运行，并且被分配了 su 初始上下文。
+// socket adbd seqpacket 660 system system：定义了 adbd 进程使用的 Unix 套接字。该套接字是一个面向连接的序列数据包套接字，并且只能由 system 用户或具有相应权限的用户进程访问。
+
+service adbd /system/bin/adbd --root_seclabel=u:r:su:s0
+    class core
+    socket adbd seqpacket 660 system system
+    disabled
+    updatable
+    seclabel u:r:adbd:s0
+```
+
+​	`adbd`进程的入口文件是`./packages/modules/adb/daemon/main.cpp`，main函数的代码如下。
+
+```cpp
+
+int main(int argc, char** argv) {
+#if defined(__BIONIC__)
+    // Set M_DECAY_TIME so that our allocations aren't immediately purged on free.
+    mallopt(M_DECAY_TIME, 1);
+#endif
+    ...
+
+    adb_trace_init(argv);
+
+    D("Handling main()");
+    return adbd_main(DEFAULT_ADB_PORT);
+}
+
+
+int adbd_main(int server_port) {
+    umask(0);
+    signal(SIGPIPE, SIG_IGN);
+    
+#if defined(__BIONIC__)
+    ...
+#endif
+    // 向系统注册各种传输方式，并建立与客户端的连接
+    init_transport_registration();
+	...
+#if defined(__ANDROID__)
+    // If we're on userdebug/eng or the device is unlocked, permit no-authentication.
+    bool device_unlocked = "orange" == android::base::GetProperty("ro.boot.verifiedbootstate", "");
+    if (__android_log_is_debuggable() || device_unlocked) {
+        auth_required = android::base::GetBoolProperty("ro.adb.secure", false);
+    }
+#endif
+	...
+    LOG(INFO) << "adbd started";
+
+    D("adbd_main(): pre init_jdwp()");
+    init_jdwp();
+    D("adbd_main(): post init_jdwp()");
+
+    D("Event loop starting");
+    fdevent_loop();
+
+    return 0;
+}
+```
+
+​	ro.adb.secure 是 Android 系统中的一个属性，用于控制 adb 守护进程（adbd）是否启用安全模式。该属性在系统启动时被加载，并作为一个系统属性存储在 /system/build.prop 文件中。具体来说，当 ro.adb.secure 的值为 1 时，表示 adb 守护进程需要进行身份验证才能连接到 Android 设备；当其值为 0 时，表示 adb 守护进程不需要进行身份验证即可连接。
+
+​	默认情况下，Android 系统会将 ro.adb.secure 属性设置为 1，以提高系统的安全性。在此模式下，只有经过授权的 adb 客户端 才能访问 Android 设备上的 adbd 进程，并执行相应的调试和测试任务。如果不希望修改ro.adb.secure属性，又希望默认能开启调试，可以选择将auth_required直接赋值为0。
+
+
 
 ​	
 
-## 5.7 修改testkey
-
-
-
-## 5.8 修改usb默认连接
-
-
-
+​	
