@@ -1134,10 +1134,12 @@ int adbd_main(int server_port) {
     LOG(INFO) << "adbd started";
 
     D("adbd_main(): pre init_jdwp()");
+    // 初始化 JDWP（Java Debug Wire Protocol）调试模块。JDWP 是一种面向 Java 虚拟机的调试协议，用于在运行时远程调试 Java 应用程序
     init_jdwp();
     D("adbd_main(): post init_jdwp()");
 
     D("Event loop starting");
+    // 启动事件循环
     fdevent_loop();
 
     return 0;
@@ -1148,7 +1150,169 @@ int adbd_main(int server_port) {
 
 ​	默认情况下，Android 系统会将 ro.adb.secure 属性设置为 1，以提高系统的安全性。在此模式下，只有经过授权的 adb 客户端 才能访问 Android 设备上的 adbd 进程，并执行相应的调试和测试任务。如果不希望修改ro.adb.secure属性，又希望默认能开启调试，可以选择将auth_required直接赋值为0。
 
+​	init_transport_registration函数负责注册一个传输协议以便通过 USB 与设备通信。就是在这里管理着adb客户端和adbd进程之间的连接通讯。继续深入查看init_transport_registration的实现逻辑。代码如下
 
+```java
+void init_transport_registration(void) {
+    int s[2];
+
+    if (adb_socketpair(s)) {
+        PLOG(FATAL) << "cannot open transport registration socketpair";
+    }
+    D("socketpair: (%d,%d)", s[0], s[1]);
+
+    transport_registration_send = s[0];
+    transport_registration_recv = s[1];
+
+    transport_registration_fde =
+        fdevent_create(transport_registration_recv, transport_registration_func, nullptr);
+    fdevent_set(transport_registration_fde, FDE_READ);
+}
+```
+
+​	transport_registration_recv回调函数用来处理回复过来的消息，transport_registration_func作为写入事件的函数。
+
+```c++
+
+static void transport_registration_func(int _fd, unsigned ev, void*) {
+    ...
+    apacket* packet = p.release();
+    fdevent_run_on_main_thread([packet, t]() { handle_packet(packet, t); });
+    return true;
+    ...
+}
+```
+
+​	fdevent_run_on_main_thread函数将一个lamda表达式封装的函数作为参数，post给adbd进程的主线程来执行，类似于在Android开发时，子线程需要对UI进行更新，通过调用runOnMainThread来让主线程执行的意思。handle_packet 函数是 ADB 协议中最核心的功能之一，负责解析和处理各种类型的数据包，并将其转换为对应的操作或事件，接下来继续看看handle_packet的处理。
+
+```cpp
+
+void handle_packet(apacket *p, atransport *t)
+{
+	...
+    switch(p->msg.command){
+    case A_CNXN:  // CONNECT(version, maxdata, "system-id-string")
+        handle_new_connection(t, p);
+        break;
+    case A_STLS:  // TLS(version, "")
+        t->use_tls = true;
+#if ADB_HOST
+        send_tls_request(t);
+        adb_auth_tls_handshake(t);
+#else
+        adbd_auth_tls_handshake(t);
+#endif
+        break;
+
+    case A_AUTH:
+        // All AUTH commands are ignored in TLS mode
+        if (t->use_tls) {
+            break;
+        }
+        switch (p->msg.arg0) {
+#if ADB_HOST
+            case ADB_AUTH_TOKEN:
+                if (t->GetConnectionState() != kCsAuthorizing) {
+                    t->SetConnectionState(kCsAuthorizing);
+                }
+                send_auth_response(p->payload.data(), p->msg.data_length, t);
+                break;
+#else
+            case ADB_AUTH_SIGNATURE: {
+                // TODO: Switch to string_view.
+                std::string signature(p->payload.begin(), p->payload.end());
+                std::string auth_key;
+                if (adbd_auth_verify(t->token, sizeof(t->token), signature, &auth_key)) {
+                    adbd_auth_verified(t);
+                    t->failed_auth_attempts = 0;
+                    t->auth_key = auth_key;
+                    adbd_notify_framework_connected_key(t);
+                } else {
+                    if (t->failed_auth_attempts++ > 256) std::this_thread::sleep_for(1s);
+                    send_auth_request(t);
+                }
+                break;
+            }
+
+            case ADB_AUTH_RSAPUBLICKEY:
+                t->auth_key = std::string(p->payload.data());
+                adbd_auth_confirm_key(t);
+                break;
+#endif
+            default:
+                t->SetConnectionState(kCsOffline);
+                handle_offline(t);
+                break;
+        }
+        break;
+
+    case A_OPEN: /* OPEN(local-id, 0, "destination") */
+        ...
+        break;
+
+    case A_OKAY: /* READY(local-id, remote-id, "") */
+        ...
+        break;
+
+    case A_CLSE: /* CLOSE(local-id, remote-id, "") or CLOSE(0, remote-id, "") */
+        ...
+        break;
+
+    case A_WRTE: /* WRITE(local-id, remote-id, <data>) */
+        ...
+        break;
+
+    default:
+        printf("handle_packet: what is %08x?!\n", p->msg.command);
+    }
+
+    put_apacket(p);
+}
+```
+
+​	在这里看到了详细的ADB授权的流程，可以看到使用adbd_auth_verify函数进行身份认证信息的确认。下面是验证的具体实现。
+
+```cpp
+
+bool adbd_auth_verify(const char* token, size_t token_size, const std::string& sig,
+                      std::string* auth_key) {
+    bool authorized = false;
+    auth_key->clear();
+
+    IteratePublicKeys([&](std::string_view public_key) {
+        // TODO: do we really have to support both ' ' and '\t'?
+        std::vector<std::string> split = android::base::Split(std::string(public_key), " \t");
+        uint8_t keybuf[ANDROID_PUBKEY_ENCODED_SIZE + 1];
+        const std::string& pubkey = split[0];
+        if (b64_pton(pubkey.c_str(), keybuf, sizeof(keybuf)) != ANDROID_PUBKEY_ENCODED_SIZE) {
+            LOG(ERROR) << "Invalid base64 key " << pubkey;
+            return true;
+        }
+
+        RSA* key = nullptr;
+        if (!android_pubkey_decode(keybuf, ANDROID_PUBKEY_ENCODED_SIZE, &key)) {
+            LOG(ERROR) << "Failed to parse key " << pubkey;
+            return true;
+        }
+
+        bool verified =
+                (RSA_verify(NID_sha1, reinterpret_cast<const uint8_t*>(token), token_size,
+                            reinterpret_cast<const uint8_t*>(sig.c_str()), sig.size(), key) == 1);
+        RSA_free(key);
+        if (verified) {
+            *auth_key = public_key;
+            authorized = true;
+            return false;
+        }
+
+        return true;
+    });
+
+    return authorized;
+}
+```
+
+​	将这个函数改为一律返回true，同样可以做到默认开启调试，无需再进行手动的授权。
 
 ​	
 
