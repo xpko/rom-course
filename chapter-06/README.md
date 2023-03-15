@@ -34,9 +34,9 @@
 
 ​	动态注册是指在程序运行时将Native函数与Java方法进行绑定。这种方式可以在Java程序中动态地加载Native函数，避免了在编译时生成共享库文件的过程。通过JNI接口提供的相关函数，可以在Java程序中实现动态注册的功能。
 
-​	接着开始逐步的通过对RegisterNative的分析，最终在系统中插桩，将所有App的静态注册和动态注册进行输出，打印出进行注册的目标函数名，以及注册对应的C++函数的偏移地址。
+​	下面开始了解两种注册方式的实现原理，最终在系统执行过程中找到一个共同调用处进行插桩，将所有App的静态注册和动态注册进行输出，打印出进行注册的目标函数名，以及注册对应的C++函数的偏移地址。
 
-### 6.3.1 Native函数注册
+### 6.3.1 静态注册
 
 ​	通过前文的介绍，了解到Native函数必须要进行注册才能被找到并调用，接下来看两个例子，展示了如何对Native函数进行静态注册和动态注册的。
 
@@ -61,44 +61,350 @@ Java_com_mik_nativecppdemo_MainActivity_stringFromJNI(
 }
 ```
 
+​	静态注册函数必须使用`JNIEXPORT`和`JNICALL`来修饰，这两个修饰符是 JNI 中的预处理器宏。其中`JNIEXPORT`会将函数名称保存到动态符号表，当Linker在注册时就能通过dlsym找到该函数。
+
+​	`JNICALL` 宏主要用于消除不同编译器和操作系统之间的调用规则的差异。在不同的平台上，本地方法的参数传递、调用约定和名称修饰等方面可能存在一些差异。这些差异可能会导致在一个平台上编译的共享库无法在另一个平台上运行。为了解决这个问题，JNI 规范定义了一种标准的本地方法命名方式，即 `Java_包名_类名_方法名` 的格式。使用 `JNICALL` 宏，我们可以让编译器自动根据规范来生成符合要求的本地方法名，从而保证在不同平台上都能正确调用本地方法。
+
+​	需要注意的是，虽然 `JNICALL` 可以帮助我们消除平台差异，但在某些情况下，我们仍然需要手动指定本地方法的名称，例如当我们需要使用 JNI 的反射机制来动态调用本地方法时。此时，我们需要在注册本地方法时显式地指定方法名，并将其与 Java 代码中的方法名相对应。
+
+​	对于静态注册而言，尽管没有看到使用RegisterNative进行注册，但是在内部有进行隐式注册的，当java类被加载时会调用LoadMethod将方法加载到虚拟机中，随后调用LinkCode将Native函数与Java函数进行链接。下面看LoadClass的相关代码。
+
+```c++
+void ClassLinker::LoadClass(Thread* self,
+                            const DexFile& dex_file,
+                            const dex::ClassDef& dex_class_def,
+                            Handle<mirror::Class> klass) {
+  	...
+    // 遍历一个 Java 类的所有字段和方法，并对它们进行操作
+    accessor.VisitFieldsAndMethods([&](
+        const ClassAccessor::Field& field) REQUIRES_SHARED(Locks::mutator_lock_) {
+          ...
+          // 所有字段
+          LoadMethod(dex_file, method, klass, art_method);
+          LinkCode(this, art_method, oat_class_ptr, class_def_method_index);
+          ...
+        }, [&](const ClassAccessor::Method& method) REQUIRES_SHARED(Locks::mutator_lock_) {
+          // 所有方法
+          ArtMethod* art_method = klass->GetVirtualMethodUnchecked(
+              class_def_method_index - accessor.NumDirectMethods(),
+              image_pointer_size_);
+          LoadMethod(dex_file, method, klass, art_method);
+          LinkCode(this, art_method, oat_class_ptr, class_def_method_index);
+          ++class_def_method_index;
+        });
+    ...
+}
+```
+
+​	下面继续看看LinkCode的实现，如果已经被编译就会有Oat文件，就可以获取到`quick_code`，直接从二进制中调用来快速执行，否则走解释执行。
+
+```c++
+static void LinkCode(ClassLinker* class_linker,
+                     ArtMethod* method,
+                     const OatFile::OatClass* oat_class,
+                     uint32_t class_def_method_index) REQUIRES_SHARED(Locks::mutator_lock_) {
+  ...
+  const void* quick_code = nullptr;
+  if (oat_class != nullptr) {
+    const OatFile::OatMethod oat_method = oat_class->GetOatMethod(class_def_method_index);
+    quick_code = oat_method.GetQuickCode();
+  }
+  // 是否使用解释执行
+  bool enter_interpreter = class_linker->ShouldUseInterpreterEntrypoint(method, quick_code);
+  // 为指定的java函数设置二进制的快速执行入口
+  if (quick_code == nullptr) {
+    method->SetEntryPointFromQuickCompiledCode(
+        method->IsNative() ? GetQuickGenericJniStub() : GetQuickToInterpreterBridge());
+  } else if (enter_interpreter) {
+    method->SetEntryPointFromQuickCompiledCode(GetQuickToInterpreterBridge());
+  } else if (NeedsClinitCheckBeforeCall(method)) {
+    method->SetEntryPointFromQuickCompiledCode(GetQuickResolutionStub());
+  } else {
+    method->SetEntryPointFromQuickCompiledCode(quick_code);
+  }
+
+  if (method->IsNative()) {
+    // 为指定的java函数设置JNI入口点，IsCriticalNative表示java中带有@CriticalNative标记的native函数。一般的普通函数会调用后面的GetJniDlsymLookupStub
+    method->SetEntryPointFromJni(
+        method->IsCriticalNative() ? GetJniDlsymLookupCriticalStub() : GetJniDlsymLookupStub());
+
+    if (enter_interpreter || quick_code == nullptr) {
+      // We have a native method here without code. Then it should have the generic JNI
+      // trampoline as entrypoint.
+      // TODO: this doesn't handle all the cases where trampolines may be installed.
+      DCHECK(class_linker->IsQuickGenericJniStub(method->GetEntryPointFromQuickCompiledCode()));
+    }
+  }
+}
+```
+
+​	上面可以看到JNI设置入口点有两种情况，Critical Native 方法通常用于需要高性能、低延迟和可预测行为的场景，例如音频处理、图像处理、网络协议栈等。一般情况开发者使用的都是普通Native函数，所以会调用后者`GetJniDlsymLookupStub`，接着继续看看实现代码。
+
+```c++
+static inline const void* GetJniDlsymLookupStub() {
+  return reinterpret_cast<const void*>(art_jni_dlsym_lookup_stub);
+}
+```
+
+​	这里看到就是将一个函数指针转换后返回，这个函数指针对应的是一段汇编代码，下面看看汇编代码实现。
+
+```assembly
+ENTRY art_jni_dlsym_lookup_stub
+    // spill regs.
+    ...
+    bl    artFindNativeMethod
+    b     .Llookup_stub_continue
+    .Llookup_stub_fast_or_critical_native:
+    bl    artFindNativeMethodRunnable
+	...
+
+1:
+    ret             // restore regs and return to caller to handle exception.
+END art_jni_dlsym_lookup_stub
+```
+
+​	能看到里面调用了`artFindNativeMethod`和`artFindNativeMethodRunnable`继续查看相关函数。
+
+```c++
+extern "C" const void* artFindNativeMethod(Thread* self) {
+  DCHECK_EQ(self, Thread::Current());
+  Locks::mutator_lock_->AssertNotHeld(self);  // We come here as Native.
+  ScopedObjectAccess soa(self);
+  return artFindNativeMethodRunnable(self);
+}
+
+extern "C" const void* artFindNativeMethodRunnable(Thread* self)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  Locks::mutator_lock_->AssertSharedHeld(self);  // We come here as Runnable.
+  uint32_t dex_pc;
+  ArtMethod* method = self->GetCurrentMethod(&dex_pc);
+  DCHECK(method != nullptr);
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+  // 非静态函数的处理
+  if (!method->IsNative()) {
+    ...
+  }
+  // 如果注册过了，这里就会直接获取到，返回对应的地址
+  const void* native_code = class_linker->GetRegisteredNative(self, method);
+  if (native_code != nullptr) {
+    return native_code;
+  }
+  // 查找对应的函数地址
+  JavaVMExt* vm = down_cast<JNIEnvExt*>(self->GetJniEnv())->GetVm();
+  native_code = vm->FindCodeForNativeMethod(method);
+  if (native_code == nullptr) {
+    self->AssertPendingException();
+    return nullptr;
+  }
+  // 最后通过Linker进行注册
+  return class_linker->RegisterNative(self, method, native_code);
+}
+```
+
+​	`FindCodeForNativeMethod`执行到内部最后是通过`dlsym`查找符号，并且成功在这里看到了前文所说的隐式调用的`RegisterNative`。
+
+### 6.3.2 动态注册
+
 ​	动态注册一般是写代码手动注册，将指定的符号名与对应的函数地址进行关联，在AOSP源码中Native函数大部分都是使用动态注册方式的，动态注册例子如下。
 
 ```java
 // java文件
-public class NativeClass {
-    private native int dynamicFunction(int arg);
+public class MainActivity extends AppCompatActivity {
     static {
         System.loadLibrary("native-lib");
-        registerDynamicFunction();
     }
-    private static native void registerDynamicFunction();
+
+    public native String stringFromJNI2();
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        TextView tv = findViewById(R.id.sample_text);
+        tv.setText(stringFromJNI());
+    }
 }
 
 //c++文件
-static JNINativeMethod gMethods[] = {
-    {"dynamicFunction", "(I)I", (void*) dynamicFunction},
-};
-
-JNIEXPORT jint JNICALL
-Java_com_example_NativeClass_dynamicFunction(JNIEnv *env, jobject instance, jint arg) {
-    // 实现Native函数逻辑
-    return arg + 1;
+jstring stringFromJNI2(JNIEnv* env, jobject /* this */) {
+    return env->NewStringUTF("Hello from C++");
 }
 
-JNIEXPORT void JNICALL
-Java_com_example_NativeClass_registerDynamicFunction(JNIEnv *env, jclass clazz) {
-    // 动态注册Native函数
-    jclass jclazz = env->FindClass("com/example/NativeClass");
-    env->RegisterNatives(jclazz, gMethods, sizeof(gMethods) / sizeof(JNINativeMethod));
-    env->DeleteLocalRef(jclazz);
+// 在 JNI_OnLoad 中进行动态注册
+JNIEXPORT jint JNICALL
+JNI_OnLoad(JavaVM* vm, void* reserved) {
+    JNIEnv* env;
+    if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
+        return -1;
+    }
+
+    // 手动注册 stringFromJNI 方法
+    jclass clazz = env->FindClass("com/example/myapplication/MainActivity");
+    JNINativeMethod methods[] = {
+            {"stringFromJNI2", "()Ljava/lang/String;", reinterpret_cast<void *>(stringFromJNI2)}
+    };
+    env->RegisterNatives(clazz, methods, sizeof(methods)/sizeof(methods[0]));
+
+    return JNI_VERSION_1_6;
 }
 ```
 
-### 6.3.2 RegisterNative执行流程
+​	动态注册中是直接调用JniEnv的`RegisterNatives`进行注册的，找到对应的实现代码如下。
 
+```c++
+  static jint RegisterNatives(JNIEnv* env,
+                              jclass java_class,
+                              const JNINativeMethod* methods,
+                              jint method_count) {
+    ...
+    // 遍历所有需要注册的函数
+    for (jint i = 0; i < method_count; ++i) {
+      // 取出函数名，函数签名，函数地址
+      const char* name = methods[i].name;
+      const char* sig = methods[i].signature;
+      const void* fnPtr = methods[i].fnPtr;
+      ...
+      // 遍历Java对象的继承层次结构，也就是所有父类，来获取函数
+      for (ObjPtr<mirror::Class> current_class = c.Get();
+           current_class != nullptr;
+           current_class = current_class->GetSuperClass()) {
+        m = FindMethod<true>(current_class, name, sig);
+        if (m != nullptr) {
+          break;
+        }
+        m = FindMethod<false>(current_class, name, sig);
+        if (m != nullptr) {
+          break;
+        }
+        ...
+      }
 
+      if (m == nullptr) {
+        ...
+        return JNI_ERR;
+      } else if (!m->IsNative()) {
+        ...
+        return JNI_ERR;
+      }
+      ...
+      const void* final_function_ptr = class_linker->RegisterNative(soa.Self(), m, fnPtr);
+      UNUSED(final_function_ptr);
+    }
+    return JNI_OK;
+  }
+```
+
+​	在动态注册中，同样看到内部是调用了Linker的`RegisterNative`进行注册的，最后我们看看Linker中的实现。
+
+```c++
+const void* ClassLinker::RegisterNative(
+    Thread* self, ArtMethod* method, const void* native_method) {
+  CHECK(method->IsNative()) << method->PrettyMethod();
+  CHECK(native_method != nullptr) << method->PrettyMethod();
+  void* new_native_method = nullptr;
+  Runtime* runtime = Runtime::Current();
+  runtime->GetRuntimeCallbacks()->RegisterNativeMethod(method,
+                                                       native_method,
+                                                       /*out*/&new_native_method);
+  if (method->IsCriticalNative()) {
+    ...
+  } else {
+    // 给指定的java函数设置对应的Native函数的入口地址。
+    method->SetEntryPointFromJni(new_native_method);
+  }
+  return new_native_method;
+}
+```
+
+​	分析到这里，就已经看到了两个目标需求：` ClassLinker::RegisterNative`是静态注册和动态注册执行流程中的共同点、该函数的返回值就是Native函数的入口地址。接下来可以开始进行插桩输出了。
 
 ### 6.3.3 RegisterNative实现插桩
+
+​	前文简单介绍ROM插桩其实就是输出日志，找到了合适的时机，以及要输出的内容，最后就是输出日志即可。在函数`ClassLinker::RegisterNative`调用结束时插入日志输出如下
+
+```c++
+#inclue 
+const void* ClassLinker::RegisterNative(
+    Thread* self, ArtMethod* method, const void* native_method) {
+  ...
+  LOG(INFO) << "mikrom ClassLinker::RegisterNative "<<method->PrettyMethod().c_str()<<" native_ptr:"<<new_native_method<<" method_idx:"<<method->GetMethodIndex()<<" baseAddr:"<<base_addr;
+  return new_native_method;
+}
+```
+
+​	刷机编译后，安装测试demo，输出结果如下，成功打印出静态注册和动态注册的对应函数以及其函数地址。
+
+```
+mik.nativedem: mikrom ClassLinker::RegisterNative java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI2() native_ptr:0x7983a918c8 method_idx:632
+mik.nativedem: mikrom ClassLinker::RegisterNative java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI() native_ptr:0x7983a916e8 method_idx:631
+```
+
+​	这里尽管已经输出了函数地址，但是可以再进行细节的优化，比如将函数地址去掉动态库的基址，获取到文件中的真实函数偏移。在这个时机已知了函数地址，只需要遍历已加载的所有动态库，计算出动态库结束地址，如果函数地址在某个动态库范围中，则返回动态库基址，最后打桩时，使用函数地址减掉基址即可拿到真实偏移了。实现代码如下。
+
+```c++
+#include "link.h"
+#include "utils/Log.h"
+
+// 遍历输出所有已经加载的动态库
+int dl_iterate_callback(struct dl_phdr_info* info, size_t , void* data) {
+    uintptr_t addr = reinterpret_cast<uintptr_t>(*(void**)data);
+    // 计算出结束地址
+    void* endptr=  (void*)(info->dlpi_addr + info->dlpi_phdr[info->dlpi_phnum - 1].p_vaddr + info->dlpi_phdr[info->dlpi_phnum - 1].p_memsz);
+    uintptr_t end=reinterpret_cast<uintptr_t>(endptr);
+    ALOGD("mikrom native: %p\n", (void*)addr);
+    ALOGD("mikrom Library name: %s\n", info->dlpi_name);
+    ALOGD("mikrom Library base address: %p\n", (void*) info->dlpi_addr);
+    ALOGD("mikrom Library end address: %p\n\n",endptr);
+    // 函数地址在动态库范围则返回该动态库的基址
+    if(addr >= info->dlpi_addr && addr<=end){
+        ALOGD("mikrom Library found address: %p\n\n",(void*)info->dlpi_addr);
+        reinterpret_cast<void**>(data)[0] = reinterpret_cast<void*>(info->dlpi_addr);
+    }
+    return 0;
+}
+
+// 根据函数地址获取对应动态库的基址
+void* FindLibraryBaseAddress(void* entry_addr) {
+    void* lib_base_addr = entry_addr;
+    // 遍历所有加载的动态库，设置回调函数
+    dl_iterate_phdr(dl_iterate_callback, &lib_base_addr);
+    return lib_base_addr;
+}
+
+
+const void* ClassLinker::RegisterNative(
+    Thread* self, ArtMethod* method, const void* native_method) {
+    ...
+    void * native_ptr=new_native_method;
+    void* base_addr=FindLibraryBaseAddress(native_ptr);
+    // 指针尽量转换后再进行操作，避免出现问题。
+    uintptr_t native_data = reinterpret_cast<uintptr_t>(native_ptr);
+    uintptr_t base_data = reinterpret_cast<uintptr_t>(base_addr);
+    uintptr_t offset=native_data-base_data;
+    ALOGD("mikrom ClassLinker::RegisterNative %s native_ptr:%p method_idx:%p offset:0x%lx",method->PrettyMethod().c_str(),new_native_method,method->GetMethodIndex(),(void*)offset);
+    return new_native_method;
+}
+
+```
+
+​	优化后的输出日志如下
+
+```
+mik.nativedem: mikrom native: 0x7a621108c8
+mik.nativedem: mikrom Library name: /data/app/~~sm_GZ36XVwW9zZJGRl1ABg==/cn.mik.nativedemo-VJiQEEQ3s9XXRMp6pkOKqA==/base.apk!/lib/arm64-v8a/libnativedemo.so
+mik.nativedem: mikrom Library base address: 0x7a62102000
+mik.nativedem: mikrom Library end address: 0x7a62136000
+mik.nativedem: mikrom Library found address: 0x7a62102000
+mik.nativedem: mikrom ClassLinker::RegisterNative java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI2() native_ptr:0x7a621108c8 method_idx:0x278 offset:0xe8c8
+
+mik.nativedem: mikrom native: 0x7a621106e8
+mik.nativedem: mikrom Library name: /data/app/~~sm_GZ36XVwW9zZJGRl1ABg==/cn.mik.nativedemo-VJiQEEQ3s9XXRMp6pkOKqA==/base.apk!/lib/arm64-v8a/libnativedemo.so
+mik.nativedem: mikrom Library base address: 0x7a62102000
+mik.nativedem: mikrom Library end address: 0x7a62136000
+mik.nativedem: mikrom Library found address: 0x7a62102000
+mik.nativedem: mikrom ClassLinker::RegisterNative java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI() native_ptr:0x7a621106e8 method_idx:0x277 offset:0xe6e8
+```
 
 ## 6.4 自定义系统服务
 
