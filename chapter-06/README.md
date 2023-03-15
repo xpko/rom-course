@@ -40,22 +40,24 @@
 
 ​	通过前文的介绍，了解到Native函数必须要进行注册才能被找到并调用，接下来看两个例子，展示了如何对Native函数进行静态注册和动态注册的。
 
-​	当使用Android Studio创建一个Native C++的项目，其中默认使用的就是静态注册，可以看到并没有代码将两个函数进行关联，是由native函数名自动关联起来的，静态注册例子如下。
+​	当使用Android Studio创建一个Native C++的项目，其中默认使用的就是静态注册，在这个例子中，Java 函数与 C++ 函数的绑定是通过 Java 和 C++ 函数名的约定来实现的。具体地说，在 Java 代码中声明的 native 方法的命名规则为：Java_ + 全限定类名 + _ + 方法名，并且将所有的点分隔符替换为下划线。例如，在这个例子中，Java 类的全限定名为 com.mik.nativecppdemo.MainActivity，方法名为 stringFromJNI，因此对应的 C++ 函数名为 Java_com_mik_nativecppdemo_MainActivity_stringFromJNI，静态注册例子如下。
 
 ```java
 // java文件
-public class NativeClass {
-    public native int staticFunction(int arg);
+public class MainActivity extends AppCompatActivity {
     static {
-        System.loadLibrary("native-lib");
+        System.loadLibrary("nativecppdemo");
     }
+  	...
+    public native String stringFromJNI();
 }
-
 // c++文件
-JNIEXPORT jint JNICALL
-Java_com_example_NativeClass_staticFunction(JNIEnv *env, jobject instance, jint arg) {
-    // 实现Native函数逻辑
-    return arg + 1;
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_mik_nativecppdemo_MainActivity_stringFromJNI(
+        JNIEnv* env,
+        jobject /* this */) {
+    std::string hello = "Hello from C++";
+    return env->NewStringUTF(hello.c_str());
 }
 ```
 
