@@ -408,21 +408,376 @@ mik.nativedem: mikrom ClassLinker::RegisterNative java.lang.String cn.mik.native
 
 ## 6.4 自定义系统服务
 
+​	自定义系统服务是指在操作系统中创建自己的服务，以便在需要时可以使用它。系统服务可以在启动时自动运行且没有UI界面，并在后台执行某些特定任务或提供某些功能。由于系统服务有着system身份的权限，所以自定义系统服务可以用于各种用途。例如如下：
+
+1. 系统监控与管理：通过定期收集和分析系统数据，自动化报警和管理，保证系统稳定性和安全性；
+2. 自动化部署和升级：通过编写脚本和程序实现自动化部署和升级软件，简化人工干预过程；
+3. 数据备份与恢复：通过编写脚本和程序实现数据备份和恢复，保证数据安全性和连续性；
+4. 后台任务处理：例如定时清理缓存、定时更新索引等任务，减轻人工干预压力，提高系统效率。
+
+​	在第三章简单介绍过系统服务的启动，添加一个自定义的系统服务可以参考AOSP源码中的添加方式来逐步完成。接下来参考源码来添加一个最简单的系统服务`MIK_SERVICE`。
+
+​	首先在文件`frameworks/base/core/java/android/content/Context.java`看到了定义了各种系统服务的名称，在这里参考`POWER_SERVICE`服务的添加，在这个服务的下面添加自定义的服务，同时找到该文件中，其他对`POWER_SERVICE`进行处理的地方，将自定义的服务做同样的处理，相关代码如下
+
+```java
+public abstract class Context {
+    @StringDef(suffix = { "_SERVICE" }, value = {
+            POWER_SERVICE,
+            ...
+            MIKROM_SERVICE,
+    })
+    ...
+    public static final String POWER_SERVICE = "power";
+    public static final String MIKROM_SERVICE = "mikrom";
+}
+```
+
+​	接着搜索`POWER_SERVICE`找到该服务注册的地方，找到了文件`frameworks/base/core/java/android/app/SystemServiceRegistry.java`中进行了注册，所以在注册该服务的下方，模仿源码添加对自定义服务的注册。
+
+```java
+public final class SystemServiceRegistry {
+	...
+	static {
+		...
+		registerService(Context.POWER_SERVICE, PowerManager.class,
+                new CachedServiceFetcher<PowerManager>() {
+            @Override
+            public PowerManager createService(ContextImpl ctx) throws ServiceNotFoundException {
+                IBinder powerBinder = ServiceManager.getServiceOrThrow(Context.POWER_SERVICE);
+                IPowerManager powerService = IPowerManager.Stub.asInterface(powerBinder);
+                IBinder thermalBinder = ServiceManager.getServiceOrThrow(Context.THERMAL_SERVICE);
+                IThermalService thermalService = IThermalService.Stub.asInterface(thermalBinder);
+                return new PowerManager(ctx.getOuterContext(), powerService, thermalService,
+                        ctx.mMainThread.getHandler());
+            }});
+
+        registerService(Context.MIKROM_SERVICE, MikRomManager.class,
+                        new CachedServiceFetcher<MikRomManager>() {
+                    @Override
+                    public MikRomManager createService(ContextImpl ctx) throws ServiceNotFoundException {
+                        IBinder mikromBinder = ServiceManager.getServiceOrThrow(Context.MIKROM_SERVICE);
+                        IMikRomManager mikromService = IMikRomManager.Stub.asInterface(mikromBinder);
+                        return new MikRomManager(ctx.getOuterContext(), mikromService, ctx.mMainThread.getHandler());
+                    }});
+        ...
+	}
+	...
+}
+```
+
+​	`PowerManager`的功能中用到了`THERMAL_SERVICE`系统服务，所以这里不必完全照搬，省略掉这个参数即可。接下来发现注册时用到的`IMikRomManager`、`MikRomManager`并不存在，所以继续参考`PowerManager`的实现，先寻找`IPowerManager`在哪里定义的，通过搜索，发现该接口在文件`frameworks/base/core/java/android/os/IPowerManager.aidl`中。在同目录下新建文件`IMikRomManager.aidl`并添加简单的接口内容如下。
+
+```java
+package android.os;
+
+interface IMikRomManager
+{
+    String hello();
+}
+```
+
+​	AIDL（Android 接口定义语言）是一种 Android 平台上的 IPC 机制，用于不同应用程序组件之间进行进程通信。要使用 AIDL 实现进程间通信，需要定义一个接口文件并实现它，在服务端和客户端之间传递 Parcelable 类型的数据。
+
+​	在 Android 中使用 AIDL 首先需要创建一个 .aidl 文件来定义接口。接下来，将 .aidl 文件编译成 Java 接口，并在服务端和客户端中分别实现该接口。最后，在服务端通过 bindService() 方法绑定服务并向客户端返回 IBinder 对象。使用 AIDL 可以轻松地实现跨进程通信，但需要考虑线程安全性和数据完整性等问题。
+
+​	添加完毕后还需要找到在哪里将这个文件添加到编译中的，搜索`IPowerManager.aidl`后，找到文件`frameworks/base/core/java/Android.bp`中进行处理的。所以跟着添加上刚刚定义的aidl文件。修改如下。
+
+```
+filegroup {
+    name: "libpowermanager_aidl",
+    srcs: [
+        ...
+        "android/os/IPowerManager.aidl",
+        "android/os/IMikRomManager.aidl",
+    ],
+}
+```
+
+​	然后继续寻找`IPowerManager.aidl`在哪里进行实现的，搜索`IPowerManager.Stub`，找到文件`frameworks/base/services/core/java/com/android/server/power/PowerManagerService.java`实现的具体的逻辑。该服务的路径是在power目录下，并不适合存放自定义的服务，所以选择在更上级目录创建一个对应的新文件`frameworks/base/services/core/java/com/android/server/MikRomManagerService.java`，代码如下。
+
+```java
+public class MikRomManagerService extends IMikRomManager.Stub {
+    private Context mContext;
+    private String TAG="MikRomManagerService";
+    public MikRomManagerService(Context context){
+        mContext=context;
+    }
+
+    @Override
+    public String hello(){
+        return "hello mikrom service";
+    }
+}
+```
+
+​	接着找到`PowerManager`在文件` frameworks/base/core/java/android/os/PowerManager.java`中实现，所以在这个目录中创建文件`MikRomManager.java`，代码实现如下。
+
+```java
+package android.os;
+
+@SystemService(Context.MIKROM_SERVICE)
+public final class MikRomManager {
+    private static final String TAG = "MikRomManager";
+    final Context mContext;
+    @UnsupportedAppUsage
+    final IMikRomManager mService;
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
+    final Handler mHandler;
+    public MikRomManager(Context context, IMikRomManager service,Handler handler) {
+            mContext = context;
+            mService = service;
+            mHandler = handler;
+    }
+
+    public String hello(){
+        return mService.hello();
+    }
+}
+```
+
+​	到这里注册一个自定义的系统服务基本完成了，最后是启动这个自定义的服务，而启动的流程在第三章中有详细的介绍，在文件`frameworks/base/services/java/com/android/server/SystemServer.java`中启动，这里选择系统准备就绪后的时机再拉起这个服务，参考其他任意服务启动的方式即可。
+
+```java
+private void startOtherServices(@NonNull TimingsTraceAndSlog t) {
+    
+    ...
+    t.traceBegin("StartNetworkStatsService");
+    try {
+        networkStats = NetworkStatsService.create(context, networkManagement);
+        ServiceManager.addService(Context.NETWORK_STATS_SERVICE, networkStats);
+    } catch (Throwable e) {
+        reportWtf("starting NetworkStats Service", e);
+    }
+    t.traceEnd();
+    
+    
+    t.traceBegin("StartMikRomManagerService");
+    try {
+        MikRomManagerService mikromService = new MikRomManagerService(context);
+        ServiceManager.addService(Context.MIKROM_SERVICE,mikromService);
+    } catch (Throwable e) {
+        reportWtf("starting MikRom Service", e);
+    }
+    t.traceEnd();
+    ...
+}
+
+```
+
+​	到这里基本准备就绪了，可以开始尝试编译，由于添加了aidl文件，所以需要先调用`make update-api`进行编译，编译过程如下，最后出现编译报错。
+
+```
+source ./build/envsetup.sh
+
+lunch aosp_blueline-userdebug
+
+make update-api -j8
+
+// 出现下面的错误
+frameworks/base/core/java/android/os/MikRomManager.java:10: error: Method parameter type `android.content.Context` violates package layering: nothin
+g in `package android.os` should depend on `package android.content` [PackageLayering]
+frameworks/base/core/java/android/os/MikRomManager.java:16: error: Managers must always be obtained from Context; no direct constructors [ManagerCon
+structor]
+frameworks/base/core/java/android/os/MikRomManager.java:16: error: Missing nullability on parameter `context` in method `MikRomManager` [MissingNull
+ability]
+frameworks/base/core/java/android/os/MikRomManager.java:16: error: Missing nullability on parameter `service` in method `MikRomManager` [MissingNull
+ability]
+```
+
+​	这是由于Android 11 以后谷歌强制开启lint检查来提高应用程序的质量和稳定性。Lint检查是Android Studio中的一个静态分析工具，用于检测代码中可能存在的潜在问题和错误。它可以帮助开发人员找到并修复代码中的bug、性能问题、安全漏洞等。可以设置让其忽略掉对这个`android.os`目录的检查，修改文件`framewoks/base/Android.bp`文件如下。
+
+```
+metalava_framework_docs_args = "--manifest $(location core/res/AndroidManifest.xml) " +
+    ...
+    "--api-lint-ignore-prefix android.os."
+```
+
+​	提示需要将Managers必须是单例模式，并且String是允许为null值的，参数或返回值需要携带`@Nullable`注解，调用service函数时，需要捕获异常。针对以上的提示对`MikRomManager`进行调整如下。
+
+```java
+package android.os;
+
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.compat.annotation.UnsupportedAppUsage;
+import android.content.Context;
+import android.annotation.SystemService;
+import android.os.IMikRomManager;
+
+@SystemService(Context.MIKROM_SERVICE)
+public final class MikRomManager {
+    private static final String TAG = "MikRomManager";
+    IMikRomManager mService;
+    public MikRomManager(IMikRomManager service) {
+            mService = service;
+    }
+    private static MikRomManager sInstance;
+    /**
+     *@hide
+     */
+    @NonNull
+    @UnsupportedAppUsage
+    public static MikRomManager getInstance() {
+        synchronized (MikRomManager.class) {
+            if (sInstance == null) {
+                try {
+                    IBinder mikromBinder = ServiceManager.getServiceOrThrow(Context.MIKROM_SERVICE);
+                    IMikRomManager mikromService = IMikRomManager.Stub.asInterface(mikromBinder);
+                    sInstance= new MikRomManager(mikromService);
+                } catch (ServiceManager.ServiceNotFoundException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+            return sInstance;
+        }
+    }
+    @Nullable
+    public String hello(){
+        try{
+            return mService.hello();
+        }catch (RemoteException ex){
+            throw ex.rethrowFromSystemServer();
+        }
+    }
+}
+```
+
+​	除此之外，在注册该服务的地方也要对应的调整初始化的方式。调整如下
+
+```java
+public final class SystemServiceRegistry {
+	...
+	static {
+		...
+        registerService(Context.MIKROM_SERVICE, MikRomManager.class,
+                        new CachedServiceFetcher<MikRomManager>() {
+                    @Override
+                    public MikRomManager createService(ContextImpl ctx) throws ServiceNotFoundException {
+                        return MikRomManager.getInstance();
+                    }});
+        ...
+	}
+	...
+}
+```
+
+​	经过修改后，再重新编译就能正常编译完成了，最后还需要对selinux进行修改，对新增的服务开放权限。找到文件`system/sepolicy/public/service.te`，参考其他的服务定义，在最后添加一条类型定义如下。
+
+```
+type mikrom_service, system_api_service, system_server_service, service_manager_type;
+```
+
+​	然后找到文件`system/sepolicy/private/service_contexts`，在最后给我们`Context`中定义的`mikrom`服务设置使用刚刚定义的`mikrom_service`类型的权限，修改如下。
+
+```
+mikrom                                    u:object_r:mikrom_service:s0
+```
+
+​	为自定义的系统服务添加了selinux权限后，还需要给应用开启权限访问这个系统服务，找到`system/sepolicy/public/untrusted_app.te`文件，添加如下策略开放让其能查找该系统服务。
+
+```
+allow untrusted_app mikrom_service:service_manager find;
+allow untrusted_app_27 mikrom_service:service_manager find;
+allow untrusted_app_25 mikrom_service:service_manager find;
+```
+
+​	这时如果直接编译会出现下面的错误。
+
+```
+FAILED: /home/king/android_src/mikrom_out/target/product/blueline/obj/FAKE/sepolicy_freeze_test_intermediates/sepolicy_freeze_test
+/bin/bash -c "(diff -rq -x bug_map system/sepolicy/prebuilts/api/31.0/public system/sepolicy/public ) && (diff -rq -x bug_map system/sepolicy/prebui
+lts/api/31.0/private system/sepolicy/private ) && (touch /home/king/android_src/mikrom_out/target/product/blueline/obj/FAKE/sepolicy_freeze_test_int
+ermediates/sepolicy_freeze_test )"
+```
+
+​	在前文介绍selinux时有说到系统会使用 prebuilts 中的策略进行对比，这是因为 prebuilts 中包含了在 Android 设备上预置的 sepolicy 策略和规则。所以当改动策略时，要将prebuilts 下对应的文件做出相同的修改。因为对应要调整`system/sepolicy/prebuilts/api/31.0/public/service.te`和`system/sepolicy/prebuilts/api/31.0/private/service_contexts`进行和上面相同的调整。这里需要注意的是`untrusted_app.te`文件只需要修改`prebuilts/api/31.0`的即可，而`service.te`和`service_contexts`，需要将`prebuilts/api/`目录下所有版本都添加定义，否则会出现如下错误。
+
+```
+SELinux: The following public types were found added to the policy without an entry into the compatibility mapping file(s) found in private/compat/V
+.v/V.v[.ignore].cil, where V.v is the latest API level.
+```
+
+​	到这里selinux策略就基本修改完毕，成功编译后，刷入手机，检查服务是否成功开启。
+
+```
+adb shell
+
+service list|grep mikrom 
+
+// 成功查询到自定义的系统服务
+120	mikrom: [android.os.IMikRomManager]
+```
+
+​	最后开发一个测试的app对这个系统服务调用hello函数。创建一个Android项目，在java目录下创建一个package路径`android.os`，然后再这个package下创建一个文件`IMikRomManager.aidl`，内容和前文添加系统服务时一至，内容如下。
+
+```java
+package android.os;
+
+interface IMikRomManager
+{
+    String hello();
+}
+
+```
+
+​	可以通过反射获取`ServiceManager`类，调用该类的`getService`函数得到mikrom的系统服务，将返回的结果转换为刚刚定义的接口对象，最后调用目标函数拿到结果。实现代码如下。
+
+```java
+
+public class MainActivity extends AppCompatActivity {
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        Class localClass = null;
+        try {
+            localClass = Class.forName("android.os.ServiceManager");
+            Method getServiceMethod = localClass.getMethod("getService", new Class[] {String.class});
+            if(getServiceMethod != null) {
+                Object objResult = getServiceMethod.invoke(localClass, new Object[]{"mikrom"});
+                if (objResult != null) {
+                    IBinder binder = (IBinder) objResult;
+                    IMikRomManager iMikRom = IMikRomManager.Stub.asInterface(binder);
+                    String msg= iMikRom.hello();
+                    Log.i("MainActivity", "msg: " + msg);
+                }
+            }
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+​	最后成功输出结果如下。
+
+```
+cn.mik.myservicedemo I/MainActivity: msg: hello mikrom service
+```
+
+## 6.5 修改APP默认权限
+
+### 6.5.1 APP权限介绍
+
+
+
+### 6.5.2 APP权限的源码跟踪
+
+
+
+### 6.5.3 AOSP10下的默认权限修改
+
 
 
 ## 6.6 进程注入器
-
-
-
-## 6.7 修改APP默认权限
-
-### 6.7.1 APP权限介绍
-
-
-
-### 6.7.2 APP权限的源码跟踪
-
-
-
-### 6.7.3 AOSP10下的默认权限修改
 
