@@ -765,19 +765,704 @@ public class MainActivity extends AppCompatActivity {
 cn.mik.myservicedemo I/MainActivity: msg: hello mikrom service
 ```
 
-## 6.5 修改APP默认权限
+## 6.5 APP权限
+
+​	Android中的权限是指应用程序访问设备功能和用户数据所需的授权。在Android系统中，所有的应用程序都必须声明其需要的权限，以便在安装时就向用户展示，并且在运行时需要获取相应的授权才能使用。
+
+​	这一节将介绍APP的权限，以及在源码中是如何加载`AndroidManifest.xml`文件获取到权限，并进行控制的，最后尝试在加载流程中进行修改，让APP默认具有一些权限，无需APP进行申请。
 
 ### 6.5.1 APP权限介绍
 
+​		Android系统将权限分为普通权限和危险权限两类，其中危险权限需要用户明确授权才能使用，而普通权限则不需要。普通权限通常不涉及到用户隐私和设备安全问题，例如访问网络、读取手机状态等。而危险权限则可能会涉及到用户隐私和设备安全问题，例如读取联系人信息、访问摄像头等。
+​	在AndroidManifest.xml文件中声明权限，可以使用`<uses-permission>`标签来声明需要的权限，例如：
 
+```
+<manifest package="com.example.app">
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    ...
+</manifest>
+```
 
-### 6.5.2 APP权限的源码跟踪
+​	Android中的常见权限列表如下。
 
+1. 日历权限：`android.permission.READ_CALENDAR、android.permission.WRITE_CALENDAR`
+2. 相机权限：`android.permission.CAMERA`
+3. 联系人权限：`android.permission.READ_CONTACTS、android.permission.WRITE_CONTACTS、android.permission.GET_ACCOUNTS`
+4. 定位权限：`android.permission.ACCESS_FINE_LOCATION、android.permission.ACCESS_COARSE_LOCATION`
+5. 麦克风权限：`android.permission.RECORD_AUDIO`
+6. 手机状态和电话权限：`android.permission.READ_PHONE_STATE、android.permission.CALL_PHONE、android.permission.READ_CALL_LOG、android.permission.WRITE_CALL_LOG、android.permission.ADD_VOICEMAIL、android.permission.USE_SIP、android.permission.PROCESS_OUTGOING_CALLS`
+7. 传感器权限：`android.permission.BODY_SENSORS`
+8. 短信权限：`android.permission.READ_SMS、android.permission.RECEIVE_SMS、android.permission.SEND_SMS、android.permission.RECEIVE_WAP_PUSH、android.permission.RECEIVE_MMS`
+9. 存储权限：`android.permission.READ_EXTERNAL_STORAGE、android.permission.WRITE_EXTERNAL_STORAGE`
+10. 联网权限：`android.permission.INTERNET`
 
+​	androidManifest.xml文件是Android应用程序的清单文件，它在应用程序安装和运行过程中都会被解析。Android系统启动时也会解析每个已安装应用程序的清单文件（即androidManifest.xml），以了解应用程序所需的权限、组件等信息，并将这些信息记录在系统中。而这项解析工作是由`PackageManagerService`系统服务来完成的。因此开始分析的入手点可以从该系统服务的启动开始。
 
-### 6.5.3 AOSP10下的默认权限修改
+### 6.5.2 权限解析源码跟踪
 
+​	`PackageManagerService`系统服务的启动是再`SystemServer`进程中，在`SystemServer.java`中搜索就能该进程启动的入口，相关代码如下。
 
+```java
+private void startBootstrapServices() {
+	...
+    t.traceBegin("StartPackageManagerService");
+    try {
+        Watchdog.getInstance().pauseWatchingCurrentThread("packagemanagermain");
+        mPackageManagerService = PackageManagerService.main(mSystemContext, installer,
+                                                            domainVerificationService, mFactoryTestMode != FactoryTest.FACTORY_TEST_OFF,
+                                                            mOnlyCore);
+    } finally {
+        Watchdog.getInstance().resumeWatchingCurrentThread("packagemanagermain");
+    }
+    ...
+}
+```
 
-## 6.6 进程注入器
+​	继续跟进看该服务的main函数
 
+```java
+public static PackageManagerService main(Context context, Installer installer,
+            @NonNull DomainVerificationService domainVerificationService, boolean factoryTest,
+            boolean onlyCore) {
+        ...
+        PackageManagerService m = new PackageManagerService(injector, onlyCore, factoryTest,
+                Build.FINGERPRINT, Build.IS_ENG, Build.IS_USERDEBUG, Build.VERSION.SDK_INT,
+                Build.VERSION.INCREMENTAL);
+		...
+        ServiceManager.addService("package", m);
+        final PackageManagerNative pmn = m.new PackageManagerNative();
+        ServiceManager.addService("package_native", pmn);
+        return m;
+    }
+```
+
+​	然后这里调用了`PackageManagerService`的构造函数，继续查看构造函数代码。
+
+```java
+public PackageManagerService(Injector injector, boolean onlyCore, boolean factoryTest,
+            final String buildFingerprint, final boolean isEngBuild,
+            final boolean isUserDebugBuild, final int sdkVersion, final String incrementalVersion) {
+        ...
+        synchronized (mInstallLock) {
+        // writer
+        synchronized (mLock) {
+            ...
+            // 遍历系统应用程序目录列表
+            for (int i = mDirsToScanAsSystem.size() - 1; i >= 0; i--) {
+                final ScanPartition partition = mDirsToScanAsSystem.get(i);
+                if (partition.getOverlayFolder() == null) {
+                    continue;
+                }
+                scanDirTracedLI(partition.getOverlayFolder(), systemParseFlags,
+                        systemScanFlags | partition.scanFlag, 0,
+                        packageParser, executorService);
+            }
+
+            scanDirTracedLI(frameworkDir, systemParseFlags,
+                    systemScanFlags | SCAN_NO_DEX | SCAN_AS_PRIVILEGED, 0,
+                    packageParser, executorService);
+            ...
+
+        } // synchronized (mLock)
+        } // synchronized (mInstallLock)
+        // CHECKSTYLE:ON IndentationCheck
+		...
+    }
+```
+
+​	`mDirsToScanAsSystem`是`PackageManagerService`类中的一个成员变量，用于存储系统应用程序目录列表。
+
+​	系统应用程序存储在多个目录中，例如`/system/app、/system/priv-app`等。当系统启动时，`PackageManagerService`类会扫描这些目录以查找系统应用程序，并将其添加到应用程序列表中。这个列表中的每个元素都是一个File对象，表示一个系统应用程序目录。
+
+​	当系统启动时，`PackageManagerService`会遍历`mDirsToScanAsSystem`列表并扫描其中的所有目录以查找系统应用程序。如果发现新的应用程序，则将其添加到应用程序列表中；如果发现已删除或升级的应用程序，则将其添加到`possiblyDeletedUpdatedSystemApps`列表中进行后续处理。下面看看`scanDirTracedLI`方法的实现。
+
+```java
+private void scanDirTracedLI(File scanDir, final int parseFlags, int scanFlags,
+            long currentTime, PackageParser2 packageParser, ExecutorService executorService) {
+        Trace.traceBegin(TRACE_TAG_PACKAGE_MANAGER, "scanDir [" + scanDir.getAbsolutePath() + "]");
+        try {
+            scanDirLI(scanDir, parseFlags, scanFlags, currentTime, packageParser, executorService);
+        } finally {
+            Trace.traceEnd(TRACE_TAG_PACKAGE_MANAGER);
+        }
+    }
+
+private void scanDirLI(File scanDir, int parseFlags, int scanFlags, long currentTime,
+            PackageParser2 packageParser, ExecutorService executorService) {
+        final File[] files = scanDir.listFiles();
+        if (ArrayUtils.isEmpty(files)) {
+            Log.d(TAG, "No files in app dir " + scanDir);
+            return;
+        }
+
+        if (DEBUG_PACKAGE_SCANNING) {
+            Log.d(TAG, "Scanning app dir " + scanDir + " scanFlags=" + scanFlags
+                    + " flags=0x" + Integer.toHexString(parseFlags));
+        }
+
+        ParallelPackageParser parallelPackageParser =
+                new ParallelPackageParser(packageParser, executorService);
+
+        // Submit files for parsing in parallel
+        int fileCount = 0;
+    	// 遍历所有文件
+        for (File file : files) {
+            final boolean isPackage = (isApkFile(file) || file.isDirectory())
+                    && !PackageInstallerService.isStageName(file.getName());
+            if (!isPackage) {
+                // Ignore entries which are not packages
+                continue;
+            }
+            // 使用parallelPackageParser.submit()方法异步地将其提交给PackageParser类来解析
+            parallelPackageParser.submit(file, parseFlags);
+            fileCount++;
+        }
+		...
+    }
+```
+
+​	以上代码可以看到`scanDirLI`方法主要是遍历所有文件筛选是Apk文件，或者是一个目录，`isStageName`方法是判断当前文件是否为分阶段安装的数据，`parallelPackageParser.submit()`方法异步地将其提交给`PackageParser`类来解析。跟踪查看`submit`。
+
+```java
+public void submit(File scanFile, int parseFlags) {
+        mExecutorService.submit(() -> {
+            ParseResult pr = new ParseResult();
+            Trace.traceBegin(TRACE_TAG_PACKAGE_MANAGER, "parallel parsePackage [" + scanFile + "]");
+            try {
+                pr.scanFile = scanFile;
+                // 解析应用程序包
+                pr.parsedPackage = parsePackage(scanFile, parseFlags);
+            } catch (Throwable e) {
+                pr.throwable = e;
+            } finally {
+                Trace.traceEnd(TRACE_TAG_PACKAGE_MANAGER);
+            }
+            try {
+                // 返回数据
+                mQueue.put(pr);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                // Propagate result to callers of take().
+                // This is helpful to prevent main thread from getting stuck waiting on
+                // ParallelPackageParser to finish in case of interruption
+                mInterruptedInThread = Thread.currentThread().getName();
+            }
+        });
+    }
+```
+
+​	继续跟踪`parsePackage`是如何解析的
+
+```java
+protected ParsedPackage parsePackage(File scanFile, int parseFlags)
+            throws PackageParser.PackageParserException {
+        return mPackageParser.parsePackage(scanFile, parseFlags, true);
+    }
+```
+
+​	这里需要留意`mPackageParser`的类型是`PackageParser2`，而在AOSP10中，它的类型是`PackageParser`。继续查看`parsePackage`方法的实现。
+
+```java
+public ParsedPackage parsePackage(File packageFile, int flags, boolean useCaches)
+            throws PackageParserException {
+    	// 尝试从缓存中找解析结果
+        if (useCaches && mCacher != null) {
+            ParsedPackage parsed = mCacher.getCachedResult(packageFile, flags);
+            if (parsed != null) {
+                return parsed;
+            }
+        }
+
+        long parseTime = LOG_PARSE_TIMINGS ? SystemClock.uptimeMillis() : 0;
+        ParseInput input = mSharedResult.get().reset();
+    	// 解析
+        ParseResult<ParsingPackage> result = parsingUtils.parsePackage(input, packageFile, flags);
+        if (result.isError()) {
+            throw new PackageParserException(result.getErrorCode(), result.getErrorMessage(),
+                    result.getException());
+        }
+		...
+        return parsed;
+    }
+```
+
+​	继续跟踪`parsingUtils.parsePackage`的实现。
+
+```java
+public ParseResult<ParsingPackage> parsePackage(ParseInput input, File packageFile,
+            int flags)
+            throws PackageParserException {
+        if (packageFile.isDirectory()) {
+            return parseClusterPackage(input, packageFile, flags);
+        } else {
+            return parseMonolithicPackage(input, packageFile, flags);
+        }
+    }
+```
+
+​	如果是一个目录，则说明这是一个集群版本`（cluster package）`的应用程序包，可能由多个应用程序组成。在这种情况下，它调用`parseClusterPackage`方法对应用程序包进行解析，并返回解析结果。
+
+​	`parseClusterPackage`方法会遍历该目录下的所有文件，解析其中的每个应用程序，并将它们打包成一个`PackageParser.Package`集合返回。每个`PackageParser.Package`对象表示单独的一个应用程序。
+
+​	如果`packageFile`不是一个目录，则说明这是一个单体版本`（monolithic package）`的应用程序包，只包含一个应用程序。在这种情况下，它调用`parseMonolithicPackage`方法对应用程序包进行解析，并返回解析结果。
+
+​	`parseMonolithicPackage`方法会读取应用程序包的内容，并解析其中的`AndroidManifest.xml`文件和资源文件等信息，然后创建一个`PackageParser.Package`对象来表示整个应用程序，并返回该对象作为解析结果。
+
+​	所以我们跟踪一条路线即可，接下来查看`parseMonolithicPackage`的实现代码。
+
+```java
+private ParseResult<ParsingPackage> parseMonolithicPackage(ParseInput input, File apkFile,
+            int flags) throws PackageParserException {
+        ...
+        try {
+            // 解析应用程序
+            final ParseResult<ParsingPackage> result = parseBaseApk(input,
+                    apkFile,
+                    apkFile.getCanonicalPath(),
+                    assetLoader, flags);
+            if (result.isError()) {
+                return input.error(result);
+            }
+
+            return input.success(result.getResult()
+                    .setUse32BitAbi(lite.isUse32bitAbi()));
+        } catch (IOException e) {
+            return input.error(INSTALL_PARSE_FAILED_UNEXPECTED_EXCEPTION,
+                    "Failed to get path: " + apkFile, e);
+        } finally {
+            IoUtils.closeQuietly(assetLoader);
+        }
+    }
+```
+
+​	继续查看`parseBaseApk`的实现代码。
+
+```java
+private ParseResult<ParsingPackage> parseBaseApk(ParseInput input, File apkFile,
+            String codePath, SplitAssetLoader assetLoader, int flags)
+            throws PackageParserException {
+        final String apkPath = apkFile.getAbsolutePath();
+		...
+		// 读取AndroidMannifest.xml文件
+        try (XmlResourceParser parser = assets.openXmlResourceParser(cookie,
+                ANDROID_MANIFEST_FILENAME)) {
+            final Resources res = new Resources(assets, mDisplayMetrics, null);
+			// 调用另一个重载进行解析
+            ParseResult<ParsingPackage> result = parseBaseApk(input, apkPath, codePath, res,
+                    parser, flags);
+            ...
+            return input.success(pkg);
+        } catch (Exception e) {
+            return input.error(INSTALL_PARSE_FAILED_UNEXPECTED_EXCEPTION,
+                    "Failed to read manifest from " + apkPath, e);
+        }
+    }
+```
+
+​	在这里看到读取`AndroidMannifest.xml`配置文件了，随后调用另一个重载进行解析。代码如下。
+
+```java
+private ParseResult<ParsingPackage> parseBaseApk(ParseInput input, String apkPath,
+            String codePath, Resources res, XmlResourceParser parser, int flags)
+            throws XmlPullParserException, IOException {
+		...
+        final TypedArray manifestArray = res.obtainAttributes(parser, R.styleable.AndroidManifest);
+        try {
+            final boolean isCoreApp =
+                    parser.getAttributeBooleanValue(null, "coreApp", false);
+            final ParsingPackage pkg = mCallback.startParsingPackage(
+                    pkgName, apkPath, codePath, manifestArray, isCoreApp);
+            // 解析Apk文件中xml的各种标记
+            final ParseResult<ParsingPackage> result =
+                    parseBaseApkTags(input, pkg, manifestArray, res, parser, flags);
+            if (result.isError()) {
+                return result;
+            }
+
+            return input.success(pkg);
+        } finally {
+            manifestArray.recycle();
+        }
+    }
+```
+
+​	继续查看`parseBaseApkTags`的实现代码。
+
+```java
+private ParseResult<ParsingPackage> parseBaseApkTags(ParseInput input, ParsingPackage pkg,
+            TypedArray sa, Resources res, XmlResourceParser parser, int flags)
+            throws XmlPullParserException, IOException {
+        ...
+        while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
+                && (type != XmlPullParser.END_TAG
+                || parser.getDepth() > depth)) {
+            ...
+            // <application> has special logic, so it's handled outside the general method
+            if (TAG_APPLICATION.equals(tagName)) {
+                if (foundApp) {
+                    ...
+                } else {
+                    foundApp = true;
+                    result = parseBaseApplication(input, pkg, res, parser, flags);
+                }
+            } else {
+                result = parseBaseApkTag(tagName, input, pkg, res, parser, flags);
+            }
+
+            if (result.isError()) {
+                return input.error(result);
+            }
+        }
+		...
+        return input.success(pkg);
+    }
+```
+
+​	检查`tagName`是否为`<application>`标记。如果是`<application>`标记，则表示当前正在解析应用程序包的主要组件，在该标记中会定义应用程序的所有组件、权限等信息。如果没有发现`<application>`标记，则继续递归调用处理其他标记。所以接下来查看`parseBaseApplication`方法的实现。
+
+```java
+private ParseResult<ParsingPackage> parseBaseApplication(ParseInput input,
+            ParsingPackage pkg, Resources res, XmlResourceParser parser, int flags)
+            throws XmlPullParserException, IOException {
+        final String pkgName = pkg.getPackageName();
+        int targetSdk = pkg.getTargetSdkVersion();
+
+        TypedArray sa = res.obtainAttributes(parser, R.styleable.AndroidManifestApplication);
+        try {
+            ...
+			// 解析应用程序包中基本APK文件的标志
+            parseBaseAppBasicFlags(pkg, sa);
+			...
+            // 根据xml配置，对pkg的值做相应的修改
+            if (sa.getBoolean(R.styleable.AndroidManifestApplication_persistent, false)) {
+                // Check if persistence is based on a feature being present
+                final String requiredFeature = sa.getNonResourceString(R.styleable
+                        .AndroidManifestApplication_persistentWhenFeatureAvailable);
+                pkg.setPersistent(requiredFeature == null || mCallback.hasFeature(requiredFeature));
+            }
+
+            if (sa.hasValueOrEmpty(R.styleable.AndroidManifestApplication_resizeableActivity)) {
+                pkg.setResizeableActivity(sa.getBoolean(
+                        R.styleable.AndroidManifestApplication_resizeableActivity, true));
+            } else {
+                pkg.setResizeableActivityViaSdkVersion(
+                        targetSdk >= Build.VERSION_CODES.N);
+            }
+			...
+
+        } finally {
+            sa.recycle();
+        }
+		...
+    	// 根据xml中的tag进行对应的处理
+        while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
+                && (type != XmlPullParser.END_TAG
+                || parser.getDepth() > depth)) {
+            if (type != XmlPullParser.START_TAG) {
+                continue;
+            }
+            final ParseResult result;
+            String tagName = parser.getName();
+            boolean isActivity = false;
+            switch (tagName) {
+                case "activity":
+                    isActivity = true;
+                    // fall-through
+                case "receiver":
+                    ParseResult<ParsedActivity> activityResult =
+                            ParsedActivityUtils.parseActivityOrReceiver(mSeparateProcesses, pkg,
+                                    res, parser, flags, sUseRoundIcon, input);
+
+                    if (activityResult.isSuccess()) {
+                        ParsedActivity activity = activityResult.getResult();
+                        if (isActivity) {
+                            hasActivityOrder |= (activity.getOrder() != 0);
+                            pkg.addActivity(activity);
+                        } else {
+                            hasReceiverOrder |= (activity.getOrder() != 0);
+                            pkg.addReceiver(activity);
+                        }
+                    }
+
+                    result = activityResult;
+                    break;
+                case "service":
+                    ParseResult<ParsedService> serviceResult =
+                            ParsedServiceUtils.parseService(mSeparateProcesses, pkg, res, parser,
+                                    flags, sUseRoundIcon, input);
+                    if (serviceResult.isSuccess()) {
+                        ParsedService service = serviceResult.getResult();
+                        hasServiceOrder |= (service.getOrder() != 0);
+                        pkg.addService(service);
+                    }
+
+                    result = serviceResult;
+                    break;
+                case "provider":
+                    ParseResult<ParsedProvider> providerResult =
+                            ParsedProviderUtils.parseProvider(mSeparateProcesses, pkg, res, parser,
+                                    flags, sUseRoundIcon, input);
+                    if (providerResult.isSuccess()) {
+                        pkg.addProvider(providerResult.getResult());
+                    }
+
+                    result = providerResult;
+                    break;
+                case "activity-alias":
+                    activityResult = ParsedActivityUtils.parseActivityAlias(pkg, res,
+                            parser, sUseRoundIcon, input);
+                    if (activityResult.isSuccess()) {
+                        ParsedActivity activity = activityResult.getResult();
+                        hasActivityOrder |= (activity.getOrder() != 0);
+                        pkg.addActivity(activity);
+                    }
+
+                    result = activityResult;
+                    break;
+                default:
+                    result = parseBaseAppChildTag(input, tagName, pkg, res, parser, flags);
+                    break;
+            }
+
+            if (result.isError()) {
+                return input.error(result);
+            }
+        }
+		...
+        return input.success(pkg);
+    }
+```
+
+​	基本大多数的解析都在这里实现了，最后看看基本APK标志是如何解析处理的。`parseBaseAppBasicFlags`的实现如下。
+
+```java
+private void parseBaseAppBasicFlags(ParsingPackage pkg, TypedArray sa) {
+        int targetSdk = pkg.getTargetSdkVersion();
+        //@formatter:off
+        // CHECKSTYLE:off
+        pkg
+                // Default true
+                .setAllowBackup(bool(true, R.styleable.AndroidManifestApplication_allowBackup, sa))
+                .setAllowClearUserData(bool(true, R.styleable.AndroidManifestApplication_allowClearUserData, sa))
+                .setAllowClearUserDataOnFailedRestore(bool(true, R.styleable.AndroidManifestApplication_allowClearUserDataOnFailedRestore, sa))
+                .setAllowNativeHeapPointerTagging(bool(true, R.styleable.AndroidManifestApplication_allowNativeHeapPointerTagging, sa))
+                .setEnabled(bool(true, R.styleable.AndroidManifestApplication_enabled, sa))
+                .setExtractNativeLibs(bool(true, R.styleable.AndroidManifestApplication_extractNativeLibs, sa))
+                .setHasCode(bool(true, R.styleable.AndroidManifestApplication_hasCode, sa))
+                // Default false
+                .setAllowTaskReparenting(bool(false, R.styleable.AndroidManifestApplication_allowTaskReparenting, sa))
+                .setCantSaveState(bool(false, R.styleable.AndroidManifestApplication_cantSaveState, sa))
+                .setCrossProfile(bool(false, R.styleable.AndroidManifestApplication_crossProfile, sa))
+                .setDebuggable(bool(false, R.styleable.AndroidManifestApplication_debuggable, sa))
+                .setDefaultToDeviceProtectedStorage(bool(false, R.styleable.AndroidManifestApplication_defaultToDeviceProtectedStorage, sa))
+                .setDirectBootAware(bool(false, R.styleable.AndroidManifestApplication_directBootAware, sa))
+                .setForceQueryable(bool(false, R.styleable.AndroidManifestApplication_forceQueryable, sa))
+                .setGame(bool(false, R.styleable.AndroidManifestApplication_isGame, sa))
+                .setHasFragileUserData(bool(false, R.styleable.AndroidManifestApplication_hasFragileUserData, sa))
+                .setLargeHeap(bool(false, R.styleable.AndroidManifestApplication_largeHeap, sa))
+                .setMultiArch(bool(false, R.styleable.AndroidManifestApplication_multiArch, sa))
+                .setPreserveLegacyExternalStorage(bool(false, R.styleable.AndroidManifestApplication_preserveLegacyExternalStorage, sa))
+                .setRequiredForAllUsers(bool(false, R.styleable.AndroidManifestApplication_requiredForAllUsers, sa))
+                .setSupportsRtl(bool(false, R.styleable.AndroidManifestApplication_supportsRtl, sa))
+                .setTestOnly(bool(false, R.styleable.AndroidManifestApplication_testOnly, sa))
+                .setUseEmbeddedDex(bool(false, R.styleable.AndroidManifestApplication_useEmbeddedDex, sa))
+                .setUsesNonSdkApi(bool(false, R.styleable.AndroidManifestApplication_usesNonSdkApi, sa))
+                .setVmSafeMode(bool(false, R.styleable.AndroidManifestApplication_vmSafeMode, sa))
+                .setAutoRevokePermissions(anInt(R.styleable.AndroidManifestApplication_autoRevokePermissions, sa))
+                .setAttributionsAreUserVisible(bool(false, R.styleable.AndroidManifestApplication_attributionsAreUserVisible, sa))
+                // targetSdkVersion gated
+                .setAllowAudioPlaybackCapture(bool(targetSdk >= Build.VERSION_CODES.Q, R.styleable.AndroidManifestApplication_allowAudioPlaybackCapture, sa))
+                .setBaseHardwareAccelerated(bool(targetSdk >= Build.VERSION_CODES.ICE_CREAM_SANDWICH, R.styleable.AndroidManifestApplication_hardwareAccelerated, sa))
+                .setRequestLegacyExternalStorage(bool(targetSdk < Build.VERSION_CODES.Q, R.styleable.AndroidManifestApplication_requestLegacyExternalStorage, sa))
+                .setUsesCleartextTraffic(bool(targetSdk < Build.VERSION_CODES.P, R.styleable.AndroidManifestApplication_usesCleartextTraffic, sa))
+                // Ints Default 0
+                .setUiOptions(anInt(R.styleable.AndroidManifestApplication_uiOptions, sa))
+                // Ints
+                .setCategory(anInt(ApplicationInfo.CATEGORY_UNDEFINED, R.styleable.AndroidManifestApplication_appCategory, sa))
+                // Floats Default 0f
+                .setMaxAspectRatio(aFloat(R.styleable.AndroidManifestApplication_maxAspectRatio, sa))
+                .setMinAspectRatio(aFloat(R.styleable.AndroidManifestApplication_minAspectRatio, sa))
+                // Resource ID
+                .setBanner(resId(R.styleable.AndroidManifestApplication_banner, sa))
+                .setDescriptionRes(resId(R.styleable.AndroidManifestApplication_description, sa))
+                .setIconRes(resId(R.styleable.AndroidManifestApplication_icon, sa))
+                .setLogo(resId(R.styleable.AndroidManifestApplication_logo, sa))
+                .setNetworkSecurityConfigRes(resId(R.styleable.AndroidManifestApplication_networkSecurityConfig, sa))
+                .setRoundIconRes(resId(R.styleable.AndroidManifestApplication_roundIcon, sa))
+                .setTheme(resId(R.styleable.AndroidManifestApplication_theme, sa))
+                .setDataExtractionRules(
+                        resId(R.styleable.AndroidManifestApplication_dataExtractionRules, sa))
+                // Strings
+                .setClassLoaderName(string(R.styleable.AndroidManifestApplication_classLoader, sa))
+                .setRequiredAccountType(string(R.styleable.AndroidManifestApplication_requiredAccountType, sa))
+                .setRestrictedAccountType(string(R.styleable.AndroidManifestApplication_restrictedAccountType, sa))
+                .setZygotePreloadName(string(R.styleable.AndroidManifestApplication_zygotePreloadName, sa))
+                // Non-Config String
+                .setPermission(nonConfigString(0, R.styleable.AndroidManifestApplication_permission, sa));
+        // CHECKSTYLE:on
+        //@formatter:on
+    }
+```
+
+​	相信你坚持跟踪到这里后，对于权限处理已经豁然开朗了，实际上总结就是，读取并解析xml文件，然后根据xml中配置的节点进行相应的处理，最终这些处理都是将值对应的设置给了`ParsingPackage`类型的对象`pkg`中。最终外层就通过拿到pkg对象，知道应该如何控制它的权限了。
+
+### 6.5.3 修改APP默认权限
+
+​	经过对源码的阅读，熟悉了APK对xml文件的解析流程后，想要为APP添加一个默认的权限就非常简单了。下面将为ROM添加一个联网权限：android.permission.INTERNET作为例子。只需要在`parseBaseApplication`函数中为`pkg`对象添加权限即可。
+
+```java
+private ParseResult<ParsingPackage> parseBaseApplication(ParseInput input,
+            ParsingPackage pkg, Resources res, XmlResourceParser parser, int flags)
+            throws XmlPullParserException, IOException {
+        ...
+		// add 添加联网权限
+        List<String> requestedPermissions = pkg.getRequestedPermissions();
+        String addPermissionName = "android.permission.INTERNET";
+        if (!requestedPermissions.contains(addPermissionName)){
+            
+            pkg.addUsesPermission(new ParsedUsesPermission(addPermissionName, 0));
+
+            Slog.w("mikrom","parseBaseApplication add android.permission.INTERNET " );
+        }
+		// add end
+        boolean hasActivityOrder = false;
+        boolean hasReceiverOrder = false;
+        boolean hasServiceOrder = false;
+        final int depth = parser.getDepth();
+        int type;
+        while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
+                && (type != XmlPullParser.END_TAG
+                || parser.getDepth() > depth)) {
+            ...
+        }
+        ...
+        return input.success(pkg);
+    }
+```
+
+​	理解源码中的实现原理后，有各种方式都能完成修改APP权限，由此可见，阅读跟踪源码观察实现原理是非常重要的手段。
+
+## 6.6 进程注入
+
+​	在上一小节中，通过对加载解析xml文件的流程进行分析，最终找到了合适的时机对默认权限进行修改，而在第三章的学习中，详细介绍了一个APP运行起来的流程，当对源码的运行流程有了足够的了解后，同样可以在其中找到合适的时机对普通用户的APP进行一些定制化的处理，例如对该进程进行注入，这一小节将介绍如何为用户进程注入jar包。
+
+### 6.6.1 注入时机的选择
+
+​	`ActivityThread`负责管理应用程序的主线程以及所有活动`Activity`的生命周期。通过`MessageQueue`和`Handler`机制与其他线程进行通信，处理来自系统和应用程序的各种消息。
+
+​	在应用程序启动时，`ActivityThread`会被创建并开始运行，它会负责创建应用程序的主线程，并调用`Application`对象的`onCreate`方法初始化应用程序。同时，`ActivityThread`还会负责加载和启动应用程序中的第一个`Activity`，即启动界面`Splash Screen`或者主界面`Main Activity`，并处理`Activity`的生命周期事件，如`onCreate()、onResume()、onPause()`等。
+
+​	所以可以在`ActivityThread`的调用中寻找合适的时机，那么什么叫合适的时机呢，可以将注入的需求进行整理，然后所有符合条件的调用时机都可以算作合适的时机。
+
+​	注入时机尽量在一个仅调用一次的函数中，避免多次注入出现不可预料的异常情况。
+
+​	注入时机分为早期和晚期，早期表示在一个调用链尽量靠前时机，这时进程的业务代码还没开始执行，就完成注入代码了，但是过早的时机会导致有些需要用到的数据还未准备就绪，例如`Application`未完成创建。如果你注入的代码无需涉及这些数据，那么可以选择尽量早的时机。例如在Zygote进程孵化的时机也是可以的。
+
+​	第三章中介绍到的`handleBindApplication`就是比较合适的注入时机，主线程中通过调用这个方法来绑定应用程序，在该方法中创建了`Application`对象，并且调用了`attachBaseContext`方法和`onCreate`方法进行初始化。可以选择在创建`Application`对象后，就注入自己的jar包和so动态库。
+
+### 6.6.2 注入jar包
+
+​	在`handleBindApplication`方法中加一段注入jar包的方式和正常开发的APP中注入jar包并没有什么区别。在这个时机中是调用的onCreate方法，所以完成可以想象成是在onCreate中写一段注入代码。而onCreate中注入jar包在第五章，内置jar包中有详细介绍过。下面贴上当时的注入代码。
+
+```java
+protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+    	// 使用PathClassLoader加载jar文件
+        String jarPath = "/system/framework/kjar.jar";
+        ClassLoader systemClassLoader=ClassLoader.getSystemClassLoader();
+        String javaPath= System.getProperty("java.library.path");
+        PathClassLoader pathClassLoader=new PathClassLoader(jarPath,javaPath,systemClassLoader);
+        Class<?> clazz1 = null;
+        try {
+            // 通过反射调用函数
+            clazz1 = pathClassLoader.loadClass("cn.mik.myjar.MyCommon");
+            Method method = clazz1.getDeclaredMethod("getMyJarVer");
+            Object result = method.invoke(null);
+            Log.i("MainActivity","getMyJarVer:"+result);
+
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+    }
+```
+
+​	唯一的区别仅仅在于，需要将注入的代码封装成一个方法，然后在`handleBindApplication`方法中，`Application`函数执行后进行调用。下面简单调整测试使用的jar包添加一个测试方法`injectJar`，代码如下。
+
+```java
+public class MyCommon {
+    public static String getMyJarVer(){
+        return "v1.0";
+    }
+    public static int add(int a,int b){
+        return a+b;
+    }
+    public static void injectJar(Application app){
+        Toast.makeText(app, "Hello, inject jar!", Toast.LENGTH_SHORT);
+    }
+}
+
+```
+
+​	重新将测试的jar包编译后，解压并使用dx将classes.dex文件转换为jar包后内置到系统中。
+
+```
+unzip app-debug.apk -d app-debug
+
+dx --dex --min-sdk-version=26 --output=./kjar.jar ./app-debug/classes.dex
+
+cp ./kjar.jar ~/android_src/aosp12/framewoorks/native/myjar/
+
+```
+
+​	最后添加注入代码如下。
+
+```java
+private void InjectJar(Application app){
+    String jarPath = "/system/framework/kjar.jar";
+    ClassLoader systemClassLoader=ClassLoader.getSystemClassLoader();
+    String javaPath= System.getProperty("java.library.path");
+    PathClassLoader pathClassLoader=new PathClassLoader(jarPath,javaPath,systemClassLoader);
+    Class<?> clazz1 = null;
+    try {
+        // 通过反射调用函数
+        clazz1 = pathClassLoader.loadClass("cn.mik.myjar.MyCommon");
+        Method method = clazz1.getDeclaredMethod("injectJar",Application.class);
+        Object result = method.invoke(null);
+
+    } catch (ClassNotFoundException e) {
+        e.printStackTrace();
+    } catch (InvocationTargetException e) {
+        e.printStackTrace();
+    } catch (NoSuchMethodException e) {
+        e.printStackTrace();
+    } catch (IllegalAccessException e) {
+        e.printStackTrace();
+    }
+}
+
+private void handleBindApplication(AppBindData data) {
+	...
+    app = data.info.makeApplication(data.restrictedBackupMode, null);
+    // Propagate autofill compat state
+    app.setAutofillOptions(data.autofillOptions);
+    // Propagate Content Capture options
+    app.setContentCaptureOptions(data.contentCaptureOptions);
+    sendMessage(H.SET_CONTENT_CAPTURE_OPTIONS_CALLBACK, data.appInfo.packageName);
+    mInitialApplication = app;
+    // 注入
+    InjectJar(app)
+
+}
+```
+
+​	准备就绪，编译并刷入手机中，安装任意app后，打开时都会弹出消息提示框。
+
+​	注入so动态库同样和内置so的步骤没有任何区别，更简单的办法是通过在jar包中直接加载动态库即可，无需另外添加代码。
