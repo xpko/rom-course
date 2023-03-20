@@ -1404,8 +1404,8 @@ public class MyCommon {
     public static int add(int a,int b){
         return a+b;
     }
-    public static void injectJar(Application app){
-        Toast.makeText(app, "Hello, inject jar!", Toast.LENGTH_SHORT);
+    public static void injectJar(){
+        Log.i("MyCommon","injectJar enter");
     }
 }
 
@@ -1425,7 +1425,7 @@ cp ./kjar.jar ~/android_src/aosp12/framewoorks/native/myjar/
 ​	最后添加注入代码如下。
 
 ```java
-private void InjectJar(Application app){
+private void InjectJar(){
     String jarPath = "/system/framework/kjar.jar";
     ClassLoader systemClassLoader=ClassLoader.getSystemClassLoader();
     String javaPath= System.getProperty("java.library.path");
@@ -1434,7 +1434,7 @@ private void InjectJar(Application app){
     try {
         // 通过反射调用函数
         clazz1 = pathClassLoader.loadClass("cn.mik.myjar.MyCommon");
-        Method method = clazz1.getDeclaredMethod("injectJar",Application.class);
+        Method method = clazz1.getDeclaredMethod("injectJar");
         Object result = method.invoke(null);
 
     } catch (ClassNotFoundException e) {
@@ -1457,12 +1457,15 @@ private void handleBindApplication(AppBindData data) {
     app.setContentCaptureOptions(data.contentCaptureOptions);
     sendMessage(H.SET_CONTENT_CAPTURE_OPTIONS_CALLBACK, data.appInfo.packageName);
     mInitialApplication = app;
-    // 注入
-    InjectJar(app)
+    // 非系统进程则注入jar包
+    int flags = mBoundApplication == null ? 0 : mBoundApplication.appInfo.flags;
+    if(flags>0&&((flags&ApplicationInfo.FLAG_SYSTEM)!=1)){
+    	InjectJar()
+    }
 
 }
 ```
 
-​	准备就绪，编译并刷入手机中，安装任意app后，打开时都会弹出消息提示框。
+​	准备就绪，编译并刷入手机中，安装任意app后，都会注入该jar包并打印日志。
 
 ​	注入so动态库同样和内置jar的步骤没有任何区别，直接通过在jar包中加载动态库即可，无需另外添加代码。
