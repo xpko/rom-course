@@ -129,9 +129,6 @@ static void LinkCode(ClassLinker* class_linker,
         method->IsCriticalNative() ? GetJniDlsymLookupCriticalStub() : GetJniDlsymLookupStub());
 
     if (enter_interpreter || quick_code == nullptr) {
-      // We have a native method here without code. Then it should have the generic JNI
-      // trampoline as entrypoint.
-      // TODO: this doesn't handle all the cases where trampolines may be installed.
       DCHECK(class_linker->IsQuickGenericJniStub(method->GetEntryPointFromQuickCompiledCode()));
     }
   }

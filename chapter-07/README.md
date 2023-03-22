@@ -527,9 +527,431 @@ ObjPtr<mirror::Class> ClassLinker::DefineClass(Thread* self,
 4. 链接类的方法，并执行与方法有关的初始化工作。
 5. 在必要时创建新的类对象，并将其返回给调用者。
 
+​	将加载类的过程中几个关键的步骤搞清楚后，继续深入查看`LoadClass`是如何实现的，重点关注最后一个参数`kclass`做了些什么。
 
+```c++
+void ClassLinker::LoadClass(Thread* self,
+                            const DexFile& dex_file,
+                            const dex::ClassDef& dex_class_def,
+                            Handle<mirror::Class> klass) {
+  ...
+  Runtime* const runtime = Runtime::Current();
+  {
+    ...
+    // 获取类加载器的线性内存分配器
+    LinearAlloc* const allocator = GetAllocatorForClassLoader(klass->GetClassLoader());
+    // 为类中的静态字段分配内存空间
+    LengthPrefixedArray<ArtField>* sfields = AllocArtFieldArray(self,
+                                                                allocator,
+                                                                accessor.NumStaticFields());
+    // 为类中的实例字段分配内存空间
+    LengthPrefixedArray<ArtField>* ifields = AllocArtFieldArray(self,
+                                                                allocator,
+                                                                accessor.NumInstanceFields());
+      
+    ...
+
+    // 设置类的方法列表指针
+    klass->SetMethodsPtr(
+        AllocArtMethodArray(self, allocator, accessor.NumMethods()),
+        accessor.NumDirectMethods(),
+        accessor.NumVirtualMethods());
+    size_t class_def_method_index = 0;
+    uint32_t last_dex_method_index = dex::kDexNoIndex;
+    size_t last_class_def_method_index = 0;
+
+    // 遍历类的所有方法和字段
+    accessor.VisitFieldsAndMethods([&](
+        const ClassAccessor::Field& field) REQUIRES_SHARED(Locks::mutator_lock_) {
+          ...
+          // 遍历所有字段，由last_static_field_idx判断是否正在处理的是静态字段
+          if (num_sfields == 0 || LIKELY(field_idx > last_static_field_idx)) {
+            // 加载字段信息
+            LoadField(field, klass, &sfields->At(num_sfields));
+            ++num_sfields;
+            last_static_field_idx = field_idx;
+          }
+        }, [&](const ClassAccessor::Field& field) REQUIRES_SHARED(Locks::mutator_lock_) {
+          ...
+          // 加载实例字段信息
+          if (num_ifields == 0 || LIKELY(field_idx > last_instance_field_idx)) {
+            LoadField(field, klass, &ifields->At(num_ifields));
+            ++num_ifields;
+            last_instance_field_idx = field_idx;
+          }
+        }, [&](const ClassAccessor::Method& method) REQUIRES_SHARED(Locks::mutator_lock_) {
+          // 获取实例方法
+          ArtMethod* art_method = klass->GetDirectMethodUnchecked(class_def_method_index,
+              image_pointer_size_);
+          // 将dex_file参数中指向Java方法字节码的指针(method)解析为机器码，并将它存储到art_method参数对应的内存区域中，完成对Java方法实现代码的加载
+          LoadMethod(dex_file, method, klass, art_method);
+          // 将art_method参数对应的实现代码链接到oat_class_ptr参数对应的oat文件中
+          LinkCode(this, art_method, oat_class_ptr, class_def_method_index);
+          ...
+        }, [&](const ClassAccessor::Method& method) REQUIRES_SHARED(Locks::mutator_lock_) {
+        
+          // 和上面差不多的，不过这里处理的是虚方法
+          ArtMethod* art_method = klass->GetVirtualMethodUnchecked(
+              class_def_method_index - accessor.NumDirectMethods(),
+              image_pointer_size_);
+          LoadMethod(dex_file, method, klass, art_method);
+          LinkCode(this, art_method, oat_class_ptr, class_def_method_index);
+          ++class_def_method_index;
+        });
+
+    ...
+    // 将加载好的字段保存到kclass
+    klass->SetSFieldsPtr(sfields);
+    DCHECK_EQ(klass->NumStaticFields(), num_sfields);
+    klass->SetIFieldsPtr(ifields);
+    DCHECK_EQ(klass->NumInstanceFields(), num_ifields);
+  }
+  // Ensure that the card is marked so that remembered sets pick up native roots.
+  WriteBarrier::ForEveryFieldWrite(klass.Get());
+  self->AllowThreadSuspension();
+}
+
+```
+
+​	然后再了解一下`LoadField`和`LoadMethod`是如何加载的。
+
+```c++
+void ClassLinker::LoadField(const ClassAccessor::Field& field,
+                            Handle<mirror::Class> klass,
+                            ArtField* dst) {
+  // 可以看到实际就是将值填充给了dst
+  const uint32_t field_idx = field.GetIndex();
+  dst->SetDexFieldIndex(field_idx);
+  dst->SetDeclaringClass(klass.Get());
+  dst->SetAccessFlags(field.GetAccessFlags() | hiddenapi::CreateRuntimeFlags(field));
+}
+
+
+void ClassLinker::LoadMethod(const DexFile& dex_file,
+                             const ClassAccessor::Method& method,
+                             Handle<mirror::Class> klass,
+                             ArtMethod* dst) {
+  const uint32_t dex_method_idx = method.GetIndex();
+  const dex::MethodId& method_id = dex_file.GetMethodId(dex_method_idx);
+  const char* method_name = dex_file.StringDataByIdx(method_id.name_idx_);
+
+  ScopedAssertNoThreadSuspension ants("LoadMethod");
+  dst->SetDexMethodIndex(dex_method_idx);
+  dst->SetDeclaringClass(klass.Get());
+
+  ...
+  // 如果加载的是finalize方法
+  if (UNLIKELY(strcmp("finalize", method_name) == 0)) {
+    ...
+  } else if (method_name[0] == '<') {
+    // 处理构造函数
+    bool is_init = (strcmp("<init>", method_name) == 0);
+    bool is_clinit = !is_init && (strcmp("<clinit>", method_name) == 0);
+    if (UNLIKELY(!is_init && !is_clinit)) {
+      LOG(WARNING) << "Unexpected '<' at start of method name " << method_name;
+    } else {
+      if (UNLIKELY((access_flags & kAccConstructor) == 0)) {
+        LOG(WARNING) << method_name << " didn't have expected constructor access flag in class "
+            << klass->PrettyDescriptor() << " in dex file " << dex_file.GetLocation();
+        // access_flags存储了Java方法的访问标志，如public、private、static等。kAccConstructor是一个常量，表示Java构造函数的访问标志
+        access_flags |= kAccConstructor;
+      }
+    }
+  }
+  // 判断是否为native函数
+  if (UNLIKELY((access_flags & kAccNative) != 0u)) {
+    // Check if the native method is annotated with @FastNative or @CriticalNative.
+    access_flags |= annotations::GetNativeMethodAnnotationAccessFlags(
+        dex_file, dst->GetClassDef(), dex_method_idx);
+  }
+  // 设置该方法的访问标志
+  dst->SetAccessFlags(access_flags);
+
+  // 判断是否为接口类的抽象方法
+  if (klass->IsInterface() && dst->IsAbstract()) {
+	// 计算并设置抽象方法的IMT索引。IMT(Interface Method Table)是一个虚拟表，用于存储接口类中的所有方法索引。
+    dst->CalculateAndSetImtIndex();
+  }
+  // 这个java方法是否有可执行代码，也就是java字节码，方法的具体执行指令集
+  if (dst->HasCodeItem()) {
+    DCHECK_NE(method.GetCodeItemOffset(), 0u);
+    // 根据当前是否采用AOT编译器来进行不同的方式填充可执行代码。
+    if (Runtime::Current()->IsAotCompiler()) {
+      dst->SetDataPtrSize(reinterpret_cast32<void*>(method.GetCodeItemOffset()), image_pointer_size_);
+    } else {
+      dst->SetCodeItem(dst->GetDexFile()->GetCodeItem(method.GetCodeItemOffset()));
+    }
+  } else {
+    dst->SetDataPtrSize(nullptr, image_pointer_size_);
+    DCHECK_EQ(method.GetCodeItemOffset(), 0u);
+  }
+
+  // 检查该方法的参数类型和返回值类型是否符合要求
+  const char* shorty = dst->GetShorty();
+  bool all_parameters_are_reference = true;
+  bool all_parameters_are_reference_or_int = true;
+  bool return_type_is_fp = (shorty[0] == 'F' || shorty[0] == 'D');
+
+  for (size_t i = 1, e = strlen(shorty); i < e; ++i) {
+    if (shorty[i] != 'L') {
+      all_parameters_are_reference = false;
+      if (shorty[i] == 'F' || shorty[i] == 'D' || shorty[i] == 'J') {
+        all_parameters_are_reference_or_int = false;
+        break;
+      }
+    }
+  }
+  // Java方法设置是否启用Nterp快速路径，如果该函数非native的，并且参数全部为引用类型，则设置该方法的entry_point_from_interpreter_为Nterp快速路径
+  if (!dst->IsNative() && all_parameters_are_reference) {
+    dst->SetNterpEntryPointFastPathFlag();
+  }
+  // 返回值类型非浮点型，并且所有参数类型都是引用类型或整型，则设置该方法的invocation_count_为Nterp快速路径
+  if (!return_type_is_fp && all_parameters_are_reference_or_int) {
+    dst->SetNterpInvokeFastPathFlag();
+  }
+}
+```
+
+​	`finalize`是`Java`中的一个方法，定义在`Object`类中，用于执行垃圾回收前的资源清理工作。当某个对象不再被引用时，垃圾回收器会调用该对象的`finalize`方法来完成一些特定的清理操作，如释放非托管资源等。
+
+​	`Nterp`快速路径`（Nterp Fast Path）`是`ART`虚拟机的一种执行模式，可以在不进行线程切换的情况下快速执行`Java`方法。具体来说，`Nterp`快速路径使用一种特殊的、基于指令计数器的执行模式来处理`Java`方法，以实现更高效的性能。
+
+​	`Nterp`快速路径的作用是提高`Java`方法的执行速度和效率，特别是在热点代码部分，可以获得更高的吞吐量和更低的延迟。另外，由于采用了一些特殊的优化技术，如参数传递方式改变、返回值处理流程优化等，`Nterp`快速路径还可以减少`JNI`开销，从而提升整个应用程序的性能表现。
+
+​	在前文介绍native的动态注册时，曾经简单的讲解`LinkCode`，这里再次对这个重点函数进行详细的了解。
+
+```c++
+
+bool ClassLinker::ShouldUseInterpreterEntrypoint(ArtMethod* method, const void* quick_code) {
+  ...
+  if (quick_code == nullptr) {
+    return true;
+  }
+  ..
+  return false;
+}
+
+static void LinkCode(ClassLinker* class_linker,
+                     ArtMethod* method,
+                     const OatFile::OatClass* oat_class,
+                     uint32_t class_def_method_index) REQUIRES_SHARED(Locks::mutator_lock_) {
+  ...
+  const void* quick_code = nullptr;
+  if (oat_class != nullptr) {
+    const OatFile::OatMethod oat_method = oat_class->GetOatMethod(class_def_method_index);
+    // 获取一个方法的快速代码（Quick Code），用于设置该方法的入口点地址
+    quick_code = oat_method.GetQuickCode();
+  }
+    
+  // 如果有方法的快速代码，否则使用解释器执行，在下一节的函数调用中会详细讲到
+  bool enter_interpreter = class_linker->ShouldUseInterpreterEntrypoint(method, quick_code);
+  
+  if (quick_code == nullptr) {
+    // 设置一个方法的入口点位置，可以是快速代码，解释器入口，或者native函数的入口地址
+    method->SetEntryPointFromQuickCompiledCode(
+        method->IsNative() ? GetQuickGenericJniStub() : GetQuickToInterpreterBridge());
+  } else if (enter_interpreter) {
+    // 设置解释器入口为该方法的入口点位置
+    method->SetEntryPointFromQuickCompiledCode(GetQuickToInterpreterBridge());
+  } else if (NeedsClinitCheckBeforeCall(method)) {
+    DCHECK(!method->GetDeclaringClass()->IsVisiblyInitialized());  
+    method->SetEntryPointFromQuickCompiledCode(GetQuickResolutionStub());
+  } else {
+    method->SetEntryPointFromQuickCompiledCode(quick_code);
+  }
+    
+  // 给native设置入口地址的，在第六章动态注册中讲到。
+  if (method->IsNative()) {
+    ...
+  }
+}
+```
+
+​	快速代码是指一种优化后的本地机器代码，它可以直接执行`Java`字节码对应的指令，从而实现更快的函数调用和执行。快速代码通常是通过即时编译器`（JIT）`或预编译技术生成的，并保存在`Oat`文件中。在运行时，如果一个方法已经被编译为快速代码，则`LinkCode`函数可以直接使用`Oat`文件中的方法描述符获取快速代码的地址，并将其设置为该方法的入口点地址。
+
+​	接下来看看设置的解释器入口是什么，跟踪方法`GetQuickToInterpreterBridge`的实现。
+
+```c++
+static inline const void* GetQuickToInterpreterBridge() {
+  return reinterpret_cast<const void*>(art_quick_to_interpreter_bridge);
+}
+```
+
+​	这里和native动态注册分析时看到入口设置非常类似，`GetQuickToInterpreterBridge`是一个静态内联函数，它将全局变量`art_quick_to_interpreter_bridge`的地址强制转换为`const void*`类型，然后返回该地址。`art_quick_to_interpreter_bridge`是一个指向解释器入口点的函数指针，它在链接器启动时被初始化，是由汇编进行实现。
+
+```assembly
+ENTRY art_quick_to_interpreter_bridge
+    SETUP_SAVE_REFS_AND_ARGS_FRAME         // Set up frame and save arguments.
+
+    //  x0 will contain mirror::ArtMethod* method.
+    mov x1, xSELF                          // How to get Thread::Current() ???
+    mov x2, sp
+
+    // uint64_t artQuickToInterpreterBridge(mirror::ArtMethod* method, Thread* self,
+    //                                      mirror::ArtMethod** sp)
+    bl   artQuickToInterpreterBridge
+
+    RESTORE_SAVE_REFS_AND_ARGS_FRAME       // TODO: no need to restore arguments in this case.
+    REFRESH_MARKING_REGISTER
+
+    fmov d0, x0
+
+    RETURN_OR_DELIVER_PENDING_EXCEPTION
+END art_quick_to_interpreter_bridge
+```
+
+​	查看汇编代码能够看到关键是使用`bl`指令调用`artQuickToInterpreterBridge`函数，这个函数就是解释器的入口函数了。
+
+​	解释器`（Interpreter）`是一种`Java`字节码执行引擎，它能够直接解释和执行`Java`字节码指令。与预编译的本地机器代码不同，解释器以`Java`字节码为基础，通过逐条解释执行来完成函数的调用和计算过程。
+
+​	当应用程序需要执行一个`Java`方法时，链接器会将该方法的字节码读入内存，并利用解释器逐条指令执行。解释器会根据`Java`字节码类型进行相应的操作，包括创建对象、读取/写入局部变量和操作数栈、跳转操作等。同时，解释器还会处理异常、垃圾回收、线程同步等方面的操作，从而保证Java程序的正确性和稳定性。
+
+​	尽管解释器的执行速度比本地机器代码要慢一些，但它具有许多优点。例如，解释器可以实现更快的程序启动时间、更小的内存占用和更好的灵活性；同时，它还可以避免因硬件平台差异、编译器优化等问题导致的代码执行异常和安全隐患。
+
+​	需要注意的是，`Android Runtime`中的解释器并非独立于虚拟机的组件，而是与`JIT`编译器和`AOT`编译器一起构成了完整的代码执行系统。具体来说，当一个方法第一次被调用时，解释器会对其进行初步解释和执行，并生成相应的`Profile`数据；后续调用则会根据`Profile`数据决定是否使用`JIT`编译器或`AOT`编译器进行优化。这种混合的执行方式可以有效地平衡运行效率和内存开销之间的关系，提高`Java`程序的整体性能和响应速度。
+
+​	在下一节函数调用过程中，将进一步了解解释器的详细执行过程。
 
 ### 7.3.3 函数调用流程
+
+​	在`Android`中，`Java`函数和`native`函数的调用方式略有不同。对于`Java`函数，它们的执行是由`Android Runtime`虚拟机完成的。具体来说，当应用程序需要调用一个`Java`函数时，`Android Runtime`会根据该函数的状态和类型进行相应的处理，包括解释器执行、`JIT`编译器动态生成机器码等；当函数执行完毕后，结果会被传递回应用程序。
+
+​	对于`native`函数，它们是由操作系统内核直接执行的。应用程序需要通过`JNI（Java Native Interface）`来调用`native`函数，即先将`Java`数据结构转换为`C/C++`类型，然后将参数传递给`native`函数，最后将结果转换为`Java`数据结构并返回给应用程序。在这个过程中，`JNI`提供了一系列的函数和接口来实现`Java`与本地代码之间的交互和转换。
+
+​	接下来根据之前的例子，开始对函数调用流程的代码进行跟踪分析。
+
+```java
+protected void onCreate(Bundle savedInstanceState) {
+    ...
+    Object result = addMethod.invoke(null, 12,25);
+    Log.i("MainActivity","getMyJarVer:"+result);
+    ...
+}
+```
+
+​	找到`Method`的`invoke`的实现，这是一个`native`函数，所以继续找对应的`Method_invoke`函数。
+
+```java
+@FastNative
+    public native Object invoke(Object obj, Object... args)
+            throws IllegalAccessException, IllegalArgumentException, InvocationTargetException;
+
+static jobject Method_invoke(JNIEnv* env, jobject javaMethod, jobject javaReceiver,
+                             jobjectArray javaArgs) {
+  ScopedFastNativeObjectAccess soa(env);
+  return InvokeMethod<kRuntimePointerSize>(soa, javaMethod, javaReceiver, javaArgs);
+}
+
+jobject InvokeMethod(const ScopedObjectAccessAlreadyRunnable& soa, jobject javaMethod,
+                     jobject javaReceiver, jobject javaArgs, size_t num_frames) {
+  ...
+      
+  // Java方法和ArtMethod之间存在映射关系，SOA提供了一种方便的方式来将Java对象转换为Art虚拟机中的数据对象
+  ObjPtr<mirror::Executable> executable = soa.Decode<mirror::Executable>(javaMethod);
+  const bool accessible = executable->IsAccessible();
+  ArtMethod* m = executable->GetArtMethod();
+    
+  ...
+      
+  if (!m->IsStatic()) {
+    // Replace calls to String.<init> with equivalent StringFactory call.
+    if (declaring_class->IsStringClass() && m->IsConstructor()) {
+      ...
+    } else {
+      ...
+      // 查找虚方法的真实实现
+      m = receiver->GetClass()->FindVirtualMethodForVirtualOrInterface(m, kPointerSize);
+    }
+  }
+
+  // 对java方法的参数进行转换
+  ObjPtr<mirror::ObjectArray<mirror::Object>> objects =
+      soa.Decode<mirror::ObjectArray<mirror::Object>>(javaArgs);
+  ...
+
+  // 调用函数
+  JValue result;
+  const char* shorty;
+  if (!InvokeMethodImpl(soa, m, np_method, receiver, objects, &shorty, &result)) {
+    return nullptr;
+  }
+  return soa.AddLocalReference<jobject>(BoxPrimitive(Primitive::GetType(shorty[0]), result));
+}
+```
+
+​	在上面这个函数中，主要使用`SOA`将`Java`函数以及函数的参数转换为`C++`对象。
+
+​	`Structured Object Access（SOA）`用于优化`Java`对象在`Native`代码和`Art`虚拟机之间的传递和处理。`SOA`技术提供了一种高效的方式，将`Java`对象转换为基于指针的本地`C++`对象，从而避免了频繁的对象复制和`GC`操作，提高了程序的性能和执行效率。
+
+​	在`SOA`技术中使用`Handle`和`ObjPtr`等类型的指针来管理`Java`对象和本地`C++`对象之间的映射关系。`Handle`是一种包装器，用于管理`Java`对象的生命周期，并确保其在被访问时不会被`GC`回收。`ObjPtr`则是一种智能指针，用于管理本地`C++`对象的生命周期，并确保其正确释放和销毁。
+
+​	通过`SOA`可以在`Native`代码中高效地访问和操作`Java`对象，例如调用`Java`方法、读取`Java`字段等。在执行过程中，`SOA`技术会自动进行对象的内存分配和管理，以确保程序的正确性和性能表现。
+
+​	接下来继续了解`InvokeMethodImpl`函数的实现。
+
+```c++
+ALWAYS_INLINE
+bool InvokeMethodImpl(const ScopedObjectAccessAlreadyRunnable& soa,
+                      ArtMethod* m,
+                      ArtMethod* np_method,
+                      ObjPtr<mirror::Object> receiver,
+                      ObjPtr<mirror::ObjectArray<mirror::Object>> objects,
+                      const char** shorty,
+                      JValue* result) REQUIRES_SHARED(Locks::mutator_lock_) {
+  // 将函数的参数转换后，存放到arg_array中。
+  uint32_t shorty_len = 0;
+  *shorty = np_method->GetShorty(&shorty_len);
+  ArgArray arg_array(*shorty, shorty_len);
+  if (!arg_array.BuildArgArrayFromObjectArray(receiver, objects, np_method, soa.Self())) {
+    CHECK(soa.Self()->IsExceptionPending());
+    return false;
+  }
+  // 函数调用
+  InvokeWithArgArray(soa, m, &arg_array, result, *shorty);
+  ...
+  return true;
+}
+```
+
+​	`ArgArray`主要用于管理`Java`方法参数列表的类。`ArgArray`和`Java`中的类型对应如下：
+
+​	1.基本类型：`ArgArray`中的基本类型分别对应`Java`中的八种基本类型
+
+- `boolean：'Z'`
+- `byte：'B'`
+- `short：'S'`
+- `char：'C'`
+- `int：'I'`
+- `long：'J'`
+- `float：'F'`
+- `double：'D'`
+
+​	2.引用类型：`ArgArray`中的引用类型对应`Java`中的对象类型，包括`String、Object、`数组等。在`ArgArray`中，引用类型用字符`'L'`开头，并紧跟着完整类名和结尾的分号`';'`表示，例如`'Landroid/content/Context;'`表示`android.content.Context`类。
+
+​	3.可变参数：可变参数在`Java`中使用`“...”`符号表示，而在`ArgArray`中，则需要将所有可变参数打包为一个数组，并使用`‘[’`和`‘]’`符号表示。例如，如果`Java`方法声明为`“public void foo(int a, String... args)”`，则在`ArgArray`中，参数列表的短类型描述符为`“ILjava/lang/String;[”`。
+
+​	理解了`C++`如何存放参数数据后，继续看下一层的函数调用。
+
+```c++
+
+void InvokeWithArgArray(const ScopedObjectAccessAlreadyRunnable& soa,
+                               ArtMethod* method, ArgArray* arg_array, JValue* result,
+                               const char* shorty)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  // 获取java参数的数组指针
+  uint32_t* args = arg_array->GetArray();
+  if (UNLIKELY(soa.Env()->IsCheckJniEnabled())) {
+    CheckMethodArguments(soa.Vm(), method->GetInterfaceMethodIfProxy(kRuntimePointerSize), args);
+  }
+  method->Invoke(soa.Self(), args, arg_array->GetNumBytes(), result, shorty);
+}
+```
+
+​	到这时就调用到了`ArtMethod`的`Invoke`函数，这里将`soa`、参数的数组指针，参数数组大小，返回值指针，调用函数的描述符号传递了过去。在开始进入关键函数前，先对返回值指针`JValue* result`进行简单介绍。
+
+​	`JValue`是被广泛用于`Java`方法的调用过程中的结构体，用于存储和传递`Java`方法的返回值。`JValue`结构体包含了`32`位和`64`位两种数据类型的变量，分别用于表示`Java`方法返回值的基本类型和引用类型。
+
+​	
 
 ### 7.3.4 动态加载壳的实现
 
