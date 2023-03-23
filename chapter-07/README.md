@@ -947,11 +947,502 @@ void InvokeWithArgArray(const ScopedObjectAccessAlreadyRunnable& soa,
 }
 ```
 
-​	到这时就调用到了`ArtMethod`的`Invoke`函数，这里将`soa`、参数的数组指针，参数数组大小，返回值指针，调用函数的描述符号传递了过去。在开始进入关键函数前，先对返回值指针`JValue* result`进行简单介绍。
+​	到这时就调用到了`ArtMethod`的`Invoke`函数，这里将参数的数组指针，参数数组大小，返回值指针，调用函数的描述符号传递了过去。在开始进入关键函数前，先对返回值指针`JValue* result`进行简单介绍。
 
-​	`JValue`是被广泛用于`Java`方法的调用过程中的结构体，用于存储和传递`Java`方法的返回值。`JValue`结构体包含了`32`位和`64`位两种数据类型的变量，分别用于表示`Java`方法返回值的基本类型和引用类型。
+​	`JValue`是用于存储和传递`Java`方法返回值的联合体。包含了各种基本类型和引用类型的成员变量。下面是该联合体的定义。
 
-​	
+```c++
+
+union PACKED(alignof(mirror::Object*)) JValue {
+  // We default initialize JValue instances to all-zeros.
+  JValue() : j(0) {}
+
+  template<typename T> ALWAYS_INLINE static JValue FromPrimitive(T v);
+
+  int8_t GetB() const { return b; }
+  void SetB(int8_t new_b) {
+    j = ((static_cast<int64_t>(new_b) << 56) >> 56);  // Sign-extend to 64 bits.
+  }
+
+  uint16_t GetC() const { return c; }
+  void SetC(uint16_t new_c) {
+    j = static_cast<int64_t>(new_c);  // Zero-extend to 64 bits.
+  }
+
+  double GetD() const { return d; }
+  void SetD(double new_d) { d = new_d; }
+
+  float GetF() const { return f; }
+  void SetF(float new_f) { f = new_f; }
+
+  int32_t GetI() const { return i; }
+  void SetI(int32_t new_i) {
+    j = ((static_cast<int64_t>(new_i) << 32) >> 32);  // Sign-extend to 64 bits.
+  }
+
+  int64_t GetJ() const { return j; }
+  void SetJ(int64_t new_j) { j = new_j; }
+
+  mirror::Object* GetL() const REQUIRES_SHARED(Locks::mutator_lock_) {
+    return l;
+  }
+  ALWAYS_INLINE
+  void SetL(ObjPtr<mirror::Object> new_l) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  int16_t GetS() const { return s; }
+  void SetS(int16_t new_s) {
+    j = ((static_cast<int64_t>(new_s) << 48) >> 48);  // Sign-extend to 64 bits.
+  }
+
+  uint8_t GetZ() const { return z; }
+  void SetZ(uint8_t new_z) {
+    j = static_cast<int64_t>(new_z);  // Zero-extend to 64 bits.
+  }
+
+  mirror::Object** GetGCRoot() { return &l; }
+
+ private:
+  uint8_t z;
+  int8_t b;
+  uint16_t c;
+  int16_t s;
+  int32_t i;
+  int64_t j;
+  float f;
+  double d;
+  mirror::Object* l;
+};
+```
+
+​	`JValue`结构体的大小为8个字节对齐，结构体提供了一些成员函数，例如`GetXXX`和`SetXXX`等函数，用于获取和设置不同类型的返回值。`alignof(mirror::Object*)`的具体值取决于编译器和操作系统的不同，一般为4或8。
+
+​	对参数以及返回值的在`C++`中的表示有了初步的了解后，开始继续查看函数调用过程中的关键函数`ArtMethod::Invoke`，下面是具体实现代码。
+
+```c++
+
+void ArtMethod::Invoke(Thread* self, uint32_t* args, uint32_t args_size, JValue* result,
+                       const char* shorty) {
+
+  ...
+	
+  // 将当前的环境（也就是函数调用时的程序计数器、堆栈指针等信息）保存到一个栈帧中。这个栈帧通常会被分配在堆上，并且由垃圾回收器来管理。在函数返回时，这个栈帧会被弹出，恢复之前的环境。
+  ManagedStack fragment;
+  self->PushManagedStackFragment(&fragment);
+
+  Runtime* runtime = Runtime::Current();
+  // IsForceInterpreter为true表示强制使用解释器执行函数
+  // 这里的条件是，如果设置了强制走解释器执行，并且非native函数，并且非代理函数，并且可执行的函数，则符合条件
+  if (UNLIKELY(!runtime->IsStarted() ||
+               (self->IsForceInterpreter() && !IsNative() && !IsProxyMethod() && IsInvokable()))) {
+    if (IsStatic()) {
+      // 静态函数调用
+      art::interpreter::EnterInterpreterFromInvoke(
+          self, this, nullptr, args, result, /*stay_in_interpreter=*/ true);
+    } else {
+      // 非静态函数调用
+      mirror::Object* receiver =
+          reinterpret_cast<StackReference<mirror::Object>*>(&args[0])->AsMirrorPtr();
+      art::interpreter::EnterInterpreterFromInvoke(
+          self, this, receiver, args + 1, result, /*stay_in_interpreter=*/ true);
+    }
+  } else {
+      
+    ...
+    // 是否有已编译的快速执行代码的入口点
+    bool have_quick_code = GetEntryPointFromQuickCompiledCode() != nullptr;
+    if (LIKELY(have_quick_code)) {
+      ...
+      
+	  // 走快速调用方式，比解释器执行的性能高。
+      if (!IsStatic()) {
+        (*art_quick_invoke_stub)(this, args, args_size, self, result, shorty);
+      } else {
+        (*art_quick_invoke_static_stub)(this, args, args_size, self, result, shorty);
+      }
+      ...
+    } else {
+      LOG(INFO) << "Not invoking '" << PrettyMethod() << "' code=null";
+      if (result != nullptr) {
+        result->SetJ(0);
+      }
+    }
+  }
+
+  // 从栈帧中还原当前环境
+  self->PopManagedStackFragment(fragment);
+}
+```
+
+​	根据以上代码得到的结论是，函数执行的路线有两条，`EnterInterpreterFromInvoke`由解释器执行和`art_quick_invoke_stub`快速执行通道。
+
+​	`art_quick_invoke_stub`是由一段汇编完成对函数的执行，该函数充分利用寄存器并尽可能地减少堆栈访问次数，以提高`Java`方法的执行效率。，虽然快速执行通道的效率会更加高，但是可读性差，但是对于学习执行过程和修改执行流程来说，解释器执行会更加简单易改。所以接下来跟进解释器执行来了解执行的细节。继续跟踪`EnterInterpreterFromInvoke`函数。
+
+```c++
+void EnterInterpreterFromInvoke(Thread* self,
+                                ArtMethod* method,
+                                ObjPtr<mirror::Object> receiver,
+                                uint32_t* args,
+                                JValue* result,
+                                bool stay_in_interpreter) {
+  ...
+      
+  // 获取函数中的指令信息
+  CodeItemDataAccessor accessor(method->DexInstructionData());
+  uint16_t num_regs;
+  uint16_t num_ins;
+  if (accessor.HasCodeItem()) {
+    // 获取寄存器的数量和参数的数量
+    num_regs =  accessor.RegistersSize();
+    num_ins = accessor.InsSize();
+  } else if (!method->IsInvokable()) {
+    self->EndAssertNoThreadSuspension(old_cause);
+    method->ThrowInvocationTimeError();
+    return;
+  } else {
+    DCHECK(method->IsNative()) << method->PrettyMethod();
+    // 从函数描述符中计算出寄存器数量和参数数量
+    // 这里将num_regs和num_ins都赋值的原因是，方法的前几个参数通常会存储在寄存器中，而不是堆栈中。因此，num_regs和num_ins的值应该是相同的，都代表了当前方法使用的寄存器数量，也就是用于存储参数和局部变量等数据的寄存器数量。
+    num_regs = num_ins = ArtMethod::NumArgRegisters(method->GetShorty());
+    // 非静态函数的情况，会多一个this参数，所以寄存器数量和参数数量+1
+    if (!method->IsStatic()) {
+      num_regs++;
+      num_ins++;
+    }
+  }
+    
+  // 创建一个新的ShadowFrame作为当前栈，将当前环境保存在其中，并且推入栈帧，供当前线程调用方法时使用
+  ShadowFrame* last_shadow_frame = self->GetManagedStack()->GetTopShadowFrame();
+  ShadowFrameAllocaUniquePtr shadow_frame_unique_ptr =
+      CREATE_SHADOW_FRAME(num_regs, last_shadow_frame, method, /* dex pc */ 0);
+  ShadowFrame* shadow_frame = shadow_frame_unique_ptr.get();
+  self->PushShadowFrame(shadow_frame);
+  // 计算出将要使用的第一个寄存器
+  size_t cur_reg = num_regs - num_ins;
+  // 非静态函数的情况，第一个寄存器的值为this，所以设置其为引用类型
+  if (!method->IsStatic()) {
+    // receiver变量表示方法调用的第一个参数
+    CHECK(receiver != nullptr);
+    shadow_frame->SetVRegReference(cur_reg, receiver);
+    ++cur_reg;
+  }
+  uint32_t shorty_len = 0;
+  const char* shorty = method->GetShorty(&shorty_len);
+  // 遍历所有参数
+  for (size_t shorty_pos = 0, arg_pos = 0; cur_reg < num_regs; ++shorty_pos, ++arg_pos, cur_reg++) {
+    DCHECK_LT(shorty_pos + 1, shorty_len);
+    switch (shorty[shorty_pos + 1]) {
+      //L 表示这个参数是个引用类型，比如Ljava/lang/String;
+      case 'L': {
+        ObjPtr<mirror::Object> o =
+            reinterpret_cast<StackReference<mirror::Object>*>(&args[arg_pos])->AsMirrorPtr();
+        // 将转换好的数据设置到当前栈中
+        shadow_frame->SetVRegReference(cur_reg, o);
+        break;
+      }
+      case 'J': case 'D': {
+        // J或者D的数据类型要占用两个寄存器存放。
+        uint64_t wide_value = (static_cast<uint64_t>(args[arg_pos + 1]) << 32) | args[arg_pos];
+        // 合并后的数据设置到栈中
+        shadow_frame->SetVRegLong(cur_reg, wide_value);
+        cur_reg++;
+        arg_pos++;
+        break;
+      }
+      default:
+        // 普通的整型数据设置到栈中
+        shadow_frame->SetVReg(cur_reg, args[arg_pos]);
+        break;
+    }
+  }
+  self->EndAssertNoThreadSuspension(old_cause);
+  // 静态函数的情况需要检查所在的类是否已经正常初始化。
+  if (method->IsStatic()) {
+    ObjPtr<mirror::Class> declaring_class = method->GetDeclaringClass();
+    if (UNLIKELY(!declaring_class->IsVisiblyInitialized())) {
+      StackHandleScope<1> hs(self);
+      Handle<mirror::Class> h_class(hs.NewHandle(declaring_class));
+      if (UNLIKELY(!Runtime::Current()->GetClassLinker()->EnsureInitialized(
+                        self, h_class, /*can_init_fields=*/ true, /*can_init_parents=*/ true))) {
+        CHECK(self->IsExceptionPending());
+        self->PopShadowFrame();
+        return;
+      }
+      DCHECK(h_class->IsInitializing());
+    }
+  }
+  // 非native函数执行
+  if (LIKELY(!method->IsNative())) {
+	// 解释执行的关键函数
+    JValue r = Execute(self, accessor, *shadow_frame, JValue(), stay_in_interpreter);
+    if (result != nullptr) {
+        *result = r;
+    }
+  } else {
+    // native函数的解释执行
+    args = shadow_frame->GetVRegArgs(method->IsStatic() ? 0 : 1);
+    if (!Runtime::Current()->IsStarted()) {
+      UnstartedRuntime::Jni(self, method, receiver.Ptr(), args, result);
+    } else {
+      InterpreterJni(self, method, shorty, receiver, args, result);
+    }
+  }
+  // 弹出栈帧，还原到执行后的栈环境
+  self->PopShadowFrame();
+}
+```
+
+​	在这个函数中，为即将执行的函数准备好了栈帧环境，将参数填入了`shadow_frame`栈帧中。并且获取出了函数要执行的指令信息`accessor`。最后通过`Execute`执行该函数。
+
+```java
+static inline JValue Execute(
+    Thread* self,
+    const CodeItemDataAccessor& accessor,
+    ShadowFrame& shadow_frame,
+    JValue result_register,
+    bool stay_in_interpreter = false,
+    bool from_deoptimize = false) REQUIRES_SHARED(Locks::mutator_lock_) {
+  ...
+  
+  // 是否需要从解释器模式切换到编译模式。
+  if (LIKELY(!from_deoptimize)) {  
+    ...
+        
+    instrumentation::Instrumentation* instrumentation = Runtime::Current()->GetInstrumentation();
+    // 从当前线程栈帧中获取要执行的函数
+    ArtMethod *method = shadow_frame.GetMethod();
+	// 是否有注册Method Entry 监听器
+    if (UNLIKELY(instrumentation->HasMethodEntryListeners())) {
+      // 触发 Method Entry 监听器，并传递相应的参数
+      instrumentation->MethodEnterEvent(self,
+                                        shadow_frame.GetThisObject(accessor.InsSize()),
+                                        method,
+                                        0);
+      ...
+      // 是否有未处理的异常
+      if (UNLIKELY(self->IsExceptionPending())) {
+        ...
+        return ret;
+      }
+    }
+	// stay_in_interpreter 表示是否需要停留在解释器模式，self->IsForceInterpreter() 表示是否强制使用解释器模式。所以内部是不走解释器执行的处理，走编译模式执行
+    if (!stay_in_interpreter && !self->IsForceInterpreter()) {
+      jit::Jit* jit = Runtime::Current()->GetJit();
+      if (jit != nullptr) {
+        // 判断当前方法是否可以使用 JIT 编译后的机器码执行
+        jit->MethodEntered(self, shadow_frame.GetMethod());
+        if (jit->CanInvokeCompiledCode(method)) {
+          JValue result;
+		  // 直接栈帧推出
+          self->PopShadowFrame();
+          
+          uint16_t arg_offset = accessor.RegistersSize() - accessor.InsSize();
+          // 调用该函数的机器码实现
+          ArtInterpreterToCompiledCodeBridge(self, nullptr, &shadow_frame, arg_offset, &result);
+          // 重新推入栈帧
+          self->PushShadowFrame(&shadow_frame);
+
+          return result;
+        }
+      }
+    }
+  }
+  // 从栈帧中获取要执行的当前函数
+  ArtMethod* method = shadow_frame.GetMethod();
+  ...
+  // kSwitchImplKind：表示当前实现是否使用基于 switch 语句的解释器实现。
+  if (kInterpreterImplKind == kSwitchImplKind ||
+      UNLIKELY(!Runtime::Current()->IsStarted()) ||
+      !method->IsCompilable() ||
+      method->MustCountLocks() ||
+      Runtime::Current()->IsActiveTransaction()) {
+    // 使用switch解释器执行
+    return ExecuteSwitch(
+        self, accessor, shadow_frame, result_register, /*interpret_one_instruction=*/ false);
+  }
+
+  CHECK_EQ(kInterpreterImplKind, kMterpImplKind);
+  // 编译执行函数
+  while (true) {
+    // 是否支持Mterp解释器执行
+    if (!self->UseMterp()) {
+      return ExecuteSwitch(
+          self, accessor, shadow_frame, result_register, /*interpret_one_instruction=*/ false);
+    }
+    // 执行目标函数
+    bool returned = ExecuteMterpImpl(self,
+                                     accessor.Insns(),
+                                     &shadow_frame,
+                                     &result_register);
+    if (returned) {
+      return result_register;
+    } else {
+      // 失败的情况继续采用switch解释器执行
+      result_register = ExecuteSwitch(
+          self, accessor, shadow_frame, result_register, /*interpret_one_instruction=*/ true);
+      if (shadow_frame.GetDexPC() == dex::kDexNoIndex) {
+        return result_register;
+      }
+    }
+  }
+}
+```
+
+​	简单看完该函数后，在继续深入前，先将其中的几个知识点进行介绍。
+
+​	编译模式`（Compiled Mode）`是一种执行方式，它将应用程序代码编译成机器码后再执行。相较于解释器模式，编译模式具有更高的执行效率和更好的性能表现。
+
+​	在` Android `应用程序中，编译模式采用的是 `Just-In-Time（JIT）`编译技术。当一个方法被多次调用时，系统会自动将其编译成本地机器码，并缓存起来以备下次使用。
+
+​	当一个方法被编译成本地机器码后，其执行速度将显著提高。因为与解释器模式相比，编译模式不需要逐条解释代码，而是直接执行编译好的机器码。
+
+​	由于编译过程需要一定的时间，因此在程序启动或者第一次运行新方法时，可能会出现一些额外的延迟。所以，在实际应用中，系统通常会采用一些策略，如预热机制等，来优化编译模式的性能表现。编译模式是一种性能更高、效率更好的执行方式，可以帮助应用程序在运行时获得更好的响应速度和用户体验。
+
+​	`Method Entry` 监听器是` Android `系统中的一种监听器，它可以用来监听应用程序的方法入口。当一个方法被调用时，系统会触发` Method Entry `监听器，并将当前线程、当前方法和调用栈信息等相关数据传递给监听器。
+
+​	`Android Studio `在调试模式下会自动为每个线程启动一个监听器，并在方法进入和退出时触发相应的事件。这些事件包括 `Method Entry`（方法入口）、`Method Exit`（方法出口）等。
+
+​	`ExecuteSwitch`是基于 switch 语句实现的一种解释器，用于执行当前方法的指令集。在 `Android` 应用程序中，每个方法都会对应一组指令集，用于描述该方法的具体实现。当该方法被调用时，系统需要按照指令集来执行相应的操作，从而实现该方法的功能并计算出结果。
+
+​	`ExecuteMterpImpl`是基于` Mterp（Method Interpreter）`技术实现。`Mterp `技术使用指令集解释器来执行应用程序的代码，相比于` JIT `编译模式可以更快地启动和执行短小精悍的方法，同时也可以避免 `JIT `编译带来的额外开销。
+
+​	在 `Mterp `模式下，`Dex `指令集被转化成了一组` C++ `的函数，这些函数对应` Dex `指令集中的每一条指令。`ExecuteMterpImpl`实际上就是调用这些函数来逐条解释执行当前方法的指令集。
+
+​	在` Android 4.4`中，系统首次引入了 `Mterp` 技术来加速应用程序的解释执行。在此之后的 `Android`版本中，`Mterp `技术得到了不断优化和完善，并逐渐成为` Android `平台的主要方法执行方式之一。
+
+​	从` Android 6.0`开始，`Dalvik `运行时环境被弃用，取而代之的是` ART `运行时环境。`ART` 运行时环境可以通过` JIT `编译、`AOT `编译和` Mterp `等多种方式来执行应用程序的代码，其中` Mterp `技术被广泛使用于 `Android` 应用程序的解释执行过程中。但是对于某些特定的场景和应用程序，系统可能还是会选择其他的执行方式来获得更好的性能和效率。
+
+​	`ExecuteMterpImpl`使用了汇编语言和` C++`语言混合编写，需要有一定的汇编和` C++ `编程经验才能理解其含义和功能。该代码主要实现了以下功能：
+
+​	1.保存当前方法的返回值寄存器和指令集
+
+​	2.设置方法执行的环境和参数，包括` vregs `数组、`dex_pc `寄存器等
+
+​	3.为当前方法设置热度倒计时，并根据热度值来判断是否需要启用` Mterp `技术
+
+​	4.执行当前方法的指令集，逐条解释执行 `Dex `指令
+
+​	下面看`ExecuteMterpImpl`实现代码。
+
+```assembly
+
+// 从xPC寄存器中获取一条指令
+.macro FETCH_INST
+    ldrh    wINST, [xPC]
+.endm
+
+// 从指令中获取操作码，指令最顶部2个字节就是操作码，所以这里拿操作码是 & 0xff的意思
+.macro GET_INST_OPCODE reg
+    and     \reg, xINST, #255
+.endm
+
+// 跳转到操作码处理逻辑
+.macro GOTO_OPCODE reg
+    add     \reg, xIBASE, \reg, lsl #${handler_size_bits}
+    br      \reg
+.endm
+
+ENTRY ExecuteMterpImpl
+    .cfi_startproc
+    // 保存寄存器信息
+    SAVE_TWO_REGS_INCREASE_FRAME xPROFILE, x27, 80
+    SAVE_TWO_REGS                xIBASE, xREFS, 16
+    SAVE_TWO_REGS                xSELF, xINST, 32
+    SAVE_TWO_REGS                xPC, xFP, 48
+    SAVE_TWO_REGS                fp, lr, 64
+    
+    // fp寄存器指向栈顶
+    add     fp, sp, #64
+
+    /* 记录对应返回值的寄存器 */
+    str     x3, [x2, #SHADOWFRAME_RESULT_REGISTER_OFFSET]
+
+    /* 记录dex文件中的指令的指针 */
+    str     x1, [x2, #SHADOWFRAME_DEX_INSTRUCTIONS_OFFSET]
+
+    mov     xSELF, x0
+    ldr     w0, [x2, #SHADOWFRAME_NUMBER_OF_VREGS_OFFSET]
+    add     xFP, x2, #SHADOWFRAME_VREGS_OFFSET     // 计算局部变量表的偏移地址
+    add     xREFS, xFP, w0, uxtw #2                // 计算局部变量引用表的偏移地址
+    ldr     w0, [x2, #SHADOWFRAME_DEX_PC_OFFSET]   // 获取当前Dex中的PC
+    add     xPC, x1, w0, uxtw #1                   // 将Dex PC转换为地址，并保存到寄存器xPC中
+    CFI_DEFINE_DEX_PC_WITH_OFFSET(CFI_TMP, CFI_DEX, 0)
+    EXPORT_PC					// 将Dex PC导出
+
+    /* Starting ibase */
+    ldr     xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]
+
+    /* Set up for backwards branches & osr profiling */
+    ldr     x0, [xFP, #OFF_FP_METHOD]				// 获取当前方法的方法指针
+    add     x1, xFP, #OFF_FP_SHADOWFRAME			// 计算拿到当前线程的栈帧
+    mov     x2, xSELF								// 将当前线程对象保存到寄存器x2中
+    bl      MterpSetUpHotnessCountdown		 		// 热度计数器调整
+    mov     wPROFILE, w0                // 将热度计数器的宽度赋值给寄存器wPROFILE
+
+    /* start executing the instruction at rPC */
+    FETCH_INST                          // 获取下一条指令
+    GET_INST_OPCODE ip                  // 从指令中获取操作码
+    GOTO_OPCODE ip                      // 跳转到操作码处理逻辑
+    /* NOTE: no fallthrough */
+    // cfi info continues, and covers the whole mterp implementation.
+    END ExecuteMterpImpl
+```
+
+​	这些操作码可以通过`Opcodes`找到其对应的对应，代码如下。
+
+```java
+public interface Opcodes {
+	...
+	int OP_INVOKE_STATIC                = 0x0071;
+    int OP_INVOKE_INTERFACE             = 0x0072;
+    int OP_INVOKE_VIRTUAL_RANGE         = 0x0074;
+    int OP_INVOKE_SUPER_RANGE           = 0x0075;
+    int OP_INVOKE_DIRECT_RANGE          = 0x0076;
+    int OP_INVOKE_STATIC_RANGE          = 0x0077;
+    int OP_INVOKE_INTERFACE_RANGE       = 0x0078;
+	...
+}
+```
+
+​	而在`invoke.S`汇编文件中，会有其对应操作码的具体实现。
+
+```assembly
+%def op_invoke_static():
+%  invoke(helper="MterpInvokeStatic")
+
+
+%def op_invoke_static_range():
+%  invoke(helper="MterpInvokeStaticRange")
+
+%def op_invoke_super():
+%  invoke(helper="MterpInvokeSuper")
+    /*
+     * Handle a "super" method call.
+     *
+     * for: invoke-super, invoke-super/range
+     */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op vAA, {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
+
+%def op_invoke_super_range():
+%  invoke(helper="MterpInvokeSuperRange")
+
+%def op_invoke_virtual():
+%  invoke(helper="MterpInvokeVirtual")
+    /*
+     * Handle a virtual method call.
+     *
+     * for: invoke-virtual, invoke-virtual/range
+     */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op vAA, {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
+
+%def op_invoke_virtual_range():
+%  invoke(helper="MterpInvokeVirtualRange")
+```
+
+​	到这里，就找到对应的执行`C++`函数将`Dex`的指令逐一进行执行处理。`Mterp`的执行流程到这里就非常清晰了。下一步开始分析`switch`解释器的执行流程。
+
+
 
 ### 7.3.4 动态加载壳的实现
 
