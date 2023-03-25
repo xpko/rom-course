@@ -330,7 +330,7 @@ static class Element {
     }
 ```
 
-​	可以看到这里实际就是管理一个对应的`DexFile`对象，该对象关联着一个对应的`dex`文件，到这里通过调用`DexFile`对象的`loadClassBinaryName`去加载这个类，继续跟踪它的实现。
+​	可以看到这里实际就是管理一个对应的`DexFile`对象，该对象关联着一个对应的`dex`文件，这里通过调用`DexFile`对象的`loadClassBinaryName`去加载这个类，继续跟踪它的实现。
 
 ```java
 public final class DexFile {
@@ -363,7 +363,7 @@ public final class DexFile {
 }
 ```
 
-​	这里看到经过几层调用后，进入了`native`实现了，根据AOSP中`native`注册的原理，直接搜索`DexFile_defineClassNative`找到对应的实现代码如下。
+​	这里看到经过几层调用后，进入了`native`实现了，根据`AOSP`中`native`注册的原理，直接搜索`DexFile_defineClassNative`找到对应的实现代码如下。
 
 ```java
 static jclass DexFile_defineClassNative(JNIEnv* env,
@@ -718,7 +718,7 @@ void ClassLinker::LoadMethod(const DexFile& dex_file,
 
 ​	`Nterp`快速路径的作用是提高`Java`方法的执行速度和效率，特别是在热点代码部分，可以获得更高的吞吐量和更低的延迟。另外，由于采用了一些特殊的优化技术，如参数传递方式改变、返回值处理流程优化等，`Nterp`快速路径还可以减少`JNI`开销，从而提升整个应用程序的性能表现。
 
-​	在前文介绍native的动态注册时，曾经简单的讲解`LinkCode`，这里再次对这个重点函数进行详细的了解。
+​	在前文介绍`native`的动态注册时，曾经简单的讲解`LinkCode`，这里再次对这个重点函数进行详细的了解。
 
 ```c++
 
@@ -747,7 +747,7 @@ static void LinkCode(ClassLinker* class_linker,
   bool enter_interpreter = class_linker->ShouldUseInterpreterEntrypoint(method, quick_code);
   
   if (quick_code == nullptr) {
-    // 设置一个方法的入口点位置，可以是快速代码，解释器入口，或者native函数的入口地址
+    // 设置一个方法的入口点位置，可以是编译成机器码的快速执行入口、解释器入口，或者native函数的入口地址
     method->SetEntryPointFromQuickCompiledCode(
         method->IsNative() ? GetQuickGenericJniStub() : GetQuickToInterpreterBridge());
   } else if (enter_interpreter) {
@@ -757,6 +757,7 @@ static void LinkCode(ClassLinker* class_linker,
     DCHECK(!method->GetDeclaringClass()->IsVisiblyInitialized());  
     method->SetEntryPointFromQuickCompiledCode(GetQuickResolutionStub());
   } else {
+    // 已经编译好的机器码所在的快速执行入口
     method->SetEntryPointFromQuickCompiledCode(quick_code);
   }
     
@@ -808,15 +809,244 @@ END art_quick_to_interpreter_bridge
 
 ​	尽管解释器的执行速度比本地机器代码要慢一些，但它具有许多优点。例如，解释器可以实现更快的程序启动时间、更小的内存占用和更好的灵活性；同时，它还可以避免因硬件平台差异、编译器优化等问题导致的代码执行异常和安全隐患。
 
-​	需要注意的是，`Android Runtime`中的解释器并非独立于虚拟机的组件，而是与`JIT`编译器和`AOT`编译器一起构成了完整的代码执行系统。具体来说，当一个方法第一次被调用时，解释器会对其进行初步解释和执行，并生成相应的`Profile`数据；后续调用则会根据`Profile`数据决定是否使用`JIT`编译器或`AOT`编译器进行优化。这种混合的执行方式可以有效地平衡运行效率和内存开销之间的关系，提高`Java`程序的整体性能和响应速度。
+​	当一个方法第一次被调用时，解释器会对其进行初步解释和执行，并生成相应的`Profile`数据；后续调用则会根据`Profile`数据决定是否使用`JIT`编译器或`AOT`编译器进行优化。这种混合的执行方式可以有效地平衡运行效率和内存开销之间的关系，提高`Java`程序的整体性能和响应速度。
 
-​	在下一节函数调用过程中，将进一步了解解释器的详细执行过程。
+​	当类加载完成后，对应的类数据将会存储在对应的`DexFile`中。在后续的使用中，就可以通过`DexFile`来对类中的成员以及函数进行访问。下面对`DexFile`的结构进行简单的了解。
+
+```c++
+class DexFile {
+ public:
+  // dex文件魔数的字节数。
+  static constexpr size_t kDexMagicSize = 4;
+  // dex文件版本号的字节数。
+  static constexpr size_t kDexVersionLen = 4;
+
+  static constexpr uint32_t kClassDefinitionOrderEnforcedVersion = 37;
+  // SHA-1消息摘要的长度
+  static constexpr size_t kSha1DigestSize = 20;
+  // dex文件的大小端标志
+  static constexpr uint32_t kDexEndianConstant = 0x12345678;
+
+  // 无效索引的值
+  static constexpr uint16_t kDexNoIndex16 = 0xFFFF;
+  static constexpr uint32_t kDexNoIndex32 = 0xFFFFFFFF;
+    
+  // 表示dex文件头结构
+  struct Header {
+    uint8_t magic_[8] = {};		// 魔数
+    uint32_t checksum_ = 0;    // 校验和
+    uint8_t signature_[kSha1DigestSize] = {};	// SHA-1签名
+    uint32_t file_size_ = 0;  // 文件总大小
+    uint32_t header_size_ = 0;  // 偏移量到下一部分的起始位置
+    uint32_t endian_tag_ = 0;	// 大小端标志
+    uint32_t link_size_ = 0; 
+    uint32_t link_off_ = 0;  
+    uint32_t map_off_ = 0; 
+    uint32_t string_ids_size_ = 0;  // 字符串ID的数量
+    uint32_t string_ids_off_ = 0;  // 字符串ID数组的文件偏移量
+    uint32_t type_ids_size_ = 0;  // 类型ID数，不支持超过65535个
+    uint32_t type_ids_off_ = 0;  // 类型ID数组的文件偏移量
+    uint32_t proto_ids_size_ = 0;  // ProtoId的数量，不支持超过65535个
+    uint32_t proto_ids_off_ = 0;  // ProtoId数组的文件偏移量
+    uint32_t field_ids_size_ = 0;  // FieldIds的数量
+    uint32_t field_ids_off_ = 0;  // FieldIds数组的文件偏移量
+    uint32_t method_ids_size_ = 0;  // MethodIds的数量
+    uint32_t method_ids_off_ = 0;  // MethodIds数组的文件偏移量
+    uint32_t class_defs_size_ = 0;  // ClassDefs的数量
+    uint32_t class_defs_off_ = 0;  // ClassDef数组的文件偏移量
+    uint32_t data_size_ = 0;  // 数据部分的大小
+    uint32_t data_off_ = 0;  // 数据部分的文件偏移量
+
+    // 解码dex文件版本号。
+    uint32_t GetVersion() const;
+  };
+  ...
+
+ protected:
+  // 支持默认方法的第一个Dex格式版本。
+  static constexpr uint32_t kDefaultMethodsVersion = 37;
+
+  ...
+  // dex文件数据起始位置
+  const uint8_t* const begin_;
+
+  // 内存分配的字节数。
+  const size_t size_;
+
+  // 数据节的基地址（对于标准dex，与Begin()相同）。
+  const uint8_t* const data_begin_;
+
+  // 数据节的大小。
+  const size_t data_size_;
+
+  const std::string location_;
+	
+  const uint32_t location_checksum_;
+
+  // Dex文件头的指针
+  const Header* const header_;
+
+  // 字符串标识符列表的指针
+  const dex::StringId* const string_ids_;
+
+  // 类型标识符列表的指针
+  const dex::TypeId* const type_ids_;
+
+  // 字段标识符列表的指针
+  const dex::FieldId* const field_ids_;
+
+  // 方法标识符列表的指针
+  const dex::MethodId* const method_ids_;
+
+  // 原型标识符列表的指针
+  const dex::ProtoId* const proto_ids_;
+
+  // 类定义列表的指针
+  const dex::ClassDef* const class_defs_;
+
+  // 方法句柄列表的指针
+  const dex::MethodHandleItem* method_handles_;
+
+  // 方法句柄列表中元素的数量
+  size_t num_method_handles_;
+  ...
+};
+```
+
+​	接着了解以下`DexFile`的构造函数实现。
+
+```c++
+DexFile::DexFile(const uint8_t* base,
+                 size_t size,
+                 const uint8_t* data_begin,
+                 size_t data_size,
+                 const std::string& location,
+                 uint32_t location_checksum,
+                 const OatDexFile* oat_dex_file,
+                 std::unique_ptr<DexFileContainer> container,
+                 bool is_compact_dex)
+    : begin_(base),
+      size_(size),
+      data_begin_(data_begin),
+      data_size_(data_size),
+      location_(location),
+      location_checksum_(location_checksum),
+      header_(reinterpret_cast<const Header*>(base)),
+      string_ids_(reinterpret_cast<const StringId*>(base + header_->string_ids_off_)),
+      type_ids_(reinterpret_cast<const TypeId*>(base + header_->type_ids_off_)),
+      field_ids_(reinterpret_cast<const FieldId*>(base + header_->field_ids_off_)),
+      method_ids_(reinterpret_cast<const MethodId*>(base + header_->method_ids_off_)),
+      proto_ids_(reinterpret_cast<const ProtoId*>(base + header_->proto_ids_off_)),
+      class_defs_(reinterpret_cast<const ClassDef*>(base + header_->class_defs_off_)),
+      method_handles_(nullptr),
+      num_method_handles_(0),
+      call_site_ids_(nullptr),
+      num_call_site_ids_(0),
+      hiddenapi_class_data_(nullptr),
+      oat_dex_file_(oat_dex_file),
+      container_(std::move(container)),
+      is_compact_dex_(is_compact_dex),
+      hiddenapi_domain_(hiddenapi::Domain::kApplication) {
+  CHECK(begin_ != nullptr) << GetLocation();
+  CHECK_GT(size_, 0U) << GetLocation();
+  // Check base (=header) alignment.
+  // Must be 4-byte aligned to avoid undefined behavior when accessing
+  // any of the sections via a pointer.
+  CHECK_ALIGNED(begin_, alignof(Header));
+
+  InitializeSectionsFromMapList();
+}
+```
+
+​	可以看出`header_`这个`dex`文件头的结构体中存储着最重要的信息，初始化时先是填充了`header_`中的数据，然后再根据`header_`文件头，将其他重要信息初始化。当需要对这个`Dex`进行访问时，只需要通过文件头信息，就可以为我们索引找到任何一段信息了。它提供了整个文件的框架和结构。
+
+​	使用`010 Editor`工具，通过模板库在线安装`DEX.bt`模板，然后打开之前的样例文件，查看在例子中`header_`的真实数据。
+
+![image-20230325190621427](.\images\dex_header.png)
 
 ### 7.3.3 函数调用流程
 
 ​	在`Android`中，`Java`函数和`native`函数的调用方式略有不同。对于`Java`函数，它们的执行是由`Android Runtime`虚拟机完成的。具体来说，当应用程序需要调用一个`Java`函数时，`Android Runtime`会根据该函数的状态和类型进行相应的处理，包括解释器执行、`JIT`编译器动态生成机器码等；当函数执行完毕后，结果会被传递回应用程序。
 
 ​	对于`native`函数，它们是由操作系统内核直接执行的。应用程序需要通过`JNI（Java Native Interface）`来调用`native`函数，即先将`Java`数据结构转换为`C/C++`类型，然后将参数传递给`native`函数，最后将结果转换为`Java`数据结构并返回给应用程序。在这个过程中，`JNI`提供了一系列的函数和接口来实现`Java`与本地代码之间的交互和转换。
+
+​	下面使用`jadx`工具打开前文中的样例程序，样例程序的代码如下。
+
+```java
+public class MyCommon {
+    public static String getMyJarVer() {
+        return "v1.0";
+    }
+    public static int add(int a, int b) {
+        return a + b;
+    }
+    public static void injectJar(Application app) {
+        Toast.makeText(app, "Hello, inject jar!", 0);
+    }
+}
+```
+
+​	切换为展示smali指令，并右键选择显示Dalvik字节码，看到如下代码。
+
+```java
+.method public static add(II)I
+    .registers 3
+    
+    .param p0, "a":I
+    .param p1, "b":I
+    
+                              .line 11
+    002bf89c: 9000 0102               0000: add-int             v0, p0, p1
+                         .end local v1 # "a":I
+                         .end local v2 # "b":I
+    002bf8a0: 0f00                    0002: return              v0
+    
+.end method
+```
+
+​	`.registers 3`表示该函数中使用到了3个寄存器，分别为两个参数和返回值。
+
+​	`002bf89c` 表示的是当前指令的偏移地址。
+
+​	`9000 0102` 就是该函数中的`java`字节码，其中前两个字节`9000`表示的是操作码，由于字节码是大端序存储的，所以这里实际操作码解读为`0x0090`，下面在`AOSP`中对`Opcodes`的定义中也能看到`0x90`操作码对应的操作是`add-int`。
+
+```java
+public interface Opcodes {
+    ...
+	int OP_ADD_INT                      = 0x0090;
+    ...
+}
+```
+
+​	使用`010 Editor`工具，将样例程序解压后获得的`classes.dex`拖入`010 Editor`打开。看到结果如下。
+
+![image-20230325133550347](.\images\dex模板.png)
+
+​	接下来在`dex_class_defs`中寻找刚刚分析的目标类`MyCommon`。
+
+```
+struct class_def_item class_def[2205]	public cn.mik.myjar.MyCommon	1243C4h	20h	Fg: Bg:0xE0E0E0	Class ID
+```
+
+​	将其展开后，能看到该`class`的详细信息，在上一节的类加载中，当DEX被解析后，加载的类在内存中就是以这样的结构结果存储着数据。
+
+![image-20230325134213390](.\images\def_class.png)
+
+​	在其中的函数结构体下面的`code_item`类型的数据，就存储着该函数要执行的`java`字节码，继续展开该结构。
+
+![image-20230325134632085](.\images\codeitem1.png)
+
+​	这里就能看到对该函数结构的描述了，`insns`中则存储着函数要执行的指令。每个指令的单位是`ushort`，即两个字节存储，将这里的三个指令转换为16进制表示则是。
+
+```
+144  =  00 90 -> 大端序 -> 9000
+
+513  =  02 01 -> 大端序 -> 0102
+
+15   =  00 0F -> 大端序 -> 0f00
+```
+
+​	结果和上面`smali`展示中的一致。这就是`java`字节码，在调用过程中，系统会经过层层的转换和解析，最终通过对函数中的指令进行执行来完成函数的调用。
 
 ​	接下来根据之前的例子，开始对函数调用流程的代码进行跟踪分析。
 
@@ -1301,7 +1531,7 @@ static inline JValue Execute(
 
 ​	`Android Studio `在调试模式下会自动为每个线程启动一个监听器，并在方法进入和退出时触发相应的事件。这些事件包括 `Method Entry`（方法入口）、`Method Exit`（方法出口）等。
 
-​	`ExecuteSwitch`是基于 switch 语句实现的一种解释器，用于执行当前方法的指令集。在 `Android` 应用程序中，每个方法都会对应一组指令集，用于描述该方法的具体实现。当该方法被调用时，系统需要按照指令集来执行相应的操作，从而实现该方法的功能并计算出结果。
+​	`ExecuteSwitch`是基于 `switch `语句实现的一种解释器，用于执行当前方法的指令集。在 `Android` 应用程序中，每个方法都会对应一组指令集，用于描述该方法的具体实现。当该方法被调用时，系统需要按照指令集来执行相应的操作，从而实现该方法的功能并计算出结果。
 
 ​	`ExecuteMterpImpl`是基于` Mterp（Method Interpreter）`技术实现。`Mterp `技术使用指令集解释器来执行应用程序的代码，相比于` JIT `编译模式可以更快地启动和执行短小精悍的方法，同时也可以避免 `JIT `编译带来的额外开销。
 
@@ -1392,57 +1622,196 @@ ENTRY ExecuteMterpImpl
 ```java
 public interface Opcodes {
 	...
-	int OP_INVOKE_STATIC                = 0x0071;
-    int OP_INVOKE_INTERFACE             = 0x0072;
-    int OP_INVOKE_VIRTUAL_RANGE         = 0x0074;
-    int OP_INVOKE_SUPER_RANGE           = 0x0075;
-    int OP_INVOKE_DIRECT_RANGE          = 0x0076;
-    int OP_INVOKE_STATIC_RANGE          = 0x0077;
-    int OP_INVOKE_INTERFACE_RANGE       = 0x0078;
+	int OP_IPUT_CHAR                    = 0x005e;
+    int OP_IPUT_SHORT                   = 0x005f;
+    int OP_SGET                         = 0x0060;
+    int OP_SGET_WIDE                    = 0x0061;
 	...
 }
 ```
 
-​	而在`invoke.S`汇编文件中，会有其对应操作码的具体实现。
+​	而在在汇编文件中，会有其对应操作码的具体实现。
 
 ```assembly
-%def op_invoke_static():
-%  invoke(helper="MterpInvokeStatic")
+%def field(helper=""):
+    .extern $helper
+    mov      x0, xPC                       // arg0: 指令的地址
+    mov      x1, xINST                     // arg1: 指令对应的16位数值
+    add      x2, xFP, #OFF_FP_SHADOWFRAME  // arg2: ShadowFrame* sf
+    mov      x3, xSELF                     // arg3: Thread* self
+    PREFETCH_INST 2                        // 预备取下一条指令
+    bl       $helper					   // 调用 $helper 函数
+    cbz      x0, MterpPossibleException
+    ADVANCE 2
+    GET_INST_OPCODE ip                     // 从指令中获取操作码
+    GOTO_OPCODE ip                         // 跳转到操作码处理逻辑
 
+%def op_iput(helper="MterpIPutU32"):
+%  field(helper=helper)
 
-%def op_invoke_static_range():
-%  invoke(helper="MterpInvokeStaticRange")
+%def op_sget(helper="MterpSGetU32"):
+%  field(helper=helper)
 
-%def op_invoke_super():
-%  invoke(helper="MterpInvokeSuper")
-    /*
-     * Handle a "super" method call.
-     *
-     * for: invoke-super, invoke-super/range
-     */
-    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
-    /* op vAA, {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
+%def op_iput_char():
+%  op_iput(helper="MterpIPutU16")
 
-%def op_invoke_super_range():
-%  invoke(helper="MterpInvokeSuperRange")
+%def op_iput_short():
+%  op_iput(helper="MterpIPutI16")
 
-%def op_invoke_virtual():
-%  invoke(helper="MterpInvokeVirtual")
-    /*
-     * Handle a virtual method call.
-     *
-     * for: invoke-virtual, invoke-virtual/range
-     */
-    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
-    /* op vAA, {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
+%def op_sget_wide():
+%  op_sget(helper="MterpSGetU64")
 
-%def op_invoke_virtual_range():
-%  invoke(helper="MterpInvokeVirtualRange")
 ```
 
-​	到这里，就找到对应的执行`C++`函数将`Dex`的指令逐一进行执行处理。`Mterp`的执行流程到这里就非常清晰了。下一步开始分析`switch`解释器的执行流程。
+​	到这里，就找到对应的执行`C++`函数将`Dex`的指令逐一进行执行处理，其对应的`C++`执行部分则在文件`mterp.cc`文件中找到。`Mterp`的执行流程到这里就非常清晰了。下一步开始分析`switch`解释器的执行流程。开始分析函数`ExecuteSwitch`的实现。
 
+```c++
+static JValue ExecuteSwitch(Thread* self,
+                            const CodeItemDataAccessor& accessor,
+                            ShadowFrame& shadow_frame,
+                            JValue result_register,
+                            bool interpret_one_instruction) REQUIRES_SHARED(Locks::mutator_lock_) {
+  // 是否处于事务中
+  if (Runtime::Current()->IsActiveTransaction()) {
+    // 是否跳过访问检查
+    if (shadow_frame.GetMethod()->SkipAccessChecks()) {
+      return ExecuteSwitchImpl<false, true>(
+          self, accessor, shadow_frame, result_register, interpret_one_instruction);
+    } else {
+      return ExecuteSwitchImpl<true, true>(
+          self, accessor, shadow_frame, result_register, interpret_one_instruction);
+    }
+  } else {
+    if (shadow_frame.GetMethod()->SkipAccessChecks()) {
+      return ExecuteSwitchImpl<false, false>(
+          self, accessor, shadow_frame, result_register, interpret_one_instruction);
+    } else {
+      return ExecuteSwitchImpl<true, false>(
+          self, accessor, shadow_frame, result_register, interpret_one_instruction);
+    }
+  }
+}
+```
 
+​	在这个函数中，根据条件调整参数，最终都是调用`ExecuteSwitchImpl`，下面继续看解释器的实现。
+
+```c++
+template<bool do_access_check, bool transaction_active>
+void ExecuteSwitchImplCpp(SwitchImplContext* ctx) {
+  ...
+  // 获取到当前正在执行的Dex指令在CodeItem中的索引位置
+  uint32_t dex_pc = shadow_frame.GetDexPC();
+  const auto* const instrumentation = Runtime::Current()->GetInstrumentation();
+  // 获取指令流
+  const uint16_t* const insns = accessor.Insns();
+  // 将当前指令转换为专门用来操作指令的Instruction类
+  const Instruction* next = Instruction::At(insns + dex_pc);
+	
+  DCHECK(!shadow_frame.GetForceRetryInstruction())
+      << "Entered interpreter from invoke without retry instruction being handled!";
+    
+  bool const interpret_one_instruction = ctx->interpret_one_instruction;
+  while (true) {
+    // 获取下一条待执行的指令
+    const Instruction* const inst = next;
+    dex_pc = inst->GetDexPc(insns);
+    // 更新pc位置
+    shadow_frame.SetDexPC(dex_pc);
+    TraceExecution(shadow_frame, inst, dex_pc);
+    // 从指令中获取到操作码
+    uint16_t inst_data = inst->Fetch16(0);
+    bool exit = false;
+    bool success;  // Moved outside to keep frames small under asan.
+    // 执行指令前的预处理
+    if (InstructionHandler<do_access_check, transaction_active, Instruction::kInvalidFormat>(
+            ctx, instrumentation, self, shadow_frame, dex_pc, inst, inst_data, next, exit).
+            Preamble()) {
+      DCHECK_EQ(self->IsExceptionPending(), inst->Opcode(inst_data) == Instruction::MOVE_EXCEPTION);
+      // 这是一个超大的switch，根据操作码来选择如何执行
+      switch (inst->Opcode(inst_data)) {
+#define OPCODE_CASE(OPCODE, OPCODE_NAME, NAME, FORMAT, i, a, e, v)                                \
+        case OPCODE: {                                                                            \
+          next = inst->RelativeAt(Instruction::SizeInCodeUnits(Instruction::FORMAT));             \
+          success = OP_##OPCODE_NAME<do_access_check, transaction_active>(                        \
+              ctx, instrumentation, self, shadow_frame, dex_pc, inst, inst_data, next, exit);     \
+          if (success && LIKELY(!interpret_one_instruction)) {                                    \
+            continue;                                                                             \
+          }                                                                                       \
+          break;                                                                                  \
+        }
+  DEX_INSTRUCTION_LIST(OPCODE_CASE)
+#undef OPCODE_CASE
+      }
+    }
+    ...
+  }
+}
+```
+
+​	`switch`解释器，就是指的这个函数中，使用`switch`来对不同的所有操作码进行对应的处理，但是这里并没有看到非常大的`case`条件，这是因为代码都在`OPCODE_CASE`定义中，找到这个定义的实现如下。
+
+```c++
+#define OPCODE_CASE(OPCODE, OPCODE_NAME, NAME, FORMAT, i, a, e, v)                                \
+template<bool do_access_check, bool transaction_active>                                           \
+ASAN_NO_INLINE static bool OP_##OPCODE_NAME(                                                      \
+    SwitchImplContext* ctx,                                                                       \
+    const instrumentation::Instrumentation* instrumentation,                                      \
+    Thread* self,                                                                                 \
+    ShadowFrame& shadow_frame,                                                                    \
+    uint16_t dex_pc,                                                                              \
+    const Instruction* inst,                                                                      \
+    uint16_t inst_data,                                                                           \
+    const Instruction*& next,                                                                     \
+    bool& exit) REQUIRES_SHARED(Locks::mutator_lock_) {                                           \
+  InstructionHandler<do_access_check, transaction_active, Instruction::FORMAT> handler(           \
+      ctx, instrumentation, self, shadow_frame, dex_pc, inst, inst_data, next, exit);             \
+  return LIKELY(handler.OPCODE_NAME());                                                           \
+}
+DEX_INSTRUCTION_LIST(OPCODE_CASE)
+#undef OPCODE_CASE
+```
+
+​	可以看到内部是调用了初始化了一个`InstructionHandler`对象，然后`handler.OPCODE_NAME()`调用了对应的操作码函数。最后看看其实现。
+
+```c++
+class InstructionHandler {
+	...
+	ALWAYS_INLINE InstructionHandler(SwitchImplContext* ctx,
+                                   const instrumentation::Instrumentation* instrumentation,
+                                   Thread* self,
+                                   ShadowFrame& shadow_frame,
+                                   uint16_t dex_pc,
+                                   const Instruction* inst,
+                                   uint16_t inst_data,
+                                   const Instruction*& next,
+                                   bool& exit_interpreter_loop)
+    : ctx_(ctx),
+      instrumentation_(instrumentation),
+      self_(self),
+      shadow_frame_(shadow_frame),
+      dex_pc_(dex_pc),
+      inst_(inst),
+      inst_data_(inst_data),
+      next_(next),
+      exit_interpreter_loop_(exit_interpreter_loop) {
+  }
+    
+  ...
+    
+  HANDLER_ATTRIBUTES bool INVOKE_STATIC() {
+    return HandleInvoke<kStatic, /*is_range=*/ false>();
+  }
+
+  HANDLER_ATTRIBUTES bool INVOKE_STATIC_RANGE() {
+    return HandleInvoke<kStatic, /*is_range=*/ true>();
+  }
+  ...
+}
+```
+
+​	能够看到，所有操作码对应的实现都是在`InstructionHandler`中进行实现，`switch`解释器的做法非常简单粗暴，尽量性能较差，但是可读性高，当需求是对调用流程进行打桩，或者定制修改时，可以选择强制其走`switch`解释器来执行该函数。
+
+​	需要注意的是，在执行的优化中，当强制走解释器流程调用后，它会交给` JIT `编译器进行编译，生成本地机器码。在生成机器码的同时，`JIT` 编译器会将该函数的入口地址设置为生成的机器码的地址。在下一次调用该函数时，虚拟机就会跳过解释器阶段，直接执行机器码，从而提高程序的执行效率。
 
 ### 7.3.4 动态加载壳的实现
 
