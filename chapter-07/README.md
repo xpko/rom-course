@@ -1,67 +1,16 @@
-# 第七章 脱壳
+# 第七章 类加载和函数调用
 
-## 7.1 壳，加壳，脱壳
+## 7.1 双亲委派机制
 
-​	`Android`的`APK`文件实际上是一种压缩文件格式，它包含了应用程序的二进制代码、资源文件、清单文件等。在安装应用程序之前，系统会将`APK`文件解压缩并安装到设备上。在`APK`文件中，应用程序的二进制代码通常是以`DEX（Dalvik Executable）`格式存储的。`DEX`格式是一种针对移动设备优化的字节码格式，与`Java`虚拟机`（JVM）`的字节码格式有所不同。由于`DEX`格式采用了特殊的指令集和数据结构，使得反编译工具可以轻松地将其转换为可读性较高的`Java`代码。此外，许多反编译工具还可以通过反汇编和反混淆等技术来还原出源代码，因此为了防止应用程序的关键代码轻易被暴露，开发人员会采取一系列的手段来保护代码。
+​	了解`Android`中类的加载机制和函数执行的调用流程是理解如何脱壳的基础。在`Android`系统中，应用程序是在`Dalvik`或者`ART`虚拟机上运行的。当应用启动时，`Android`系统会根据应用程序包中的`AndroidManifest.xml`文件来确定应用程序中哪些组件需要被启动，并且在启动过程中加载应用程序所需的类。
 
-​	Android常规对代码保护的方案主要包括以下几种：
+​	`Android`中的类加载器遵循双亲委派模型，即每个类加载器在尝试加载一个类之前，都会先委托其父类加载器去加载该类。如果父类加载器无法完成加载任务，则子类加载器才会尝试自行加载。这个模型保证了不同的类只会被加载一次，同时也保护了核心`Java API`不被恶意代码篡改。
 
-1. 混淆（Obfuscation）：通过重命名类、方法、变量等标识符来隐藏程序逻辑，使得反编译后的代码难以被理解和分析。
-2. 压缩（Compression）：将应用程序的二进制代码压缩成较小的体积，防止恶意用户逆向工程和复制源代码。
-3. 签名（Signing）：在应用程序发布前，使用数字证书对应用程序进行签名，确保其完整性和来源可信。
-4. 加固（Hardening）：在应用程序内部添加额外的安全保护机制，如代码加密、反调试、反注入等，增强应用程序的抵御能力。
-5. 动态加载（Dynamic Loading）：将敏感的代码和资源文件放置在远程服务器上，在运行时动态加载到本地设备，以防止被攻击者轻易访问和修改。
-
-### 7.1.1 什么是加壳
-
-​	加壳`（Packing）`就是一种应用程序加固手段之一。它将原始应用程序二进制代码嵌入到一个特殊的外壳中，通过修改程序入口和解密算法等方式，增加反调试、反逆向、防篡改等安全机制，提高应用程序的安全性。
-
-​	加壳的目的是使应用程序难以被攻击者分析和修改，从而提高应用程序的抵御能力。但是，加壳也会带来一些负面影响，如增加应用程序的体积、降低应用程序运行效率、可能引入新的安全漏洞等。
-
-​	常见的加壳壳包括：
-
-1. `DexProtector`：一款商业化的加壳工具，支持`Android`和`iOS`平台，可以对`Java`代码和`NDK`库进行加固。其特点是支持多种代码混淆技术，同时还提供了反调试、防止`Hook`攻击、反模拟器等多种安全机制。
-2. `Qihoo360`加固保：一款免费的加壳工具，支持`Android`和`iOS`平台，采用自己研发的加固壳技术，可以对`Java`代码和`C/C++`库进行加固，同时还提供了反调试、反逆向、防篡改等多种安全机制。
-3. `Bangcle`：一款国内著名的加壳工具，支持`Android`和`iOS`平台，提供了多种加固壳方案，如`DexShell、SOShell、`加密资源等，同时还支持反调试、反注入等多种安全机制。
-4. `APKProtect`：一款功能强大的加壳工具，支持`Android`平台，可以对`Java`代码和`Native`库进行加固，支持多种加固方式，如代码混淆、`Resource Encryption、Anti-debugging`等，同时还提供了反反编译、反调试等多种安全机制。
-
-​	这些加壳工具都有不同的特点和适用场景，开发者可以根据实际需求选择合适的加壳壳进行加固。需要注意的是，加壳只是一种安全加固手段，不能取代其他常规的安全措施，并且可能带来一些负面影响，如体积增大、运行效率下降等。
-
-### 7.1.2 如何脱壳
-
-​	加壳的本质就是对DEX格式的java字节码进行保护避免被攻击者分析和修改，而脱壳就是通过分析壳的特征和原理，将被壳保护的java字节码还原出来，通常用于逆向分析、恶意代码分析等领域。
-
-​	脱壳常用的几个步骤如下。
-
-1. 静态分析：通过对样本进行静态分析，获取样本中的壳的特征，加密算法、解密函数等信息，为后续的动态分析做好准备。
-2. 动态分析：在调试器或hook工具的帮助下，运行加密的程序，跟踪程序的执行流程，并尝试找到解密或解压的位置，获取加密或压缩前的原始数据。
-3. 重构代码：通过分析反汇编代码，重新构建可读性高且易于理解的代码，以便更好地理解样本的行为。
-
-​	在脱壳的过程中，会面临开发者为保护代码而添加的各类的防护措施，例如代码混淆、反调试、ROM检测、root检测、hook注入检测等加固手段，而这个博弈的过程就是一种攻防对抗。而ROM脱壳将从另外一个层面解决一部分对抗的问题。
-
-## 7.2 壳的特征
-
-​	早期的Android应用程序很容易被反编译和修改，因此一些开发者会使用简单的壳来保护自己的应用程序。这些壳主要是基于Java层的代码混淆和加密，以及Native层的简单加密。
-
-​	但是单纯的混淆和加密很难保障代码的安全性，第一代壳，动态加载壳就诞生了，这时的思想主要还是将整个DEX进行加密保护，在运行期间才会解密还原DEX文件，再动态加载运行原文件。但是这样依赖Java的动态加载机制，非常容易被攻击，直接通过加载流程就能拿到被保护的数据，这种壳的特征非常明显，当反编译解析时，只能看到壳的代码，找不到任何Activity相关的处理，这种情况就是动态加载壳了。
-
-​	随后第二代壳，指令抽取壳就出现了，对Java层的代码进行函数粒度的保护，第一代的思想是将整个DEX保护起来，而第二代的思想就是只需要保护关键的函数即可。将原始DEX中需要保护的函数内部的codeitem进行清空，将真正的函数内容加密保护存放在其他地方，只有当这个函数真正执行时，才通过解密函数将其还原填充回去，达到让其能正常执行的目的，有些指令抽取壳甚至会在函数执行完成后，重新将codeitem清空。否则执行过一次的函数指令将很容易被还原出来。这种壳的特征可以通过函数内容的特征来分辨，例如一些空的函数，查看smali指令发现内部有大量的nop空指令，这种情况就时指令抽取壳
-
-​	随着攻防的对抗不断的升级，第二代壳也无法带来安全保障，第三代壳，指令转换壳诞生了。指令转换壳的思想和指令抽取是相同的，对具体的函数进行保护，但是在第二代壳的缺陷上进行了优化，由于指令抽取壳最终依然还是一个Java函数的调用，最终还是要将指令回填后进行执行的。不管是如何保护，只要在获取到执行过程中的`codeitem`，就能轻易的修复为真实的`DEX`文件。而指令转换壳则是将被保护的函数转换为native，将函数的指令集解析成中间码，中间码会被映射到自定义的虚拟机进行解析执行。这样就不会走Android提供的指令解析执行流程了。但是这样也会导致函数执行过慢，以及一些兼容问题，这类壳的特征也非常明显，就是native化一些函数，并且可能会包含大量密集的虚拟指令。
-
-## 7.3 脱壳的原理
-
-​	了解Android中类的加载机制和函数执行的调用流程是理解如何脱壳的基础。在Android系统中，应用程序是在`Dalvik`或者`ART`虚拟机上运行的。当应用启动时，Android系统会根据应用程序包中的`AndroidManifest.xml`文件来确定应用程序中哪些组件需要被启动，并且在启动过程中加载应用程序所需的类。
-
-​	Android中的类加载器遵循双亲委派模型，即每个类加载器在尝试加载一个类之前，都会先委托其父类加载器去加载该类。如果父类加载器无法完成加载任务，则子类加载器才会尝试自行加载。这个模型保证了不同的类只会被加载一次，同时也保护了核心`Java API`不被恶意代码篡改。
-
-​	在Android应用程序中，每个类都会被分配到一个特定的`DEX`文件（即`Dalvik Executable`）中。`DEX`文件中包含了所有该类的方法和属性的字节码。当一个应用程序启动时，它的DEX文件会被加载到内存中，并由虚拟机负责解释执行其中的代码。
+​	在`Android`应用程序中，每个类都会被分配到一个特定的`DEX`文件（即`Dalvik Executable`）中。`DEX`文件中包含了所有该类的方法和属性的字节码。当一个应用程序启动时，它的`DEX`文件会被加载到内存中，并由虚拟机负责解释执行其中的代码。
 
 ​	在函数执行的调用流程中，当一个函数被调用时，虚拟机会将当前线程的状态保存下来，并跳转到被调用函数的入口地址开始执行该函数。在函数执行期间，虚拟机会对函数中的指令进行解释执行，并维护函数执行过程中所需的各种数据结构，例如栈帧等。在函数执行完毕后，虚拟机会将结果返回给调用方，并恢复之前保存的线程状态。
 
-​	深入学习Android的类加载机制和函数执行的调用流程，可以更好地理解应用程序的运行机制和寻找脱壳点。
-
-### 7.3.1 双亲委派机制
+​	深入学习`Android`的类加载机制和函数执行的调用流程，可以更好地理解应用程序的运行机制和寻找脱壳点。
 
 ​	`Android`中的类通常是在`DEX`文件中保存的，而`ClassLoader`则是用来加载这些`DEX`文件的。在Android中，每个应用程序包`（APK）`都包含一个或多个`DEX`文件，这些`DEX`文件中包含了应用程序的所有类信息。当一个类需要被使用时，`ClassLoader`就会从相应的`DEX`文件中加载该类，并将其转换成可执行的`Java`类。因此，`ClassLoader`和`DEX`密切相关，`ClassLoader`是`DEX`文件的载体和管理者。下面是在`AOSP12`中各类的`ClassLoader`。
 
@@ -86,9 +35,7 @@
 
 ​	TODO 帮我补一个继承关系的图
 
-
-
-### 7.3.2 类的加载流程
+## 7.2 类的加载流程
 
 ​	在`Android`中，`ClassLoader`类是双亲委派机制的主要实现者。该类提供了`findClass`和`loadClass`方法，其中`findClass`是`ClassLoader`的抽象方法，需要由子类实现。接下来将跟踪源码实现，详细了解`ClassLoader`是如何进行类加载流程的。
 
@@ -964,7 +911,7 @@ DexFile::DexFile(const uint8_t* base,
 
 ![image-20230325190621427](.\images\dex_header.png)
 
-### 7.3.3 函数调用流程
+### 7.3 函数调用流程
 
 ​	在`Android`中，`Java`函数和`native`函数的调用方式略有不同。对于`Java`函数，它们的执行是由`Android Runtime`虚拟机完成的。具体来说，当应用程序需要调用一个`Java`函数时，`Android Runtime`会根据该函数的状态和类型进行相应的处理，包括解释器执行、`JIT`编译器动态生成机器码等；当函数执行完毕后，结果会被传递回应用程序。
 
@@ -986,7 +933,7 @@ public class MyCommon {
 }
 ```
 
-​	切换为展示smali指令，并右键选择显示Dalvik字节码，看到如下代码。
+​	切换为展示`smali`指令，并右键选择显示`Dalvik`字节码，看到如下代码。
 
 ```java
 .method public static add(II)I
@@ -1028,7 +975,7 @@ public interface Opcodes {
 struct class_def_item class_def[2205]	public cn.mik.myjar.MyCommon	1243C4h	20h	Fg: Bg:0xE0E0E0	Class ID
 ```
 
-​	将其展开后，能看到该`class`的详细信息，在上一节的类加载中，当DEX被解析后，加载的类在内存中就是以这样的结构结果存储着数据。
+​	将其展开后，能看到该`class`的详细信息，在上一节的类加载中，当`DEX`被解析后，加载的类在内存中就是以这样的结构存储着数据。
 
 ![image-20230325134213390](.\images\def_class.png)
 
@@ -1531,7 +1478,9 @@ static inline JValue Execute(
 
 ​	`Android Studio `在调试模式下会自动为每个线程启动一个监听器，并在方法进入和退出时触发相应的事件。这些事件包括 `Method Entry`（方法入口）、`Method Exit`（方法出口）等。
 
-​	`ExecuteSwitch`是基于 `switch `语句实现的一种解释器，用于执行当前方法的指令集。在 `Android` 应用程序中，每个方法都会对应一组指令集，用于描述该方法的具体实现。当该方法被调用时，系统需要按照指令集来执行相应的操作，从而实现该方法的功能并计算出结果。
+​	下面将分别介绍`ExecuteMterpImpl`和`ExecuteSwitch`是如何实现指令流的执行。
+
+## 7.4 ExecuteMterpImpl
 
 ​	`ExecuteMterpImpl`是基于` Mterp（Method Interpreter）`技术实现。`Mterp `技术使用指令集解释器来执行应用程序的代码，相比于` JIT `编译模式可以更快地启动和执行短小精悍的方法，同时也可以避免 `JIT `编译带来的额外开销。
 
@@ -1663,7 +1612,11 @@ public interface Opcodes {
 
 ```
 
-​	到这里，就找到对应的执行`C++`函数将`Dex`的指令逐一进行执行处理，其对应的`C++`执行部分则在文件`mterp.cc`文件中找到。`Mterp`的执行流程到这里就非常清晰了。下一步开始分析`switch`解释器的执行流程。开始分析函数`ExecuteSwitch`的实现。
+​	到这里，就找到对应的执行`C++`函数将`Dex`的指令逐一进行执行处理，其对应的`C++`执行部分则在文件`mterp.cc`文件中找到。`Mterp`的执行流程到这里就非常清晰了。
+
+## 7.5 ExecuteSwitch
+
+​	`ExecuteSwitch`是基于 `switch `语句实现的一种解释器，用于执行当前方法的指令集。在 `Android` 应用程序中，每个方法都会对应一组指令集，用于描述该方法的具体实现。当该方法被调用时，系统需要按照指令集来执行相应的操作，从而实现该方法的功能并计算出结果。
 
 ```c++
 static JValue ExecuteSwitch(Thread* self,
@@ -1812,158 +1765,3 @@ class InstructionHandler {
 ​	能够看到，所有操作码对应的实现都是在`InstructionHandler`中进行实现，`switch`解释器的做法非常简单粗暴，尽量性能较差，但是可读性高，当需求是对调用流程进行打桩，或者定制修改时，可以选择强制其走`switch`解释器来执行该函数。
 
 ​	需要注意的是，在执行的优化中，当强制走解释器流程调用后，它会交给` JIT `编译器进行编译，生成本地机器码。在生成机器码的同时，`JIT` 编译器会将该函数的入口地址设置为生成的机器码的地址。在下一次调用该函数时，虚拟机就会跳过解释器阶段，直接执行机器码，从而提高程序的执行效率。
-
-### 7.3.4 动态加载壳的实现
-
-动态加载壳是一种常见的代码保护技术，它通过在程序运行时动态加载壳来保护应用程序。下面是一般情况下动态加载壳的流程：
-
-1. 壳程序和被保护的应用程序分开编译，壳程序中包含有解密、加载、映射被保护程序等功能代码，并将被保护程序加密。
-2. 当启动被保护的程序时，先运行壳程序。
-3. 壳程序首先会进行自身的初始化，例如获取壳程序自身路径、解密被加密的被保护程序等操作。
-4. 然后，壳程序会将被保护程序从加密状态中解密出来。
-5. 接着，壳程序会在内存中为被保护程序申请一块连续的内存区域，将被保护程序的代码和数据映射到该内存区域中。
-6. 壳程序会根据被保护程序的程序入口点开始执行被保护程序的代码。
-7. 被保护程序运行时的系统调用和DLL库的调用等操作，都会由壳程序处理并返回结果给被保护程序。同时，壳程序可能会进行一些额外的安全检查，例如防止调试、防止反汇编、防止破解等操作。
-
-​	接下来我们看一个简单的动态加载壳的实现。首先准备一个需要被保护的apk，这里直接使用前文中测试动态加载系统内置jar包的APP作为样例，代码如下。
-
-```java
-package cn.mik.myservicedemo;
-
-import androidx.appcompat.app.AppCompatActivity;
-
-import android.app.Application;
-import android.os.Bundle;
-import android.os.IBinder;
-import android.os.IMikRomManager;
-import android.os.RemoteException;
-import android.util.Log;
-
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
-import dalvik.system.PathClassLoader;
-
-public class MainActivity extends AppCompatActivity {
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        Class localClass = null;
-        try {
-            localClass = Class.forName("android.os.ServiceManager");
-            Method getServiceMethod = localClass.getMethod("getService", new Class[] {String.class});
-            if(getServiceMethod != null) {
-                Object objResult = getServiceMethod.invoke(localClass, new Object[]{"mikrom"});
-                if (objResult != null) {
-                    IBinder binder = (IBinder) objResult;
-                    IMikRomManager iMikRom = IMikRomManager.Stub.asInterface(binder);
-                    String msg= iMikRom.hello();
-                    Log.i("MainActivity", "msg: " + msg);
-                }
-            }
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } catch (InvocationTargetException e) {
-            e.printStackTrace();
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        } catch (RemoteException e) {
-            e.printStackTrace();
-        }
-    }
-}
-```
-
-​	TODO 动态加载壳的流程
-
-
-
-​	最后使用压缩包打开apk文件，将加壳处理好的`classes.dex`替换apk中的原文件。然后开始重新签名这个apk，首先生成一个签名证书，命令如下。
-
-```
-keytool -genkeypair -alias myalias -keyalg RSA -keysize 2048 -validity 9125 -keystore mykeystore.keystore
-```
-
-​	输入口令以及各项信息后，得到一个证书文件`mykeystore.keystore`，然后使用该证书对刚刚处理好的apk文件进行签名。
-
-```
-jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore mykeystore.keystore  app-debug.apk myalias
-```
-
-​	签名后尝试安装该apk，结果发现报错如下。
-
-```
-adb install app-debug.apk
-
-// 安装失败
-adb: failed to install app-debug.apk: Failure [-124: Failed parse during installPackageLI: Targeting R+ (version 30 and above) requires the resources.arsc of installed APKs to be stored uncompressed and aligned on a 4-byte boundary]
-```
-
-​	这个错误提示表示 APK 文件未正确压缩对齐。在 Android 11（API 级别 30）及以上版本中，要求 APK 文件必须按照一定的规则进行压缩和对齐，以确保应用程序的安全性和稳定性。可以使用 zipalign 工具对 APK 文件进行对齐操作。
-
-```
-zipalign -v 4 app-debug.apk app-debug-over.apk
-```
-
-​	再次尝试安装apk后，发现变成了另外一个错误。
-
-```
-adb install ./app-debug-over.apk
-
-adb: failed to install ./app-debug-over.apk: Failure [INSTALL_PARSE_FAILED_NO_CERTIFICATES: Scanning Failed.: No signature found in package of version 2 or newer for package cn.mik.myservicedemo]
-```
-
-​	这是因为当`targetSdkVersion`版本号，只要大于30时，需要使用v2进行签名，签名方式如下。
-
-```
-apksigner sign --ks mykeystore.keystore  app-debug-over.apk
-```
-
-​	重新再安装apk，又换成了一个新错误。
-
-```
-adb install ./app-debug-over.apk
-
-Exception occurred while executing 'install-incremental':
-java.lang.IllegalArgumentException: Incremental installation not allowed.
-        at com.android.server.pm.PackageInstallerSession.<init>(PackageInstallerSession.java:1082)
-        at com.android.server.pm.PackageInstallerService.createSessionInternal(PackageInstallerService.java:787)
-        at com.android.server.pm.PackageInstallerService.createSession(PackageInstallerService.java:519)
-        at com.android.server.pm.PackageManagerShellCommand.doCreateSession(PackageManagerShellCommand.java:3143)
-        at com.android.server.pm.PackageManagerShellCommand.doRunInstall(PackageManagerShellCommand.java:1341)
-        at com.android.server.pm.PackageManagerShellCommand.runIncrementalInstall(PackageManagerShellCommand.java:1299)
-        at com.android.server.pm.PackageManagerShellCommand.onCommand(PackageManagerShellCommand.java:197)
-        at com.android.modules.utils.BasicShellCommandHandler.exec(BasicShellCommandHandler.java:97)
-        at android.os.ShellCommand.exec(ShellCommand.java:38)
-        at com.android.server.pm.PackageManagerService.onShellCommand(PackageManagerService.java:24612)
-        at android.os.Binder.shellCommand(Binder.java:950)
-        at android.os.Binder.onTransact(Binder.java:834)
-        at android.content.pm.IPackageManager$Stub.onTransact(IPackageManager.java:4818)
-        at com.android.server.pm.PackageManagerService.onTransact(PackageManagerService.java:8506)
-        at android.os.Binder.execTransactInternal(Binder.java:1184)
-        at android.os.Binder.execTransact(Binder.java:1143)
-```
-
-​	这是因为旧版本不支持流式安装，所以需要禁用增量安装，增量安装是一种优化技术，它只安装已更改的文件和资源，而不是重新安装整个应用程序。使用 `--no-incremental` 选项可以确保在安装应用程序时，所有文件都被完全重新安装，使用下面的命令安装apk。
-
-```
-adb install -r  --no-incremental app-debug-over.apk
-```
-
-​	
-
-### 7.3.5 如何脱壳
-
-
-
-## 7.4 简单脱壳实现
-
-
-
-## 7.5 自动化脱壳
-
-
-
