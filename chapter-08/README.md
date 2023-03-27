@@ -61,6 +61,8 @@
 6. 壳程序会根据被保护程序的程序入口点开始执行被保护程序的代码。
 7. 被保护程序运行时的系统调用和DLL库的调用等操作，都会由壳程序处理并返回结果给被保护程序。同时，壳程序可能会进行一些额外的安全检查，例如防止调试、防止反汇编、防止破解等操作。
 
+### 8.3.1 加固过程
+
 ​	接下来我们看一个简单的动态加载壳的实现的案例，下载地址：`https://github.com/zhang-hai/apkjiagu`。
 
 ​	该案例主要分为三个部分，分别是：壳程序、待保护的程序、加壳程序。大致流程是使用加壳工具解析待保护的程序，然后将壳程序加入。最后重新生成新的apk，重新签名。接下来先了解如何使用该工具来保护`Android`应用。
@@ -228,7 +230,7 @@ Verification succesful
 - `apk`对齐处理
 - `apk`签名
 
-​	在开始分析源码前，我们先手动进行一次替换`dex`的尝试，将`apk`作为压缩包打开，然后将`dex`进行替换，再对这个`apk`进行重新签名。
+​	在开始分析源码前，可以先手动进行一次替换`dex`的尝试，将`apk`作为压缩包打开，然后将`dex`进行替换，再对这个`apk`进行重新签名。
 
 ```
 jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore mykeystore.keystore  app-debug.apk myalias
@@ -279,7 +281,7 @@ java.lang.IllegalArgumentException: Incremental installation not allowed.
 ​	这是因为旧版本不支持流式安装，所以需要禁用增量安装，增量安装是一种优化技术，它只安装已更改的文件和资源，而不是重新安装整个应用程序。使用 `--no-incremental` 选项可以确保在安装应用程序时，所有文件都被完全重新安装，使用下面的命令安装`apk`。
 
 ```
-adb install -r  --no-incremental app-debug-over.apk
+adb install --no-incremental app-debug-over.apk
 ```
 
 ​	然后安装又出现了新的问题，报错如下。
@@ -301,6 +303,8 @@ adb install -r  --no-incremental app-debug-over.apk
 ​	最后成功安装目标应用，并且能正常打开运行该应用。使用工具`jadx`解析保护后的`APP`，已经无法正常看到`MainActivity`类了。
 
 ![image-20230325233226543](D:/git_src/android-rom-book/chapter-07/images/jiagu.png)
+
+### 8.3.2 加固原理
 
 ​	对加固的操作流程理解后，接下来开始分析源码，学习这个壳是如何实现的。首先我们从加壳工具开始入手。查看工程`jiiaguLib`的入口函数`main`，代码如下。
 
@@ -877,5 +881,86 @@ static jclass DexFile_defineClassNative(JNIEnv* env,
 }
 ```
 
-​	通过`ConvertJavaArrayToDexFiles`函数将`Java`层传递过来的`cookie`转换成了`dexfile`列表。可以在遍历该列表的循环中输出每个`dex_file`的信息，或者在`DefineClass`中输出`dex_file`的信息。
+​	通过`ConvertJavaArrayToDexFiles`函数将`Java`层传递过来的`cookie`转换成了`dexfile`列表。可以在遍历该列表的循环中输出每个`dex_file`的信息，或者在`DefineClass`中输出`dex_file`的信息。以下是打桩输出日志相关代码。
 
+```java
+ObjPtr<mirror::Class> ClassLinker::DefineClass(Thread* self,
+                                               const char* descriptor,
+                                               size_t hash,
+                                               Handle<mirror::ClassLoader> class_loader,
+                                               const DexFile& dex_file,
+                                               const dex::ClassDef& dex_class_def) {
+  ScopedDefiningClass sdc(self);
+  StackHandleScope<3> hs(self);
+  metrics::AutoTimer timer{GetMetrics()->ClassLoadingTotalTime()};
+  auto klass = hs.NewHandle<mirror::Class>(nullptr);
+  ALOGD("mikrom DefineClass dex begin:%p size:%zu\n",dex_file.Begin(),dex_file.Size());
+  ...
+}
+```
+
+​	日志添加完成后，将重新编译系统，并刷入测试机中。然后将未加固的`apk`解压，查看加固前的`dex`的大小。信息如下。
+
+```
+-a----        1981-01-01      1:01        9738740 classes.dex
+```
+
+​	未保护的`dex`大小为`9738740`，接下来将加固后的`apk`安装到测试机中，查看系统输出日志，能看到添加的打桩输出信息非常多，这是因为每次加载类时，都会触发该函数，所以触发非常频繁。当打开这个被保护的样例应用时，就能看到大小和未加固前一样大的`dex`信息，输出信息如下。
+
+```
+D/k.myservicedem: mikrom DefineClass dex begin:0xc6b37000 size:9738740
+```
+
+​	这样就通过打桩信息，确定出了这个时机能够获取到，这种加固方式保护的原始`dex`文件了。接下来调整代码，将这段内存数据写入到文件中保存出来。修改代码如下。
+
+```c++
+using android::base::ReadFileToString;
+using android::base::WriteStringToFile;
+
+ObjPtr<mirror::Class> ClassLinker::DefineClass(Thread* self,
+                                               const char* descriptor,
+                                               size_t hash,
+                                               Handle<mirror::ClassLoader> class_loader,
+                                               const DexFile& dex_file,
+                                               const dex::ClassDef& dex_class_def) {
+  ScopedDefiningClass sdc(self);
+  StackHandleScope<3> hs(self);
+  metrics::AutoTimer timer{GetMetrics()->ClassLoadingTotalTime()};
+  auto klass = hs.NewHandle<mirror::Class>(nullptr);
+  
+  // 获取包名
+  std::string cmdlinePath="/proc/self/cmdline";
+    auto cmdlineData = std::string();
+    if(ReadFileToString(cmdlinePath,&cmdlineData)){
+        // 排除掉一些系统包名
+        if(!strstr(cmdlineData.c_str(),"android") && !strstr(cmdlineData.c_str(),"google")
+        &&!strstr(cmdlineData.c_str(),"zygote") &&!strstr(cmdlineData.c_str(),"system_server")){
+            if(cmdlineData.length()>0){
+                char savePath[100]={0};
+                sprintf(savePath, "/data/data/%s/defineClass_%zu.dex", cmdlineData.c_str(),dex_file.Size());
+                ALOGD("mikrom DefineClass write %s dex begin:%p size:%zu\n",savePath,dex_file.Begin(),dex_file.Size());
+                if(access(savePath, F_OK) != 0){
+                    if (!WriteStringToFile(std::string((const char*)dex_file.Begin(), dex_file.Size()), savePath)) {
+                        // 写入失败
+                        ALOGD("mikrom DefineClass dex begin:%p size:%zu write err\n",dex_file.Begin(),dex_file.Size());
+
+                    }
+                }
+            }
+        }
+    }
+  ...
+}
+```
+
+​	重新编译系统后，刷入手机，安装前文中加固好的样例应用，打开后在日志中成功看到下面的输出信息。
+
+```
+D/k.myservicedem: mikrom DefineClass write 2 /data/data/cn.mik.myservicedemo/defineClass_9738740.dex dex begin:0xbdbc5000 
+```
+
+​	最后将这个文件传到电脑中，使用`jadx`打开看到脱壳后的结果。
+
+![image-20230328004256155](.\images\tuoke.png)
+
+​	在这个自动脱壳的例子中，并不限于在哪个调用时机来对其保存到文件，只要是在加载过程中，能获取到`DexFile`结果的地方，大多数都是能拿到动态加载壳所保护的目标。当你不确定的情况，可以先加上打桩信息，然后逐步去排查来判断你使用的调用时机是否可用。
