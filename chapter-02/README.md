@@ -440,7 +440,7 @@ Common goals are:
 // 内核编译的相关依赖安装
 sudo apt install p7zip-full wget curl git tree -y
 sudo apt-get install dialog file python3 python3-pip python2 libelf-dev gpg gpg-agent tree flex bison libssl-dev zip unzip curl wget tree build-essential bc software-properties-common libstdc++6 libpulse0 libglu1-mesa locales lcov --no-install-recommends -y
-sudo apt-get install pahole libreadline-dev -y
+sudo apt-get install pahole libreadline-dev kmod cpio -y
 
 // 创建内核的源码目录，不用放再Android源码目录下
 mkdir android-kernel && cd android-kernel
@@ -835,13 +835,13 @@ exit
 
 ​	根据前面`repo`的介绍，知道了源码一共是三个部分：git-repo.git的工具仓库、manifests.git的子模块清单仓库、AOSP源码子模块仓库。接下来，将代码同步的流程分割为下面几个步骤。
 
-​1. 参考.repo/manifests/default.xml配置修改为自己的gitlab地址并创建一个manifests.git仓库。
+1. 参考.repo/manifests/default.xml配置修改为自己的gitlab地址并创建一个manifests.git仓库。
 
 2. 使用脚本批量创建子模块仓库。
 
-​3. 使用脚本批量同步子模块代码。
+3. 使用脚本批量同步子模块代码。
 
-​4. 使用自己的gitlab地址同步代码测试。
+4. 使用自己的gitlab地址同步代码测试。
 
 ​	后面需要创建大量的子模块仓库，不可能在web页面上手动一个个的创建，下面使用命令来创建一个manifests.git仓库。这种方式需要gitlab账号的Access Token。可以在web中登录账号，点击右上角的用户图标，选择`Preferences`来到用户设置页面，然后进入Access Tokens栏目，填写token名称以及勾选权限，最后点击生成，例如生成的token为`27zctxyWZP9Txksenkxb`。流程见下图。
 
