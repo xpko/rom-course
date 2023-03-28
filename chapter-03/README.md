@@ -1612,7 +1612,7 @@ fastboot devices
 fastboot flashall -w
 ```
 
-​使用android studio的logcat查看日志，或者直接使用命令`adb logcat > tmp.log`将日志输出到文件中，再进行观察。
+使用android studio的logcat查看日志，或者直接使用命令`adb logcat > tmp.log`将日志输出到文件中，再进行观察。
 
 ```
 system_process                       W  start CallStaticVoidMethod current process:(null)
@@ -1668,15 +1668,11 @@ pid-3638                             W  start CallStaticVoidMethod current proce
 
 ​	根据前文看到的一系列的代码，能够在代码中看到以下几个结论
 
-​	1、所有进程均来自于zygote进程的fork而来，所以zygote是进程的始祖
-
-​	2、zygote是在ZygoteServer这个服务中收到消息后，再去fork出新进程的
-
-​	3、在第一个zygote进程中创建的ZygoteServer，并开始监听消息。
-
-​	4、zygote进程启动是通过app_process执行程序启动的
-
-​	5、由init进程解析init.rc时启动的第一个zygote
+	1. zygote进程启动是通过app_process执行程序启动的
+	1. 由init进程解析init.rc时启动的第一个zygote
+	1. 在第一个zygote进程中创建的ZygoteServer，并开始监听消息。
+	1. zygote是在ZygoteServer这个服务中收到消息后，再去fork出新进程的
+	1. 所有进程均来自于zygote进程的fork而来，所以zygote是进程的始祖
 
 ​	结合观测到的代码流程，再看下面的一个汇总图。不需要完全理解启动过程中的所有的处理，重点是在这里留下一个大致的印象以及简单的整理。
 
