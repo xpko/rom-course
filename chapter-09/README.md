@@ -1,6 +1,6 @@
-# 第九章 xposed
+# 第九章 Android Hook框架
 
-## 9.1 什么是Xposed
+## 9.1 Xposed
 
 ​	`Xposed`是一个`Android Hook`框架，它可以实现在不修改`APK`文件的情况下更改系统行为和应用程序的行为，通过开发模块，就能对目标进程的`Java`函数调用进行`Hook`拦截，但是需要安装在`Root`的`Android`设备上，才能使用该框架中的模块生效。根据该框架的原理衍生出了很多类似的框架，例如`Edxposed`、`Lsposed`、`VirtualXposed`等等。
 
@@ -302,7 +302,7 @@ private static void loadModule(String apk, ClassLoader topClassLoader) {
 						Log.e(TAG, "    This class requires resource-related hooks (which are disabled), skipping it.");
 						continue;
 					}
-					// 对该类进行初始化
+					// 使用该类初始化一个对象
 					final Object moduleInstance = moduleClass.newInstance();
 					if (XposedBridge.isZygote) {
                         // 不同的实现接口有各自对应的处理，这里是Zygote模块初始化时使用的模块
@@ -342,21 +342,31 @@ private static void loadModule(String apk, ClassLoader topClassLoader) {
 
 ​	分析完加载模块的实现后，这时就明白模块开发时定义的入口是如何被调用的，以及被调用的时机在哪里。理解其中的原理后，同样可以自己进行修改，在其他的时机来选择注入。用自己的方式来定义模块。
 
-## 9.3 支持Xposed的hook框架
+## 9.3 常见的hook框架
+
+​	根据`Xposed`的源码分析不难看出其关键在于`XposedBridge.jar`的注入，然后由`XposedBridge.jar`实现对函数`Hook`的关键逻辑，因为`Xposed`框架提供了非常方便和灵活的`API`，使得开发者可以快速地编写自己的`Hook`模块并且可以兼容大多数`Android`系统版本和设备。所以很多`Hook`框架都会兼容支持`Xposed`框架。
+
+​	`SandHook `是作用在`Android ART`虚拟机上的` Java `层 `Hook `框架，作用于进程内是不需要` Root `的，支持`Android 4.4 - Android 10`，该框架兼容`Xposed Api`调用。
+
+​	除了支持常规的`Java`层`Hook`外，`Sandhook`还支持对`Native`层的函数进行`Hook`。它通过使用系统提供的符号表来获取函数地址，并将函数地址转换为可执行代码，从而实现`Native Hook`。
+
+​	`Sandhook`本身是没有注入功能的，开发完模块功能后，需要自行重打包，或者使用其他工具将模块注入。从开发`AOSP`的角度，可以参考前文内置`JAR`包的做法，直接将`Sandhook`内置到`AOSP`系统中，并实现对任意进程自动注入。
+
+​	`pine`是一个在虚拟机层面、以`Java`方法为粒度的运行时动态`Hook`框架，它可以拦截本进程内几乎所有的`java`方法调用。支持`Android 4.4 - Android 12`。同样该框架也兼容`Xposed Api`调用。
+
+​	`Pine`支持两种方案，一种是替换入口，即修改`ArtMethod`的`entrypoint`；另一种类似于`native`的`inline hook`，即覆盖掉目标方法的代码开始处的一段代码，用于弥补`Android 8.0`以下版本入口替换很有可能不生效的问题。
+
+​	`Dobby`是一个基于`Android NDK`开发的`Native Hook`框架。它可以在`Android`应用程序中注入自定义代码段，从而实现函数替换、跳转、插桩等操作。`Dobby`主要使用了动态链接库和指令重写技术，通过Hook目标进程中的函数来达到修改目的。
+
+​	相比`Java`层的`Hook`框架，`Native Hook`有一些优势。首先，`Native Hook`可以直接操作目标进程的内存空间，更加灵活；其次，`Native Hook`可以通过指令重写技术来控制执行流程，效果更加精准；最后，`Native Hook`避免了`Java`层`Hook`可能引起的兼容性问题，适用范围更广。
+
+## 9.4 集成pine
+
+​	
+
+## 9.5 集成dobby
 
 
 
-## 9.4 集成Xposed
-
-
-
-## 9.5 集成pine
-
-
-
-## 9.6 集成dobby
-
-
-
-
+## 9.6 实战测试
 
