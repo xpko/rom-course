@@ -362,7 +362,196 @@ private static void loadModule(String apk, ClassLoader topClassLoader) {
 
 ## 9.4 集成pine
 
-​	
+​	其实集成各种`Hook`框架的方式基本大同小异，主要就是将核心`JAR`文件或者依赖的`so`动态库内置到系统中，在进程启动阶段将其注入，注入时机越早，能支持`Hook`的范围自然是越广，在注入后，再对模块进行动态加载即可。在前几章中，有详细的讲解如何内置`JAR`文件和`so`动态库，以及如何动态加载调用，在这一小节中，将会结合前文中学习到的，完整把`pine hook`框架内置到`AOSP12`中。
+
+​	首先需要知道`pine`的模块需要依赖哪些动态库，按照`pine`模块的开发规则，`Android Studio`新建项目，在`build.gradle`下添加`pine`的引用如下。
+
+```
+dependencies {
+    ...
+    implementation 'top.canyie.pine:core:0.2.6'
+    ...
+}
+```
+
+ 	然后添加一个测试`hook` 的目标类和函数。
+
+```java
+public class Demo {
+    public static String ceshi(){
+        Log.i("Demo","ceshi");
+        return "1123";
+    }
+}
+```
+
+​	接着在`onCreate`中添加`hook`代码如下。
+
+```java
+	@Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        PineConfig.debug = true; // 是否debug，true会输出较详细log
+        PineConfig.debuggable = BuildConfig.DEBUG; // 该应用是否可调试
+
+        try {
+            Pine.hook(Demo.class.getDeclaredMethod("ceshi"), new MethodHook() {
+                @Override public void beforeCall(Pine.CallFrame callFrame) {
+                    Log.i(TAG, "Before " + callFrame.thisObject + " ceshi()");
+                }
+
+                @Override public void afterCall(Pine.CallFrame callFrame) {
+                    Log.i(TAG, "After " + callFrame.thisObject + " ceshi()");
+                    callFrame.setResult("aasd");
+                }
+            });
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        }
+        Log.i(TAG,Demo.ceshi());
+    }
+```
+
+​	可以看到`hook`代码执行后，再触发函数的调用，运行该应用后，能看到在本进程内成功`hook`。说明该模块正常运行，将这个测试模块编译出来的`apk`文件解压，查看`lib`目录，发现`hook`框架添加后，新增了动态库`libpine.so`。接下来需要将该动态库内置到系统中。
+
+​	在目录`frameworks/base/packages/apps`下新建一个目录`mypine`，然后在该目录中新建文件`Android.mk`，将`pine`的依赖动态库`libpine.so`的，`armv7`以及`arm64`两个版本拷贝到该目录，并加入配置，配置具体内容如下。
+
+```
+//内容如下
+LOCAL_PATH := $(call my-dir)
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libpine
+LOCAL_SRC_FILES_arm := libpine.so
+LOCAL_SRC_FILES_arm64 := libpine_arm64.so
+LOCAL_MODULE_TARGET_ARCHS:= arm arm64
+LOCAL_MULTILIB := both
+LOCAL_MODULE_SUFFIX := .so
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_TAGS := optional
+LOCAL_SHARED_LIBRARIES := liblog
+
+include $(BUILD_PREBUILT)
+```
+
+​	然后在`build/make/target/product/mainline_system.mk`文件中，将配置好的模块加入`PRODUCT_PACKAGES`中，具体实现如下。
+
+```
+PRODUCT_PACKAGES += \
+			libpine \
+```
+
+​	依赖的动态库成功内置到了系统中，只需要在应用启动的过程中，将开发的模块动态加载进去即可，模块的开发可以直接参考`Xposed`实现的思路，在`Xposed`中定义了接口`IXposedHookLoadPackage`，然后开发模块时，实现该接口中的入口函数`handleLoadPackage`，在进程启动中，动态加载模块后，就调用实现了该接口的函数即可触发模块的入口函数。
+
+​	参考上面的流程，开发一个要注入的模块，首先创建一个接口文件如下，包名随意，但是要注意的是，模块中的接口包名，必须和`AOSP`系统中添加的接口包名一致。
+
+```java
+package java.krom;
+
+public interface IHook {
+    void onStart(Object app);
+}
+```
+
+​	然后创建一个类，实现该接口，并在入口函数中实现需要`hook`内容。
+
+```java
+package cn.mik.mymodule
+
+public class Module implements IHook {
+    public static Method GetClsMethod(Class cls,String methodName){
+        Method methlist[] = cls.getDeclaredMethods();
+        Method mGoal=null;
+        for (int i = 0; i < methlist.length; i++) {
+            Method m = methlist[i];
+            if(m.getName().equals(methodName)){
+                mGoal=m;
+                break;
+            }
+        }
+        return mGoal;
+    }
+    
+    @Override
+    public void onStart(Object app) {
+        Log.i("dengrui", "Module  is running...");
+        Application application=(Application)app;
+        ClassLoader classLoader=application.getClassLoader();
+        try {
+            Class cls=Class.forName("cn.mik.pinedemo.Demo",false,classLoader);
+            if(cls==null){
+                Log.i(TAG, "not found Demo");
+                return;
+            }
+            Method method=GetClsMethod(cls,"ceshi");
+            if(method!=null){
+                Log.i(TAG, "success get method");
+                Pine.hook(method, new MethodHook() {
+                    @Override public void beforeCall(Pine.CallFrame callFrame) {
+                        Toast.makeText(application, "成功注入模块",Toast.LENGTH_LONG).show();
+                    }
+                    @Override public void afterCall(Pine.CallFrame callFrame) {
+                    }
+                });
+            }
+
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+            Log.i(TAG, "err:"+e.getMessage());
+        }
+    }
+}
+```
+
+​	在该模块中依然是对前面的例子进行`Hook`，而前文是直接在本进程中进行`Hook`操作，现在则是将前面例子中，`onCreate`的`hook`代码删除，并且去掉`pine`框架的相关引用。在该进程启动时，在`AOSP`源码中将其注入。这里的注入时机选择`handleBindApplication`中，创建`Application`后进行处理。下面是`AOSP`的相关修改。
+
+```java
+private void loadModule(Application app){
+    String apkPath="/data/data/cn.mik.pinedemo/mymodule.apk";
+    String apkClass="cn.mik.mymodule.Module"
+    File f=new File(apkPath);
+    if(!f.exists()){
+        return;
+    }
+    ClassLoader mcl = new PathClassLoader(apkPath, app.getClassLoader());
+    IHook moduleInstance = null;
+    try {
+        Log.i(TAG, "Loading class " + apkClass);
+        Class<?> moduleClass = mcl.loadClass(apkClass);
+        moduleInstance = (IHook) moduleClass.newInstance();
+    } catch (IllegalAccessException | InstantiationException | ClassNotFoundException e) {
+        Log.e(TAG, "", e);
+    } finally {
+    }
+    if (moduleInstance != null) {
+        moduleInstance.onStart(app);
+    }
+}
+
+private void handleBindApplication(AppBindData data) {
+	...
+    app = data.info.makeApplication(data.restrictedBackupMode, null);
+    // Propagate autofill compat state
+    app.setAutofillOptions(data.autofillOptions);
+    // Propagate Content Capture options
+    app.setContentCaptureOptions(data.contentCaptureOptions);
+    sendMessage(H.SET_CONTENT_CAPTURE_OPTIONS_CALLBACK, data.appInfo.packageName);
+    mInitialApplication = app;
+    // 非系统进程则注入jar包
+    int flags = mBoundApplication == null ? 0 : mBoundApplication.appInfo.flags;
+    if(flags>0&&((flags&ApplicationInfo.FLAG_SYSTEM)!=1)){
+    	loadModule(app)
+    }
+}
+```
+
+​	注入代码添加完成后，需要在`AOSP`中相同包名目录下也添加`IHook.java`的接口文件。该例子中接口文件存放在`openjdk`，也可以选择直接放`android.app`包名或任意包名下，只需要和模块中的一致即可。
+
+​	在该例子中，为了简化过程，模块路径以及模块实现接口的类名固定写在代码中，所以在刷入手机测试时，需要手动将该模块上传到指定路径，并且保证在该目录有权限，才能进行动态加载。
+
+​	在实际运用常见，可以选择参考`Xposed`的做法，写在某个资源文件中，然后解压出单个文件读取内容获取到。而`apk` 的路径，可以选择从配置文件获取，如果配置路径下的没有权限，可以由代码实现将模块拷贝到当前进程的私有目录下进行动态加载。也可以选择调整`selinux`规则，为指定目录添加普通进程的访问权限。
 
 ## 9.5 集成dobby
 
