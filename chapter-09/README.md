@@ -555,7 +555,173 @@ private void handleBindApplication(AppBindData data) {
 
 ## 9.5 集成dobby
 
+​	集成方式与`pine`相同，首先开发一个使用`dobby`的样例，然后将其中的依赖动态库集成到系统中，最后在进程启动的过程中，将其加载即可。由于`dobby`是对`native`函数进行`hook`的，所以`Android Studio`创建一个`native c++`的项目，然后使用`git`将`dobby`项目拉取下来。项目地址：`https://github.com/jmpews/Dobby`。然后修改项目中`cpp`目录下的`CMakeLists.txt`文件，将`dobby`加入其中。修改如下。
 
+```cmake
+cmake_minimum_required(VERSION 3.18.1)
+// 设置dobby源码的目录
+set(DobbyHome /home/king/git_src/Dobby)
+enable_language(C ASM)
 
-## 9.6 实战测试
+include_directories(
+        dlfc
+        utils
+)
 
+project("mydobby")
+
+add_library( 
+        mydobby
+        SHARED
+        native-lib.cpp
+        utils/parse.cpp)
+
+find_library( 
+        log-lib
+        log)
+
+target_link_libraries( 
+        mydobby
+        dobby
+        ${log-lib})
+
+# 使用设置的路径,引入Dobby
+include_directories(
+        ${DobbyHome}/include
+        ${DobbyHome}/source
+        ${DobbyHome}/builtin-plugin
+        ${DobbyHome}/builtin-plugin/AndroidRestriction
+        ${DobbyHome}/builtin-plugin/SymbolResolver
+        ${DobbyHome}/external/logging
+)
+
+macro(SET_OPTION option value)
+    set(${option} ${value} CACHE INTERNAL "" FORCE)
+endmacro()
+
+SET_OPTION(DOBBY_DEBUG ON)
+SET_OPTION(DOBBY_GENERATE_SHARED ON)
+SET_OPTION(Plugin.LinkerLoadCallback OFF)
+
+add_subdirectory(/home/king/git_src/Dobby dobby.build)
+
+if(${CMAKE_ANDROID_ARCH_ABI} STREQUAL "arm64-v8a")
+    add_definitions(-DCORE_SO_NAME="${LIBRARY_NAME}")
+elseif(${CMAKE_ANDROID_ARCH_ABI} STREQUAL "armeabi-v7a")
+    add_definitions(-DCORE_SO_NAME="${LIBRARY_NAME}")
+endif()
+```
+
+​	将`dobby`的源码引入后，就可以在项目中使用`dobby`进行`hook`处理了。修改`native-lib.cpp`
+
+文件，添加测试的`hook`代码，内容如下。
+
+```c++
+#include <jni.h>
+#include <string>
+#include <android/log.h>
+#include "dobby.h"
+
+#define LOG_TAG "native-lib"
+
+#define ALOGD(...) __android_log_print(ANDROID_LOG_DEBUG  , LOG_TAG, __VA_ARGS__)
+
+int (*source_openat)(int fd, const char *path, int oflag, int mode) = nullptr;
+
+// 替换后的新函数
+int MyOpenAt(int fd, const char *pathname, int flags, int mode) {
+    ALOGD("mik MyOpenAt  pathname :%s",pathname);
+    if (strcmp(pathname, "/sbin/su") == 0 || strcmp(pathname, "/system/bin/su") == 0) {
+        pathname = "/system/xbin/Mysu";
+    }
+    // 执行原来的openat函数
+    return source_openat(fd, pathname, flags, mode);
+}
+
+void HookOpenAt() {
+    // 找到函数对应的地址
+    void *__openat =
+            DobbySymbolResolver("libc.so", "__openat");
+
+    if (__openat == nullptr) {
+        ALOGD("__openat null ");
+        return;
+    }
+    ALOGD("拿到 __openat 地址 ");
+    //dobby hook 函数
+    if (DobbyHook((void *) __openat,
+                  (dobby_dummy_func_t) MyOpenAt,
+                  (dobby_dummy_func_t*) &source_openat) == RT_SUCCESS) {
+        ALOGD("DobbyHook __openat sucess");
+    }
+}
+
+jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
+
+    ALOGD("Hello JNI_OnLoad 开始加载");
+    JNIEnv *env = nullptr;
+    //改变openat 指定函数 函数地址 替换成自己的
+    HookOpenAt();
+
+    if (vm->GetEnv((void **) &env, JNI_VERSION_1_6) == JNI_OK) {
+        return JNI_VERSION_1_6;
+    }
+    return 0;
+}
+```
+
+​	样例应用准备完毕，将该样例编译并运行后，就能成功看到对`openat`进行`hook`的输出如下。
+
+```
+...
+D  mik MyOpenAt  pathname :/data/vendor/gpu/esx_config_cn.mik.devchangemodule.txt
+D  mik MyOpenAt  pathname :/data/vendor/gpu/esx_config.txt
+D  mik MyOpenAt  pathname :/data/misc/gpu/esx_config_cn.mik.devchangemodule.txt
+D  mik MyOpenAt  pathname :/data/misc/gpu/esx_config.txt
+D  mik MyOpenAt  pathname :/data/vendor/gpu/esx_config_cn.mik.devchangemodule.txt
+D  mik MyOpenAt  pathname :/data/vendor/gpu/esx_config.txt
+D  mik MyOpenAt  pathname :/data/misc/gpu/esx_config_cn.mik.devchangemodule.txt
+D  mik MyOpenAt  pathname :/data/misc/gpu/esx_config.txt
+...
+```
+
+​	接下来将该样例应用编译的`apk`文件进行解压，在`lib`目录中找到依赖的动态库，分别是`libdobby.so`和`libmydobby.so`，其中前者是`hook`框架的核心库，后者是刚刚对`openat`进行`hook`的业务代码。只需要在任何进程启动前，按顺序将依赖的核心动态库，和业务代码加载，即可完成集成的工作，`libdobby.so`可以选择集成到系统中，也可以选择跟业务代码动态库一起放同一个目录进行加载。下面看实现加载的代码。
+
+```java
+
+private static void loadSoModule(String soName){
+    String soPath="";
+    if(System.getProperty("os.arch").indexOf("64") >= 0) {
+        soPath = String.format("/data/data/cn.mik.dobbydemo/%s", soName);
+    }else{
+        soPath = String.format("/data/data/cn.mik.dobbydemo/%s", soName);
+    }
+    File file = new File(soPath);
+    if (file.exists()){
+        Log.e("mikrom", "load so "+soPath);
+        System.load(tmpPath);
+        Log.e("mikrom", "load over so "+soPath);
+    }else{
+        Log.e("mikrom", "load so "+soPath+" not exist");
+    }
+}
+
+private void handleBindApplication(AppBindData data) {
+	...
+    app = data.info.makeApplication(data.restrictedBackupMode, null);
+    // Propagate autofill compat state
+    app.setAutofillOptions(data.autofillOptions);
+    // Propagate Content Capture options
+    app.setContentCaptureOptions(data.contentCaptureOptions);
+    sendMessage(H.SET_CONTENT_CAPTURE_OPTIONS_CALLBACK, data.appInfo.packageName);
+    mInitialApplication = app;
+    // 非系统进程则注入jar包
+    int flags = mBoundApplication == null ? 0 : mBoundApplication.appInfo.flags;
+    if(flags>0&&((flags&ApplicationInfo.FLAG_SYSTEM)!=1)){
+    	loadSoModule("libdobby.so");
+        loadSoModule("libmydobby.so");
+    }
+}
+```
+
+​	这只是简单的演示加载样例，在实际运用场景，尽量不要将动态库的路径，以及要加载的库名称固定写在源码中，最好通过配置的方式，来管理这些需要加载的参数，加载动态库需要目录有执行权限，所以要将文件放在当前应用的私有目录中。完成修改后，随意安装任何应用，打开后，都会被`hook openat`函数。
