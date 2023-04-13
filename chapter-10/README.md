@@ -52,24 +52,65 @@ eBPF可以用于实现安全审计功能，例如记录系统用户的操作、�
 
 
 
-## 10.2 什么是bcc
+## 10.2 eBPF相关的开发工具
+
+eBPF是一种现代化的Linux内核技术，它允许开发者在内核中安全地运行外部程序，用于处理网络数据包、系统调用等场景。eBPF相比传统的内核模块有更高的安全性和可移植性，因此得到了越来越广泛的应用。eBPF虽然运行在内核，但是控制它的程序却是运行在用户态，下面将介绍一下它的开发方法。
+
+在开发eBPF相关工具时，常用的有bcc、bpftrace和libbpf。下面将对这三个工具/库进行介绍。
+
+### 10.2.1 bcc
+
+`bcc`是一款开源的eBPF快速开发工具。最初使用python作为eBPF程序的开发语言，随着社区的发展，该工具支持了C语言开发eBPF程序。该项目是一个开源工具，它的仓库地址是：https://github.com/iovisor/bcc。该仓库提供了一组python语言编写的eBPF工具集，位于tools目录下，涉及的功能包含了文件、进程、网络、延时、性能观测等多个应用场景的工具;同时，也提供了一组C语言编写的eBPF工具集，位于libbpf-tools工具下，这下面的工具很多是tools的C语言实现版本，是非常好的eBPF入门学习资料。
+
+该工具的项目README中有列出eBPF可以运行的不同系统位置的分布图。也提供了tools目录下工具用途的介绍。比如监控文件的打开操作，可以执行如下命令：
+
+```
+$ sudo python3 tools/opensnoop
+```
+
+### 10.2.2 bpftrace
+
+`bpftrace`的主要用途是用于记录和追踪系统方法调用。eBPF程序可以用于处理网络数据包、系统调用、文件访问等场景。使用`bpftrace`，开发者可以可以快速验证要观测的函数是否支持eBPF来实现。
+
+`bpftrace`是开源的工具，它的仓库地址是：https://github.com/iovisor/bpftrace。按照官方的说明，安装好该工具后，会提供一个`bpftrace`工具。这个主程序接受单选的命令与一个bt格式的脚本程序作为输入。脚本中可以设置观测程序的入口和出口、参数传递等信息，非常方便。需要注意的是，目前`bpftrace`只提供了观测功能，没有提供数据的修改功能。这点上不如`bcc`与`libbpf`。
+
+执行下面的命令，可以观测所有的文件打开操作：
+
+```
+$ sudo bpftrace -e 'tracepoint:syscalls:sys_enter_openat { printf("%s %s\n", comm, str(args->filename)); }'
+```
 
 
+### 10.2.3 libbpf
 
-## 10.3 安卓系统中使用bcc
+libbpf是一个用于编写和运行eBPF程序的开源库。它的仓库地址是：https://github.com/libbpf/libbpf。 它提供了一组C接口的函数，允许开发者使用C/Rust语言编写和运行eBPF程序。libbpf官方还单独提供了一些使用libbpf开发eBPF程序的样例。仓库地址是：https://github.com/libbpf/libbpf-bootstrap。该仓库下的examples/c目录下的演示代码，整体的风格与bcc的libbpf-tools目录下类似，前者代码简洁，后者功能更丰富。
 
+总的来说，`bcc`、`bpftrace`和`libbpf`都是用于开发eBPF相关工具的重要工具，它们提供了丰富的功能和工具，方便开发者进行eBPF程序的开发、调试和追踪。
 
-
-## 10.4 为系统打上补丁
-
-
-
-## 10.5 测试eBPF便能
+## 10.3 安卓系统集成eBPF功能
 
 
+### 10.3.1 不同版本内核对eBPF的影响
 
-## 10.6 使用eBPF实现安卓系统进程跟踪
+
+### 10.3.2 为低版本系统打上eBPF补丁
+
+
+### 10.3.3 一些需要注意的内核配置
+
+
+## 10.4 测试eBPF功能
+
+### 10.4.1 运行bcc工具
+
+### 10.4.2 运行bpftrace工具
+
+### 10.4.3 如何编译基于libbpf的eBPF程序
+
+
+## 10.5 eBPF实现安卓系统进程跟踪
 
 
 在这里不得不提一个两个功能强大的方法：`bpf_probe_read_user`与`bpf_probe_write_user`，这两个接口允许eBPF读取与写入内存地址指定的数据，它们拥有内核一样的能力，却有着比内核高得多的稳定性，功能不可谓不强大。
 
+## 10.6 小结
