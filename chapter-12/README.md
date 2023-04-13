@@ -176,7 +176,174 @@ jnitrace -l libnativedemo.so cn.mik.nativedemo
 
 ## 12.3 配置管理
 
-​	
+### 12.3.1 配置文件的访问权限
+
+​	既然是配置管理，那么肯定是从一个文件中读取数据，而该配置文件必须符合条件是所有`APP`应用都有权限读取，而在`Android`中，每个应用都有各自的用户身份，而不同用户之间的访问权限是受限的。在`Android8`以前，`sdcard`中还没有用户访问具体目录时，只要打开`sdcard`权限，即可访问同一个文件。但是在当前编译的`AOSP12`中已经无法访问`sdcard`下的任意文件了。
+
+​	要解决这种各类应用访问同一个配置文件，有多种解决方式。例如通过自定义系统服务来访问具体文件，这样所有进程只要调用系统服务获取配置数据即可。例如通过共享内存，也可以达到相同的效果。
+
+​	在这个案例中，将采用另一种简单的方式来解决该问题。在`Android`中有一个特殊的目录是`/data/local/tmp`，下面开始简单测试，在该目录创建一个文件。
+
+```
+echo "test" > /data/local/tmp/config.json
+```
+
+​	接着写一个简单的案例，来尝试在该目录读取测试文件。
+
+```java
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+
+    binding = ActivityMainBinding.inflate(getLayoutInflater());
+    setContentView(binding.getRoot());
+
+    String res= FileHelper.readTextFile("/data/local/tmp/mydemo");
+    Log.i("MainActivity",res);
+}
+```
+
+​	测试发现，能成功的读取到文件，这里的重点在于，该文件是`shell`身份创建的，不带有身份标识，所以只要有访问权限就能正常读取，`selinux`不会拦截该操作。而`App`应用创建的文件则无法进行读取。下面看看`shell`创建的文件和应用创建的文件之间的区别。
+
+```
+-rw-r--r-- 1 root    root    u:object_r:shell_data_file:s0                             5 2023-04-13 23:19 config.json
+-rw-rw-rw- 1 u0_a240 u0_a240 u:object_r:shell_data_file:s0:c240,c256,c512,c768         4 2023-04-13 23:16 mydemo
+```
+
+​	可以看到`mydemo`的`setlinux`安全策略限制了哪些用户才能访问该文件。因此对于配置文件的处理，只需要用`shell`创建即可满足条件。
+
+### 12.3.2 配置文件的结构
+
+​	为了访问方便，配置文件以`json`的格式进行存储，在执行进入应用主进程后，则读取该配置文件，然后再根据配置的值进行相应的处理。下面是该配置文件的内容。
+
+```
+[{"packageName":"cn.mik.nativedemo","isJNIMethodPrint":true,"isRegisterNativePrint":true,"jniModuleName":"libnativedemo.so","jniFuncName":"stringFromJNI"}]
+```
+
+​	为了便于访问，使用一个对应的类对象来解析该配置文件，类结构定义如下。
+
+```java
+public class PackageItem {
+    //应用包名
+    public String packageName;
+    //是否打印native函数注册
+    public boolean isRegisterNativePrint;
+    //是否打印JNI的函数调用
+    public boolean isJNIMethodPrint;
+    //监控触发JNI调用的模块名
+    public String jniModuleName;
+    //监控触发JNI调用的函数名
+    public String jniFuncName;
+
+    public PackageItem(){
+        packageName="";
+        jniModuleName="";
+        jniFuncName="";
+    }
+}
+```
+
+### 12.3.3 解析配置文件
+
+​	当任意应用程序启动到`ActivityThread`中的主进程入口时，就可以执行解析配置文件逻辑，然后进行相应的处理了，而在`ActivityThread`中`Application`创建后调用的时机，和应用中的`onCreate`调用时机其实相差不大的，但是在测试的时候，在`ActivityThread`中写代码会导致每次修改后，要等待重新编译和刷机，所以完全可以选择先在正常的应用`onCreate`中写入要解析的代码，在最后流程完全跑通后，再将测试无误的代码放入`ActivityThread`中。
+
+​	这里使用`fastjson`将配置文件内容解析成类对象，下面是解析的代码。
+
+```java
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+
+    binding = ActivityMainBinding.inflate(getLayoutInflater());
+    setContentView(binding.getRoot());
+
+    String packageName= this.getPackageName();
+    String configJson= FileHelper.readTextFile("/data/local/tmp/config.json");
+    if(configJson.isEmpty()){
+        Log.i(TAG,"not found config json "+packageName);
+        return;
+    }
+    if(!configJson.contains("{")){
+        Log.i(TAG,"config data is error "+packageName);
+        return;
+    }
+
+    List<PackageItem> packageItems= JSON.parseObject(configJson,new TypeReference<List<PackageItem>>(){});
+    if(packageItems.size()<=0){
+        Log.i(TAG,"not found config json parse "+packageName);
+        return;
+    }
+}
+```
+
+### 12.3.4 配置参数的传递
+
+​	由于`JNI`的调用部分是在`native`中进行，所以获取到的配置内容，需要将其传递到`native`层，并将其保存在一个可以全局访问的位置。便于后续打桩时获取配置的参数。
+
+​	传递数据到`native`层，必然是需要新定义一个`native`函数，在这个案例实现中，在文件`libcore/dalvik/src/main/java/dalvik/system/DexFile.java`中添加了`native`函数实现配置数据的传递。修改如下。
+
+```java
+public final class DexFile {
+    ...
+    @UnsupportedAppUsage
+    private static native void initConfig(PackageItem item);
+}
+```
+
+​	接着找到其对应的实现文件`art/runtime/native/dalvik_system_DexFile.cc`，添加对应的实现。
+
+```c++
+static void
+DexFile_initConfig(JNIEnv* env, jobject ,jobject item) {
+    ...
+}
+
+static JNINativeMethod gMethods[] = {
+  ...
+  NATIVE_METHOD(DexFile, getDexFileOptimizationStatus,
+                "(Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;"),
+  NATIVE_METHOD(DexFile, setTrusted, "(Ljava/lang/Object;)V"),
+  NATIVE_METHOD(DexFile, initConfig,"(Ljava/lang/Object;)V"),
+};
+
+```
+
+​	参数传递到`native`层后，需要将其保存到一个全局能够访问的位置，便于后续`JNI`触发时进行判断。在案例中，我选择将其存放在`Runtime`中。修改`art/runtime/runtime.h`文件如下。
+
+```c++
+typedef struct{
+    char packageName[128];
+    char jniModuleName[1024];
+    char jniFuncName[1024];
+    bool isRegisterNativePrint;
+    bool isJNIMethodPrint;
+    bool jniEnable;
+}PackageItem;
+
+class Runtime {
+    ...
+    public
+    ...
+        void SetConfigItem(PackageItem item){
+            configItem=item;
+        }
+
+        PackageItem GetConfigItem(){
+            return configItem;
+        }
+    ...
+    private:
+    	...
+    	PackageItem configItem;
+    	...
+}
+```
+
+​	这样在能访问到`Runtime`的任意地方都能获取到该配置了。现在就可以实现前面的`initConfig`函数了，将`java`传递过来的对象，转换为`c++`对象存储到`Runtime`中。具体实现如下。
+
+```
+
+```
 
 ## 12.4 JNI调用分析
 
