@@ -89,14 +89,29 @@ libbpf是一个用于编写和运行eBPF程序的开源库。它的仓库地址�
 
 ## 10.3 安卓系统集成eBPF功能
 
+eBPF的功能实现与完善，是优先对x86_64架构提供支持。arm64与其它的系统架构，则会在后面补充跟上。对于大部分的安卓手机设备来说，系统主流采用的是arm64架构的处理器，因此，它的各方面功能支持会延后支持，其支持的程度与arm64版本的Linux其他发行版本对齐，比如arm64架构同版本内核的Ubuntu系统，与安卓的eBPF功能支持基本是一致的。
 
 ### 10.3.1 不同版本内核对eBPF的影响
 
+安卓系统的版本更新，通常也伴随着系统内核版本的升级。目前最新的安卓14采用6.1版本的内核。它的默认的内核配置支持与在同版本内核的arm64 Ubuntu系统eBPF功能一致。支持常用的`kprobes`、`uprobes`、`tracepoint`、`raw_tracepoint`。但一些arm64到高版本内核仍然不支持的特性，比如：`fentry`、`fmod_ret`、`kfuncs`、`LSM`、`SYSCALL`、`tp_btf`等，还需要等待主线内核提供更新支持。列出的不支持的部分，从内核如下地址：https://github.com/torvalds/linux/commit/efc9909fdce00a827a37609628223cd45bf95d0b，可以看到已经有了更新的支持，但Ubuntu arm64架构的6.1内核上，仍然测试失败，相信不久，这些功能都可以在arm64上运行良好。
 
-### 10.3.2 为低版本系统打上eBPF补丁
+安卓12内核采用5.10，安卓13采用5.10与5.15。这两个版本的Linux内核，支持上面说的`uprobes`、`tracepoint`、`raw_tracepoint`。但它们对`kprobes`的支持有一些欠缺，只能说部分支持。造成这个的原因是安卓GKI2.0的一些变化，让`CONFIG_DYNAMIC_FTRACE`这样的选项无法成功开启，具体会在下面一些需要注意的内核配置的小节进行说明。
+
+### 10.3.2 一些需要注意的内核配置
+
+与安卓eBPF相关的内核配置有如下：
+
+1. `CONFIG_DYNAMIC_FTRACE`。如果内核配置了`CONFIG_DYNAMIC_FTRACE`, Ftrace框架内部的`mcount`会被实现成一个空函数（只有一条`ret`指令）。在系统启动时，`mcount`会被替换成`nop`指令。打开tracer后，所有函数的对应位置会被动态替换成跳转到`ftrace_caller()`的指令。这个选项是`fentry`的内核配置`CONFIG_FPROBE`的依赖，会导致fentry无法生效。
+
+2. `CONFIG_FUNCTION_TRACER`。内核中打开`CONFIG_FUNCTION_TRACER`后，会增加`pg`编译选项，这样在每个函数入口处都会插入`bl mcount`跳转指令，函数运行时会进入`mcount`函数。`mcount`会判断函数指针`ftrace_trace_function`是否被注册，默认注册的是空函数`ftrace_stub`，这是ftrace静态方法跟踪的内核配置选项。这个选项也是`fentry`的内核配置`CONFIG_FPROBE`的依赖，会导致`fentry`无法生效。这个选项也会有一个`available_filter_functions`文件，供用户配置Ftrace，如果没有开启，会因为缺少了它，`bpftrace`在kprobes功能函数列表时，就会失败。
+
+3. `CONFIG_FTRACE_SYSCALLS`。这是一个在几乎所有Ubuntu发行版本中都开启的内核配置，但是在安卓中却中默认关闭的。并且安卓官方的Pixel6以上设备开启后，配置Kprobe相关的选项开启，会让设备并得很卡。这个内核配置会在tracefs的events目录下，加入一个syscalls目录，支持对所有的系统调用进行单独的跟踪观测，是一个很有用的内核配置。
+
+关于其它内核配置对eBPF的影响，可以查看bcc提供的一个内核配置说明文档。地址是：https://github.com/iovisor/bcc/blob/master/docs/kernel_config.md。
 
 
-### 10.3.3 一些需要注意的内核配置
+### 10.3.3 为低版本系统打上eBPF补丁
+
 
 
 ## 10.4 测试eBPF功能
