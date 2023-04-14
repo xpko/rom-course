@@ -149,11 +149,98 @@ BUILD_CONFIG=common-modules/virtual-device/build.config.goldfish.aarch64 SKIP_MR
 
 ## 10.4 测试eBPF功能
 
-### 10.4.1 运行bcc工具
+安卓设备环境准备好后，需要`bcc`与`bpftrace`等工具来测试eBPF功能。
 
-### 10.4.2 运行bpftrace工具
+目前，这两个工具官方都没有提供安卓系统的编译与发布支持。使用第三方提供的工具替代。
 
-### 10.4.3 如何编译基于libbpf的eBPF程序
+## 10.4.1 为安卓编译bcc与bpftrace
+
+这里使用的工具名叫ExtendedAndroidTools。它的下载仓库地址是：https://github.com/facebookexperimental/ExtendedAndroidTools。从名字上就可以看出，该仓库的目标是为安卓设备提供eBPF相关工具支持。
+
+接官方的指导执行下面的命令编译生成二进制。
+
+```
+# Build the image
+./scripts/build-docker-image.sh
+
+# Run the environment
+./scripts/run-docker-build-env.sh
+
+# Build a target of your choice from within the container
+make bpftools
+```
+
+编译好后，会生成`bcc`与`bpftrace`工具，还有一些`libbpf`相关的开发库。二进制工具可以执行python与bpftrace的脚本程序，而开发库则可以使用`libbpf`开发C语言的eBPF程序。
+
+### 10.4.2 运行bcc工具
+
+将生成好的bpftools推送到设备上。执行如下命令。
+
+```
+$ adb push bpftools /data/local/tmp/
+```
+
+执行`bcc`工具集需要管理员权限，执行如下命令获取root shell权限。
+
+```
+$ adb root
+```
+
+`bcc`工具集支持主流x86_64处理器的Linux系统。而对安卓系统的支持是有限的。主要的原因是常用的工具集使用的系统调用hook点，有可能在安卓系统上不存在。在执行命令过程中，如果出现错误，需要具体的问题具体分析，找出相应的解决方法。
+
+打开一个adb shell，然后执行如下命令，开启文件打开监控。注意，所有的工具位于share/bcc/tools/目录下。
+
+```
+$ adb shell
+# cd /data/local/tmp/bpftools
+# ./python3 share/bcc/tools/opensnoop
+```
+
+如果不出意外，会有打开的文件列表输出。有一些工具会用到debugfs路径，在执行命令前需要执行如下命令，加载debugfs。
+
+```
+mount -t debugfs debugfs /sys/kernel/debug
+```
+
+有一些工具内容输出采用的Ftrace提供的tracing接口-bpf_trace_printk。这个时候，需要先打开Ftrace的日志输出开关。执行如下命令即可。
+
+```
+# echo 1 > /sys/kernel/tracing/tracing_on
+```
+
+后面，想要监控输出的内容，可以执行下面的命令。
+
+```
+# cat /sys/kernel/tracing/trace_pipe
+```
+
+### 10.4.3 运行bpftrace工具
+
+`bpftrace`工具位于share/bpftrace/tools/目录下。执行方法与`bcc`一样。如尝试执行如下命令，监控命令执行操作。
+
+```
+$ adb shell
+# cd /data/local/tmp/bpftools
+# ./bpftrace share/bpftrace/tools/execsnoop.bt
+share/bpftrace/tools/execsnoop.bt:21-23: ERROR: tracepoints not found: syscalls:sys_enter_exec*
+```
+
+从上面的输出可以看到，在内核没有开启`CONFIG_FTRACE_SYSCALLS`的情况下，是没有“tracepoint/syscalls”这个类别的，而execsnoop.bt使用这个跟踪点就会报错。解决这个问题有两种方法：
+
+1. 将tracepoint更改为kprobe，然后调整参数名字与输出。
+
+2. 为内核开启`CONFIG_FTRACE_SYSCALLS`，如果设备不支持开启，可以考虑更新开发板或模拟器环境。
+
+执行如下命令可以监控设备的TCP网络连接。
+
+```
+# ./bpftrace share/bpftrace/tools/tcpconnect.bt
+Attaching 2 probes...
+Tracing tcp connections. Hit Ctrl-C to end.
+TIME PID COMM SADDR SPORT DADDR DPORT
+```
+
+更多工具的使用与用法见`bpftrace`官方的说明文档。仓库地址是：https://github.com/iovisor/bpftrace/blob/master/docs/reference_guide.md。
 
 
 ## 10.5 eBPF实现安卓系统进程跟踪
