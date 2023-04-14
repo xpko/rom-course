@@ -112,6 +112,39 @@ eBPF的功能实现与完善，是优先对x86_64架构提供支持。arm64与�
 
 ### 10.3.3 为低版本系统打上eBPF补丁
 
+eBPF的强大功能很大一部分来源于其内核辅助方法。在这里不得不提两个功能强大的方法：`bpf_probe_read_user`与`bpf_probe_write_user`，这两个接口允许eBPF读取与写入内存地址指定的数据，它们拥有内核一样的能力，却有着比内核高得多的稳定性，功能不可谓不强大。
+
+大多数eBPF程序都有观测函数方法的参数的需求，对于整形的参数，数据来源于其上下文的寄存器。直接读取其值便可以。涉及到字符串或结构体类型的数据，则需要使用`bpf_probe_read_user`方法来读取。如果该方法在内核中功能欠缺，则会让eBPF程序的整体功能无法实现。而这种事情却发生在了arm64架构5.5版本之前的内核中。由于arm64的功能更新滞后。`bpf_probe_read_user`接口在Linux主线内核5.5中才正式引入arm64的支持。具体的链接是：https://github.com/torvalds/linux/commit/358fdb456288d48874d44a064a82bfb0d9963fa0。这个补丁内容非常的多，修改的文件数量多达17个，包含bpf.h头文件导出接口申明，bpf/core.c添加接口实现逻辑，以及内存相关的接口的更新等，共计597处修改与197处删除。
+
+在安卓11内核5.4上想要使用`bpf_probe_read_user`接口，需要对内核代码做一个向前移植操作（backport），其难度在可控的范围，只需要对照补丁中的代码，在5.4内核相应的地方做相应的添加与修改。更低版本如4.19与4.14的backport操作更麻烦一些，主要体现在主线内核大版本不同，接口的变化较大，版本5的内核在内存读写的多线程同步上，做了大量精细的工作，这些在内核4中是没有的，整个backport会变得更加困难。笔者本人尝试过了安卓10模拟器4.14与安卓11模拟器5.4内核的补丁，并且让它们可以正常的工作。
+
+5.4内核补丁的网络上已经有多处的讨论，也有给出具体的解决方案。有发布针对安卓5.4内核的补丁代码的，也有提供完成补丁后内核代码分支的。当然，绝大多数的人员不关心补丁的内容详情，更在乎如何使用补丁后的产物。于是，后者更受人青睐。这里给出一个网络上修改好的方案链接：https://github.com/HorseLuke/aosp_android_common_kernels/tree/android-11-5.4-bpf_probe_read_user。
+
+编译内核采用官方的build.sh脚本。执行下面的命令，下载内核代码。
+
+```
+mkdir -p android-kernel && pushd android-kernel
+repo init -u https://android.googlesource.com/kernel/manifest -b common-android11-5.4
+echo Syncing code.
+repo sync -cj8
+```
+
+下载完成后，做一个内核代码替换，执行下面的命令：
+
+```
+rm -rf common
+git clone https://github.com/feicong/aosp_android_common_kernels common
+cd common
+git checkout android-11-5.4-bpf_probe_read_user
+```
+
+最后，执行下面的命令编译生成内核。
+
+```
+BUILD_CONFIG=common-modules/virtual-device/build.config.goldfish.aarch64 SKIP_MRPROPER=1 CC=clang build/build.sh -j12
+```
+
+如果读者不关心内核与编译，可以到这里下载编译好的内核文件。https://github.com/feicong/ebpf-course/releases/tag/latest。比如，安卓模拟器5.4内核，其名字为android-arm64-common-5.4-kernelgz开头的zip文件，解压密码：qq121212。下载后，将其放到模拟器镜像目录下，替换kernel文件即可。
 
 
 ## 10.4 测试eBPF功能
@@ -126,6 +159,5 @@ eBPF的功能实现与完善，是优先对x86_64架构提供支持。arm64与�
 ## 10.5 eBPF实现安卓系统进程跟踪
 
 
-在这里不得不提一个两个功能强大的方法：`bpf_probe_read_user`与`bpf_probe_write_user`，这两个接口允许eBPF读取与写入内存地址指定的数据，它们拥有内核一样的能力，却有着比内核高得多的稳定性，功能不可谓不强大。
 
 ## 10.6 小结
