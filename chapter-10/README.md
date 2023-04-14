@@ -243,8 +243,344 @@ TIME PID COMM SADDR SPORT DADDR DPORT
 更多工具的使用与用法见`bpftrace`官方的说明文档。仓库地址是：https://github.com/iovisor/bpftrace/blob/master/docs/reference_guide.md。
 
 
-## 10.5 eBPF实现安卓系统进程跟踪
+## 10.5 eBPF实现安卓App动态库调用跟踪
+
+本小节讲解如何使用eBPF开发一个完整的功能的跟踪工具。该工具名为`ndksnoop`。是笔者使用`bpftrace`实现的安卓NDK中常见的so动态库接口的跟踪工具。
+
+整个工具分为三部分组成。头文件申明、BEGIN初始化块、Hook函数体。下面，分别进行讲解。
+
+### 10.5.1 头文件的引用
+
+新版本的`bpftrace`使用BTF来确定要处理的方法的参数类型、返回值与结构体类型。在没有开启支持BTF的环境中运行的话，或者Hook的第三方库没有BTF文件，只有头文件。这时，需要将使用到的类型信息通过头文件的方式引入到.bt脚本的开头。如下所示。
+
+```
+#!/usr/bin/env bpftrace
+/*
+ * ndksnoop	trace APK .so calls.
+ *		For Android, uses bpftrace and eBPF.
+ *
+ * Also a basic example of bpftrace.
+ *
+ * USAGE: ndksnoop.bt
+ *
+ *
+ * Copyright 2023 fei_cong@hotmail.com
+ * Licensed under the Apache License, Version 2.0 (the "License")
+ *
+ * 09-Apr-2023	fei_cong created first version for libc.so tracing.
+ */
+
+#ifndef BPFTRACE_HAVE_BTF
+#include <linux/socket.h>
+#include <net/sock.h>
+#else
+#include <sys/socket.h>
+#endif
+```
+
+最开始的部分，是.bt文件的用途与版本说明信息。说明脚本开发的目的、时间、作者、功能等。
+然后，根据`BPFTRACE_HAVE_BTF`宏判断是否支持BTF来引入不同的头文件。这里引入的是与网络相头的socket结构体相头的申明，里面涉及到的Hook点，将在下在小节进行讲解。
+
+在这里，除了使用`#include`引入头文件，还可以像C语言那样直接申明类型。如`typedef`、`#define`、`struct xxx{}`等。
+
+### 10.5.2 传入参数的处理
+
+有时候脚本需要使用传入参数来指定变化的参数信息。例如、`ndksnoop`需要支持对不同的安卓App进行过滤，这里使用到的过滤参数是App相关的`uid`。
+
+安卓App在安装时，会被赋予一个不变的`uid`数值。可以对这个值进行过滤，来Hook指定的App。比如`com.android.settings`也就是设置应用，它的`uid`为1000，`shell`用户的`uid`为2000。想要查看一个App的`uid`。可以在adb shell下执行如下命令。
+
+```
+# ls -an /data/data/com.android.systemui
+total 36
+drwx------   4 10095 10095 4096 2023-02-03 17:47 .
+drwxrwx--x 139 1000  1000  8192 2023-03-16 09:32 ..
+drwxrws--x   2 10095 20095 4096 2023-02-03 17:47 cache
+drwxrws--x   2 10095 20095 4096 2023-02-03 17:47 code_cache
+```
+
+`ls`命令的`-n`参数，会列出目录的`uid`信息。上面的命令列出的是systemui包的`uid`信息。对于的`cache`与`code_cache`目前行可以看出，第2列的`uid`值为10095。
+
+`bpftrace`支持解析传入参数，以`$1`、`$2`、`$N`来命名。只传入一个`uid`，则执行如下命令传入的参数在脚本中`$1`的值为10095。
+
+```
+# ./bpftrace ndksnoop.bt 10095
+```
+
+`BEGIN`块是.bt脚本的初始化部分，可以用于对传入参数进行处理。如下所示。
+
+```
+BEGIN
+{
+    // # ls -an /data/data/io.github.vvb2060.mahoshojo
+    if ($1 != 0) {
+        @target_uid = (uint64)$1;
+    } else {
+        @target_uid = (uint64)10095;
+    }
+
+	printf("Tracing android ndk so functions for uid %d. Hit Ctrl-C to end.\n", @target_uid);
+}
+```
+
+脚本的`$1`传给了@target_uid变量，前面的`@`表示这是一个全局变量，临时变量使用`$`。
+当脚本没有传入参数时，`$1`的值为0，这个时候，可以给它一个默认的值10095，或者其它感兴趣的App的`uid`。
+
+最后，使用`printf`方法打印输出一行调试信息。
 
 
+### 10.5.3 Hook方法的实现
+
+Hook用户态的程序与动态库，使用`uprobe`与`uretprobe`来实现。
+`uprobe`负责处理方法执行前的上下文信息，`uretprobe`用于处理方法执行完返回时的返回值信息，通常一些输出的字符串与缓冲区信息也在这里进行处理。
+
+以`libc.so`动态库的`mkdir`方法为例。它的Hook逻辑实现如下：
+
+```
+// int mkdir(const char *pathname, mode_t mode);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:mkdir /uid == @target_uid/ {
+    printf("mkdir [%s, mode:%d]\n", str(arg0), arg1);
+}
+```
+
+`//`是注释，语法与C语言一样。主要是方便理解与阅读。
+
+`uprobe`关键字指定进行`uprobe`类型的Hook。后面跟上库名或完整的库路径。在安卓系统上，`bpftrace`无法找到安卓apex目录下的动态库，因此，需要手动输入完整的路径。
+
+`//`是过滤器，中间的内容`uid == @target_uid`为过滤表达式，表明，只有当表达满足时，才执行方法体内容。这里的表达式含义是：只Hook当前执行时`uid`为`@target_uid`的方法调用。`uid`关键字是`bpftrace` 的保留字，由`bpftrace`程序替换表示当前执行时的程序的`uid`。而`@target_uid`则上上面初始化部分设置好的目标`uid`，这样就完成了过滤操作。
+
+`uprobe`的参数为`arg0`-`arg5`。取参数很简单，整形直接赋值就可以了！字符串类型使用`str()`来读取。字节数组使用`buf()`来读取。更多的方法参考`bpftrace`文档。
+
+代码部分只有两行！就完成了一个方法的跟踪与参数值输出，实在是太方便了。
+
+### 10.5.4 特殊参数与字段的处理
+
+有一些参数，它们传入时没有传，只有在方法执行返回时才设置内容。对于这些方法，可以使用`uprobe`传入时保存指针，`uretprobe`执行时解析。如下所示，是`__system_property_get()`方法的Hook代码。
+
+```
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:__system_property_get /uid == @target_uid/ {
+    @name[tid] = str(arg0);
+    @val[tid] = arg1;
+}
+
+uretprobe:/apex/com.android.runtime/lib64/bionic/libc.so:__system_property_get /uid == @target_uid/ {
+    if (sizeof(@name[tid]) > 0) {
+        printf("getprop [%s:0x%x:%s], ret:%d\n", @name[tid], (int32)(@val[tid]), str(@val[tid]), retval);
+    }
+
+    delete(@name[tid]);
+    delete(@val[tid]);
+}
+```
+
+`__system_property_get()`用于读取属性系统的值。传入的第一个参数为字符串类型的key，第二个参数为返回的内容。在`uprobe`中，使用`str()`读取了key的内容。而`arg1`存放的值，只保存了它的指针。在`uretprobe`中会对其进行`str()`内容读取。注意，最后需要调用`delete()`来删除这两个变量，因为它们是与`tid`相关的线程变量，执行后不删除，会让内存消耗越来越多，直到程序崩溃。
+
+还有一类是比较复杂的结构体。比如`connect()`方法的第二个参数`struct sockaddr`，想要从这个参数中取得IP地址。可以使用如下方法。
+
+```
+
+// int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:connect /uid == @target_uid/ {
+    $address = (struct sockaddr *)arg1;
+    if ($address->sa_family == AF_INET) {
+        $sa = (struct sockaddr_in *)$address;
+        $port = $sa->sin_port;
+        $addr = ntop($address->sa_family, $sa->sin_addr.s_addr);
+        printf("connect [%s %d %d]\n", $addr, bswap($port), $address->sa_family);
+    } else {
+        $sa6 = (struct sockaddr_in6 *)$address;
+        $port = $sa6->sin6_port;
+        $addr6 = ntop($address->sa_family, $sa6->sin6_addr.s6_addr);
+        printf("connect [%s %d %d]\n", $addr6, bswap($port), $address->sa_family);
+    }
+}
+```
+
+这是一种类C语言的语法，通过结构体指针强转的方式，来处理结构体中的字段信息。将字节数组的内容转换成IP地址，使用`ntop()`方法，而网络字节序的转换，使用`bswap()`方法。
+
+
+### 10.5.5 效果展示
+
+执行对`uid`为1000的`libc.so`方法调用跟踪。效果如下所示。
+
+```
+emulator64_arm64:/data/local/tmp/bpftools # ./bpftrace ./ndksnoop.bt 1000
+WARNING: Cannot parse DWARF: libdw not available
+Attaching 64 probes...
+Tracing android ndk so functions for uid 1000. Hit Ctrl-C to end.
+__system_property_find [net.qtaguid_enabled]
+getenv [ANDROID_NO_USE_FWMARK_CLIENT]
+getenv [ANDROID_NO_USE_FWMARK_CLIENT]
+__system_property_find [persist.log.tag.android.hardware.vibrator-service.example]
+__system_property_find [log.tag.android.hardware.vibrator-service.example]
+__system_property_find [persist.log.tag]
+__system_property_find [log.tag]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [persist.log.tag.AutofillManagerService]
+__system_property_find [log.tag.AutofillManagerService]
+__system_property_find [persist.log.tag.ActivityTaskManager]
+__system_property_find [log.tag.ActivityTaskManager]
+__system_property_find [debug.force_rtl]
+__system_property_find [debug.force_rtl]
+open [/proc/uid_procstat/set]
+opendir [/proc/1041/task]
+open [/proc/1041/timerslack_ns]
+open [/proc/1048/timerslack_ns]
+open [/proc/1050/timerslack_ns]
+open [/proc/1054/timerslack_ns]
+open [/proc/1056/timerslack_ns]
+open [/proc/1057/timerslack_ns]
+open [/proc/1058/timerslack_ns]
+open [/proc/1059/timerslack_ns]
+open [/proc/1060/timerslack_ns]
+open [/proc/1061/timerslack_ns]
+open [/proc/1063/timerslack_ns]
+open [/proc/1064/timerslack_ns]
+open [/proc/1066/timerslack_ns]
+open [/proc/1078/timerslack_ns]
+open [/proc/1079/timerslack_ns]
+open [/proc/1107/timerslack_ns]
+open [/proc/1225/timerslack_ns]
+open [/proc/1241/timerslack_ns]
+open [/proc/1282/timerslack_ns]
+open [/proc/1341/timerslack_ns]
+open [/proc/1361/timerslack_ns]
+open [/proc/1372/timerslack_ns]
+open [/proc/1374/timerslack_ns]
+__system_property_find [debug.renderengine.capture_skia_ms]
+open [/proc/1375/timerslack_ns]
+open [/proc/1378/timerslack_ns]
+open [/proc/1490/timerslack_ns]
+open [/proc/1817/timerslack_ns]
+open [/proc/2226/timerslack_ns]
+open [/proc/2227/timerslack_ns]
+open [/proc/2250/timerslack_ns]
+open [/proc/2521/timerslack_ns]
+open [/proc/6029/timerslack_ns]
+opendir [/proc/889/task]
+open [/proc/889/timerslack_ns]
+open [/proc/902/timerslack_ns]
+open [/proc/911/timerslack_ns]
+open [/proc/913/timerslack_ns]
+open [/proc/914/timerslack_ns]
+open [/proc/915/timerslack_ns]
+open [/proc/916/timerslack_ns]
+open [/proc/917/timerslack_ns]
+open [/proc/918/timerslack_ns]
+open [/proc/932/timerslack_ns]
+open [/proc/939/timerslack_ns]
+open [/proc/940/timerslack_ns]
+open [/proc/943/timerslack_ns]
+open [/proc/972/timerslack_ns]
+open [/proc/979/timerslack_ns]
+open [/proc/981/timerslack_ns]
+open [/proc/987/timerslack_ns]
+open [/proc/989/timerslack_ns]
+open [/proc/1012/timerslack_ns]
+open [/proc/1013/timerslack_ns]
+open [/proc/1014/timerslack_ns]
+open [/proc/1015/timerslack_ns]
+open [/proc/1016/timerslack_ns]
+open [/proc/1017/timerslack_ns]
+open [/proc/1018/timerslack_ns]
+open [/proc/1019/timerslack_ns]
+open [/proc/1027/timerslack_ns]
+open [/proc/1029/timerslack_ns]
+open [/proc/1030/timerslack_ns]
+open [/proc/1069/timerslack_ns]
+open [/proc/1076/timerslack_ns]
+open [/proc/1080/timerslack_ns]
+open [/proc/1088/timerslack_ns]
+open [/proc/1089/timerslack_ns]
+open [/proc/1100/timerslack_ns]
+open [/proc/1165/timerslack_ns]
+open [/proc/1166/timerslack_ns]
+open [/proc/1249/timerslack_ns]
+open [/proc/1291/timerslack_ns]
+open [/proc/1403/timerslack_ns]
+open [/proc/1404/timerslack_ns]
+open [/proc/1406/timerslack_ns]
+open [/proc/1478/timerslack_ns]
+open [/proc/1671/timerslack_ns]
+open [/proc/1675/timerslack_ns]
+open [/proc/1764/timerslack_ns]
+open [/proc/6238/timerslack_ns]
+open [/proc/6256/timerslack_ns]
+open [/proc/6258/timerslack_ns]
+open [/proc/6260/timerslack_ns]
+__system_property_find [persist.log.tag.AutofillManagerService]
+__system_property_find [log.tag.AutofillManagerService]
+__system_property_find [persist.log.tag.BpBinder]
+__system_property_find [log.tag.BpBinder]
+__system_property_find [persist.log.tag]
+__system_property_find [log.tag]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [persist.log.tag.goldfish-address-space]
+__system_property_find [log.tag.goldfish-address-space]
+__system_property_find [persist.log.tag]
+__system_property_find [log.tag]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+getenv [ART_APEX_DATA]
+getenv [ANDROID_DATA]
+getenv [ANDROID_DATA]
+faccessat [/system_ext/priv-app/Launcher3QuickStep]
+getenv [ART_APEX_DATA]
+getenv [ART_APEX_DATA]
+open [/system_ext/priv-app/Launcher3QuickStep/oat/arm64/Launcher3Quic]
+open [/system_ext/priv-app/Launcher3QuickStep/oat/arm64/Launcher3Quic]
+open [/system_ext/priv-app/Launcher3QuickStep/Launcher3QuickStep.apk]
+readlink [/proc/self/fd/426 /system_ext/priv-app/Launcher3QuickStep/Launcher3QuickStep.apk 0]
+readlink [/proc/self/fd/380 /system_ext/priv-app/Launcher3QuickStep/Launcher3QuickStep.apk 0]
+open [/system_ext/priv-app/Launcher3QuickStep/Launcher3QuickStep.apk]
+faccessat [/data/misc/iorapd/com.android.launcher3/31/com.android.launcher]
+faccessat [/proc/1041/stat]
+open [/proc/1041/stat]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+faccessat [/data/system_ce/0/snapshots]
+faccessat [/data/system_ce/0/snapshots/135.proto.bak]
+open [/data/system_ce/0/snapshots/135.proto.new]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+open [/data/system_ce/0/snapshots/135.jpg]
+__system_property_find [debug.renderengine.capture_skia_ms]
+open [/data/system_ce/0/snapshots/135_reduced.jpg]
+__system_property_find [debug.renderengine.capture_skia_ms]
+__system_property_find [debug.renderengine.capture_skia_ms]
+^C
+
+@target_uid: 1000
+
+emulator64_arm64:/data/local/tmp/bpftools #
+```
+
+目前，Hook监控了`libc.so`共计64个接口方法。后面，可以扩展`ndksnoop`，实现对其它方法与其它库的方法跟踪。这种方式Hook最大的好处是输出内容中，没有多余的信息，所有的输出都是目标进程的行为捕获。缺点也是有的，那就是无法捕获直接使用系统调用方式执行的方法。
 
 ## 10.6 小结
+
+本节主要介绍了eBPF相关的一些信息，以及如何在安卓系统上配置好eBPF开发与运行环境。最后，通过`ndksnoop`工具的代码，讲解了如何对安卓系统动态库调用进行跟踪分析。
+
+任何工具与技术方案都有它的优势与短板，在学习系统定制与软件安全的过程中，应该根据实现情况，结合不同的方案，扬长避短，达到最终的目标。
