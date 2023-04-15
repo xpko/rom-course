@@ -1603,7 +1603,7 @@ lunch aosp_blueline-userdebug
 // 多线程编译
 make -j$(nproc --all)
 // 设置刷机目录
-export ANDROID_PRODUCT_OUT=/home/king/android_src/mikrom_out/target/product/blueline
+export ANDROID_PRODUCT_OUT=~/android_src/mikrom_out/target/product/blueline
 // 手机重启进入bootloader
 adb reboot bootloader
 // 查看手机是否已经进入bootloader了

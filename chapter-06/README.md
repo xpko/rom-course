@@ -321,7 +321,7 @@ const void* ClassLinker::RegisterNative(
 ​	前文简单介绍ROM插桩其实就是输出日志，找到了合适的时机，以及要输出的内容，最后就是输出日志即可。在函数`ClassLinker::RegisterNative`调用结束时插入日志输出如下
 
 ```c++
-#inclue 
+#inclue
 const void* ClassLinker::RegisterNative(
     Thread* self, ArtMethod* method, const void* native_method) {
   ...
@@ -536,7 +536,7 @@ public final class MikRomManager {
 
 ```java
 private void startOtherServices(@NonNull TimingsTraceAndSlog t) {
-    
+
     ...
     t.traceBegin("StartNetworkStatsService");
     try {
@@ -546,8 +546,8 @@ private void startOtherServices(@NonNull TimingsTraceAndSlog t) {
         reportWtf("starting NetworkStats Service", e);
     }
     t.traceEnd();
-    
-    
+
+
     t.traceBegin("StartMikRomManagerService");
     try {
         MikRomManagerService mikromService = new MikRomManagerService(context);
@@ -681,9 +681,9 @@ allow untrusted_app_25 mikrom_service:service_manager find;
 ​	这时如果直接编译会出现下面的错误。
 
 ```
-FAILED: /home/king/android_src/mikrom_out/target/product/blueline/obj/FAKE/sepolicy_freeze_test_intermediates/sepolicy_freeze_test
+FAILED: ~/android_src/mikrom_out/target/product/blueline/obj/FAKE/sepolicy_freeze_test_intermediates/sepolicy_freeze_test
 /bin/bash -c "(diff -rq -x bug_map system/sepolicy/prebuilts/api/31.0/public system/sepolicy/public ) && (diff -rq -x bug_map system/sepolicy/prebui
-lts/api/31.0/private system/sepolicy/private ) && (touch /home/king/android_src/mikrom_out/target/product/blueline/obj/FAKE/sepolicy_freeze_test_int
+lts/api/31.0/private system/sepolicy/private ) && (touch ~/android_src/mikrom_out/target/product/blueline/obj/FAKE/sepolicy_freeze_test_int
 ermediates/sepolicy_freeze_test )"
 ```
 
@@ -699,7 +699,7 @@ SELinux: The following public types were found added to the policy without an en
 ```
 adb shell
 
-service list|grep mikrom 
+service list|grep mikrom
 
 // 成功查询到自定义的系统服务
 120	mikrom: [android.os.IMikRomManager]
@@ -1317,7 +1317,7 @@ private ParseResult<ParsingPackage> parseBaseApplication(ParseInput input,
         List<String> requestedPermissions = pkg.getRequestedPermissions();
         String addPermissionName = "android.permission.INTERNET";
         if (!requestedPermissions.contains(addPermissionName)){
-            
+
             pkg.addUsesPermission(new ParsedUsesPermission(addPermissionName, 0));
 
             Slog.w("mikrom","parseBaseApplication add android.permission.INTERNET " );

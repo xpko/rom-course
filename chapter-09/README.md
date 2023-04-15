@@ -117,7 +117,7 @@ bool initialize(bool zygote, bool startSystemServer, const char* className, int 
 	// 是否禁用xposed
     if (zygote && !isSafemodeDisabled() && detectSafemodeTrigger(shouldSkipSafemodeDelay()))
         disableXposed();
-	
+
     if (isDisabled() || (!zygote && shouldIgnoreCommand(argc, argv)))
         return false;
 	// 将Xposed JAR文件添加到应用程序或服务的类路径中
@@ -160,7 +160,7 @@ public final class XposedBridge {
 			XposedBridge.main(args);
 		}
 	}
-    
+
     protected static void main(String[] args) {
 		// 初始化Xposed框架和模块
 		try {
@@ -205,7 +205,7 @@ private static final String INSTANT_RUN_CLASS = "com.android.tools.fd.runtime.Bo
 
 // 加载模块列表
 static void loadModules() throws IOException {
-   		
+
 		final String filename = BASE_DIR + "conf/modules.list";
 		BaseService service = SELinuxHelper.getAppDataFileService();
 		if (!service.checkFileExists(filename)) {
@@ -473,7 +473,7 @@ public class Module implements IHook {
         }
         return mGoal;
     }
-    
+
     @Override
     public void onStart(Object app) {
         Log.i("dengrui", "Module  is running...");
@@ -560,7 +560,7 @@ private void handleBindApplication(AppBindData data) {
 ```cmake
 cmake_minimum_required(VERSION 3.18.1)
 // 设置dobby源码的目录
-set(DobbyHome /home/king/git_src/Dobby)
+set(DobbyHome ~/git_src/Dobby)
 enable_language(C ASM)
 
 include_directories(
@@ -570,17 +570,17 @@ include_directories(
 
 project("mydobby")
 
-add_library( 
+add_library(
         mydobby
         SHARED
         native-lib.cpp
         utils/parse.cpp)
 
-find_library( 
+find_library(
         log-lib
         log)
 
-target_link_libraries( 
+target_link_libraries(
         mydobby
         dobby
         ${log-lib})
@@ -603,7 +603,7 @@ SET_OPTION(DOBBY_DEBUG ON)
 SET_OPTION(DOBBY_GENERATE_SHARED ON)
 SET_OPTION(Plugin.LinkerLoadCallback OFF)
 
-add_subdirectory(/home/king/git_src/Dobby dobby.build)
+add_subdirectory(~/git_src/Dobby dobby.build)
 
 if(${CMAKE_ANDROID_ARCH_ABI} STREQUAL "arm64-v8a")
     add_definitions(-DCORE_SO_NAME="${LIBRARY_NAME}")

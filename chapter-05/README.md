@@ -665,14 +665,14 @@ adb reboot bootloader
 flashflash all -w
 
 // 等待刷机完成，开始检查内置结果
-adb shell 
- 
+adb shell
+
 ls -all /system/lib |grep libmy
 
 -rw-r--r--  1 root root  153056 2023-03-09 21:25:52.000000000 +0800 libmysodemo.so
 
 cd /system/framework/mysodemo/
- 
+
 ls -all
 
 -rw-r--r-- 1 root root 7937264 2023-03-09 20:58:40.000000000 +0800 mysodemo.jar
@@ -688,7 +688,7 @@ mysodemo.jar: Zip archive data
 protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-		
+
 		// 加载jar文件
         String jarPath = "/system/framework/mysodemo/mysodemo.jar";
         ClassLoader systemClassLoader=ClassLoader.getSystemClassLoader();
@@ -773,7 +773,7 @@ fKzQVKiWNTnDew==
 openssl x509 -inform DER -in chls.cer -text > d37a53cc.0
 
 // 将证书拷贝到源码的系统证书目录
-cp d37a53cc.0 /home/king/android_src/mikrom12_gitlab/system/ca-certificates/files
+cp d37a53cc.0 ~/android_src/mikrom12_gitlab/system/ca-certificates/files
 ```
 
 ​	除了这种转换方式，还有另一种更加简便的办法，首先将证书作为用户证书安装，直接将Charles导出的证书上传到手机，在手机中找到`Setting->Security->Encryption & credentials-> install a certificate`最后选中证书完成安装，然后来到用户证书目录` /data/misc/user/0/cacerts-added`中，刚刚导入的证书会被转换好作为用户证书放在这里，将其从手机中传出来，放入源码中的系统证书目录即可。如果你不知道哪个证书名对应你刚刚手动安装的证书，可以直接将全部证书都放入系统证书目录。
@@ -817,7 +817,7 @@ extracting public keys for embedding
 
 ```
 // 生成release.pk8
-/home/king/android_src/mikrom12_gitlab/development/tools/make_key releasekey '/C=US/ST=California/L=Mountain View/O=Android/OU=Android/CN=Android/emailAddress=android@android.com'
+~/android_src/mikrom12_gitlab/development/tools/make_key releasekey '/C=US/ST=California/L=Mountain View/O=Android/OU=Android/CN=Android/emailAddress=android@android.com'
 
 // 将 DER 格式的 releasekey.pk8 私钥文件转换为 PEM 格式，并输出到 releasekey.pem 文件中
 openssl pkcs8 -inform DER -nocrypt -in releasekey.pk8 -out releasekey.pem
@@ -863,7 +863,7 @@ endif
 adb shell
 
 // 切换到root权限
-su 
+su
 
 //查看设备信息内容中包括-key的
 cat /system/build.prop |grep "\-key"
@@ -956,7 +956,7 @@ int adb_commandline(int argc, const char** argv) {
         argv++;
     }
 	...
-	
+
     if (is_server) {
         // 首先检查是否要启用守护进程模式
         if (no_daemon || is_daemon) {
@@ -1063,7 +1063,7 @@ int adb_commandline(int argc, const char** argv) {
         return adb_send_emulator_command(argc, argv, serial);
     } else if (!strcmp(argv[0], "shell")) {
         return adb_shell(argc, argv);
-    } 
+    }
     ...
 }
 
@@ -1116,7 +1116,7 @@ int main(int argc, char** argv) {
 int adbd_main(int server_port) {
     umask(0);
     signal(SIGPIPE, SIG_IGN);
-    
+
 #if defined(__BIONIC__)
     ...
 #endif
@@ -1314,6 +1314,6 @@ bool adbd_auth_verify(const char* token, size_t token_size, const std::string& s
 
 ​	将这个函数改为一律返回true，同样可以做到默认开启调试，无需再进行手动的授权。
 
-​	
+​
 
-​	
+​

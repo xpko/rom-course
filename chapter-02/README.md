@@ -501,7 +501,7 @@ make bootimage
 adb reboot bootloader
 
 // 设置刷机包的路径到环境变量
-export ANDROID_PRODUCT_OUT=/home/king/android_src/mikrom_out/target/product/blueline
+export ANDROID_PRODUCT_OUT=~/android_src/mikrom_out/target/product/blueline
 
 // 查询fastboot是否能成功看到设备
 fastboot devices
@@ -520,7 +520,7 @@ fastboot flashall -w
 adb reboot bootloader
 
 // 进入编译结果的目录
-cd /home/king/android_src/mikrom_out/target/product/blueline
+cd ~/android_src/mikrom_out/target/product/blueline
 
 // 单独刷入内核
 fastboot flash boot ./boot.img
@@ -1039,7 +1039,7 @@ LOG_FILE_PATH = os.path.join(ROOT, "push.log")
 MANIFEST_XML_PATH_NAME_RE = re.compile(r"<project\s+path=\"(?P<path>[^\"]+)\"\s+name=\"(?P<name>[^\"]+)\"\s+",
                                        re.DOTALL)
 # 设置源码路径
-SOURCE_CODE_ROOT = "/home/king/android_src/android12_r3/"
+SOURCE_CODE_ROOT = "~/android_src/android12_r3/"
 # 设置gitlab仓库的根目录分组
 REMOTE = "git@192.168.2.189:android12_r3/"
 manifest_xml_project_paths = []

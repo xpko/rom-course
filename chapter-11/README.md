@@ -65,7 +65,7 @@ cn.mik.nativedemo D/native-lib: my ppid=1053
 ​	然后查看该进程`id`对应哪个进程。
 
 ```
-adb shell 
+adb shell
 ps -e|grep 1053
 
 // 输出如下
@@ -152,7 +152,7 @@ ptrace_stop
 ```
 // 附加前
  S 1027 1027 0 0 -1 1077952832 29093 4835 0 0 81 9 0 0 20 0 19 0 424763 15088168960 24716 18446744073709551615 1 1 0 0 0 0 4612 1 1073775864 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 
+
 // 附加后
 t 1027 1027 0 0 -1 1077952832 29405 4835 0 0 81 9 0 0 20 0 19 0 424763 15088168960 24987 18446744073709551615 1 1 0 0 0 0 4612 1 1073775864 0 0 0 17 1 0 0 0 0 0 0 0 0 0 0 0 0 0
 ```
@@ -449,7 +449,7 @@ Java_cn_mik_nativedemo_MainActivity_stringFromJNI(
 ​	安装该测试样例后，接着将`ndk`中的`gdbserver`传入手机中。命令如下。
 
 ```
-adb push '/home/king/Android/Sdk/ndk/23.1.7779620/prebuilt/android-arm64/gdbserver/gdbserver'  /data/local/tmp/
+adb push '~/Android/Sdk/ndk/23.1.7779620/prebuilt/android-arm64/gdbserver/gdbserver'  /data/local/tmp/
 
 adb shell
 
