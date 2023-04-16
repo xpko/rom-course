@@ -286,7 +286,7 @@ protected void onCreate(Bundle savedInstanceState) {
 public final class DexFile {
     ...
     @UnsupportedAppUsage
-    private static native void initConfig(PackageItem item);
+    private static native void initConfig(Object item);
 }
 ```
 
@@ -313,8 +313,8 @@ static JNINativeMethod gMethods[] = {
 ```c++
 typedef struct{
     char packageName[128];
-    char jniModuleName[1024];
-    char jniFuncName[1024];
+    char jniModuleName[128];
+    char jniFuncName[128];
     bool isRegisterNativePrint;
     bool isJNIMethodPrint;
     bool jniEnable;
@@ -341,9 +341,44 @@ class Runtime {
 
 ​	这样在能访问到`Runtime`的任意地方都能获取到该配置了。现在就可以实现前面的`initConfig`函数了，将`java`传递过来的对象，转换为`c++`对象存储到`Runtime`中。具体实现如下。
 
-```
+```c++
+
+static void
+DexFile_initConfig(JNIEnv* env, jobject ,jobject item) {
+
+    Runtime* runtime=Runtime::Current();
+    // 将各字段取出
+    jclass jcInfo = env->FindClass("cn/krom/PackageItem");
+    jfieldID jPackageName = env->GetFieldID(jcInfo, "packageName", "Ljava/lang/String;");
+    jfieldID jJniModuleName = env->GetFieldID(jcInfo, "jniModuleName", "Ljava/lang/String;");
+    jfieldID jJniFuncName = env->GetFieldID(jcInfo, "jniFuncName", "Ljava/lang/String;");
+    jfieldID jIsRegisterNativePrint = env->GetFieldID(jcInfo, "isRegisterNativePrint", "Z");
+    jfieldID jIsJNIMethodPrint = env->GetFieldID(jcInfo, "isJNIMethodPrint", "Z");
+
+    PackageItem citem;
+	// 将java的值转换为c++的值
+    jstring jstrPackageName = (jstring)env->GetObjectField(item, jPackageName);
+    const char* pPackageName = (char*)env->GetStringUTFChars(jstrPackageName, 0);
+    strcpy(citem.packageName, pPackageName);
+
+    jstring jstrJniModuleName = (jstring)env->GetObjectField(item, jJniModuleName);
+    const char* pJniModuleName = (char*)env->GetStringUTFChars(jstrJniModuleName, 0);
+    strcpy(citem.jniModuleName, pJniModuleName);
+
+    jstring jstrJniFuncName = (jstring)env->GetObjectField(item, jJniFuncName);
+    const char* pJniFuncName = (char*)env->GetStringUTFChars(jstrJniFuncName, 0);
+    strcpy(citem.jniFuncName, pJniFuncName);
+
+    citem.isRegisterNativePrint = env->GetBooleanField(item, jIsRegisterNativePrint);
+    citem.isJNIMethodPrint = env->GetBooleanField(item, jIsJNIMethodPrint);
+	
+    // 配置存储到全局
+    runtime->SetConfigItem(citem);
+}
 
 ```
+
+​	到这里就成功从配置文件中读取数据，并解析后通过`native`函数将其存储到全局能访问的位置了。
 
 ## 12.4 JNI调用分析
 
