@@ -378,21 +378,457 @@ DexFile_initConfig(JNIEnv* env, jobject ,jobject item) {
 
 ```
 
-​	到这里就成功从配置文件中读取数据，并解析后通过`native`函数将其存储到全局能访问的位置了。
+​	到这里就成功从配置文件中读取数据，并解析后通过`native`函数将其存储到全局能访问的位置了。最后在成功读取配置后，通过反射调用`initConfig`函数，即可完成配置的初始化工作。
+
+```java
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+
+    binding = ActivityMainBinding.inflate(getLayoutInflater());
+    setContentView(binding.getRoot());
+
+    String packageName= this.getPackageName();
+    // 读取配置文件
+    String configJson= FileHelper.readTextFile("/data/local/tmp/config.json");
+    if(configJson.isEmpty()){
+        Log.i(TAG,"not found config json "+packageName);
+        return;
+    }
+    // 判断是否是json格式
+    if(!configJson.contains("{")){
+        Log.i(TAG,"config data is error "+packageName);
+        return;
+    }
+	// 将json转换为对象
+    List<PackageItem> packageItems= JSON.parseObject(configJson,new TypeReference<List<PackageItem>>(){});
+    if(packageItems.size()<=0){
+        Log.i(TAG,"not found config json parse "+packageName);
+        return;
+    }
+    // 判断当前app是否为目标应用
+    PackageItem currentItem=null;
+    for(PackageItem item : packageItems){
+        if(item.packageName.contains(this.getPackageName())){
+            currentItem=item;
+            break;
+        }
+    }
+    if(currentItem==null){
+        return;
+    }
+    // 是目标应用则反射调用初始化函数，将配置内容传递到native层。
+    try {
+        Class dexFileClazz=ClassLoader.getSystemClassLoader().loadClass("dalvik.system.DexFile");
+        Method method=dexFileClazz.getMethod("initConfig",Object.class);
+        method.invoke(null,currentItem);
+    } catch (ClassNotFoundException e) {
+        throw new RuntimeException(e);
+    } catch (NoSuchMethodException e) {
+        throw new RuntimeException(e);
+    } catch (InvocationTargetException e) {
+        throw new RuntimeException(e);
+    } catch (IllegalAccessException e) {
+        throw new RuntimeException(e);
+    }
+}
+```
 
 ## 12.4 JNI调用分析
 
+​	`JNI`的调用流程并不是非常复杂，`env`中对应的相关函数定义是在文件`libnativehelper/include_jni/jni.h`中，`JNIEnv`的定义描述如下。
 
+```c++
+#if defined(__cplusplus)
+// 判断当前是否在C++环境下
+typedef _JNIEnv JNIEnv;
+typedef _JavaVM JavaVM;
+#else
+// 如果在C环境下
+typedef const struct JNINativeInterface* JNIEnv;
+typedef const struct JNIInvokeInterface* JavaVM;
+#endif
+```
+
+​	接着看看`_JNIEnv`的定义描述。
+
+```c++
+struct _JNIEnv {
+    /* do not rename this; it does not seem to be entirely opaque */
+    const struct JNINativeInterface* functions;
+
+#if defined(__cplusplus)
+
+    ...
+    void CallStaticVoidMethod(jclass clazz, jmethodID methodID, ...)
+    {
+        va_list args;
+        va_start(args, methodID);
+        functions->CallStaticVoidMethodV(this, clazz, methodID, args);
+        va_end(args);
+    }
+    void CallStaticVoidMethodV(jclass clazz, jmethodID methodID, va_list args)
+    { functions->CallStaticVoidMethodV(this, clazz, methodID, args); }
+    void CallStaticVoidMethodA(jclass clazz, jmethodID methodID, const jvalue* args)
+    { functions->CallStaticVoidMethodA(this, clazz, methodID, args); }
+	...
+#endif /*__cplusplus*/
+};
+```
+
+​	可以看到虽然`c++`的情况下是使用结构体进行一层包装，但是最终实际也调用的`JNINativeInterface`下的函数实现。继续看看该结构体的定义。
+
+```c++
+struct JNINativeInterface {
+    void*       reserved0;
+    void*       reserved1;
+    void*       reserved2;
+    void*       reserved3;
+	...
+    jmethodID   (*GetMethodID)(JNIEnv*, jclass, const char*, const char*);
+    jobject     (*CallObjectMethod)(JNIEnv*, jobject, jmethodID, ...);
+    jobject     (*CallObjectMethodV)(JNIEnv*, jobject, jmethodID, va_list);
+    jobject     (*CallObjectMethodA)(JNIEnv*, jobject, jmethodID, const jvalue*);
+    ...
+};
+```
+
+​	根据上面源码分析，能够看到`JNIEnv`实际就是`JNINativeInterface`的指针，而该指针对应的结构体中存储着函数表，接下来看是如何给`functions`进行赋值的。
+
+```c++
+JNIEnvExt::JNIEnvExt(Thread* self_in, JavaVMExt* vm_in, std::string* error_msg)
+    : self_(self_in),
+      vm_(vm_in),
+      local_ref_cookie_(kIRTFirstSegment),
+      locals_(kLocalsInitial, kLocal, IndirectReferenceTable::ResizableCapacity::kYes, error_msg),
+      monitors_("monitors", kMonitorsInitial, kMonitorsMax),
+      critical_(0),
+      check_jni_(false),
+      runtime_deleted_(false) {
+  MutexLock mu(Thread::Current(), *Locks::jni_function_table_lock_);
+  check_jni_ = vm_in->IsCheckJniEnabled();
+  // 函数指针赋值
+  functions = GetFunctionTable(check_jni_);
+  unchecked_functions_ = GetJniNativeInterface();
+}
+```
+
+​	继续分析`GetFunctionTable`实现。
+
+```c++
+const JNINativeInterface* JNIEnvExt::GetFunctionTable(bool check_jni) {
+  const JNINativeInterface* override = JNIEnvExt::table_override_;
+  if (override != nullptr) {
+    return override;
+  }
+  return check_jni ? GetCheckJniNativeInterface() : GetJniNativeInterface();
+}
+```
+
+​	继续进入查看`GetJniNativeInterface`实现逻辑
+
+```c++
+const JNINativeInterface* GetJniNativeInterface() {
+  return Runtime::Current()->GetJniIdType() == JniIdType::kPointer
+             ? &JniNativeInterfaceFunctions<false>::gJniNativeInterface
+             : &JniNativeInterfaceFunctions<true>::gJniNativeInterface;
+}
+```
+
+​	到这里就对`JNI`对应函数进行赋值了。
+
+```c++
+template<bool kEnableIndexIds>
+struct JniNativeInterfaceFunctions {
+  using JNIImpl = JNI<kEnableIndexIds>;
+  static constexpr JNINativeInterface gJniNativeInterface = {
+    nullptr,  // reserved0.
+    nullptr,  // reserved1.
+    nullptr,  // reserved2.
+    nullptr,  // reserved3.
+    ...
+    JNIImpl::GetMethodID,
+    JNIImpl::CallObjectMethod,
+    JNIImpl::CallObjectMethodV,
+    JNIImpl::CallObjectMethodA,
+    ...
+  };
+};
+```
+
+​	根据上面的源码分析，知道了`JNI`中函数对应的实现就在文件`art/runtime/jni/jni_internal.cc`中实现。明白了这个原理后，接下来添加一个打桩函数简单的输出信息，来确定流程是否正确。
+
+```c++
+static jobject CallObjectMethodV(JNIEnv* env, jobject obj, jmethodID mid, va_list args) {
+    CHECK_NON_NULL_ARGUMENT(obj);
+    CHECK_NON_NULL_ARGUMENT(mid);
+    ALOGD("mikrom %s",__FUNCTION__);
+    ScopedObjectAccess soa(env);
+    JValue result(InvokeVirtualOrInterfaceWithVarArgs(soa, obj, mid, args));
+    return soa.AddLocalReference<jobject>(result.GetL());
+  }
+```
+
+​	编译后成功看到了大量该函数调用的日志，接下来需要封装一个函数，在这个函数中根据前文传递的配置进行判断是否需要输出`JNI`调用的相关信息。符合条件才进行打桩。具体实现如下。
+
+```c++
+void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& ,
+                 const char* funcname,
+                 jmethodID ,
+                 va_list ){
+	// 从Runtime获取配置信息，配置了需要打印JNI，并且当前符合输出条件才进行打桩
+    Runtime* runtime=Runtime::Current();
+    if(!runtime->GetConfigItem().isJNIMethodPrint ||!runtime->GetConfigItem().jniEnable){
+        return;
+    }
+    // 打桩信息
+    ALOGD("mikrom ShowVarArgs %s %s %s %s %p",runtime->GetProcessPackageName().c_str(),runtime->GetConfigItem().jniModuleName,
+          runtime->GetConfigItem().jniFuncName,funcname,Thread::Current());
+
+}
+```
+
+​	这里使用了两个条件来控制打桩，`isJNIMethodPrint`表示是否要对`JNI`监控打桩，而`jniEnable`则表示，当前是否应该打桩，例如在指定的`native`函数调用期间，才打桩输出，或者指定动态库加载后，才进行打桩，这个过滤条件大大的降低了对无效日志的输出，提高分析的效率。
+
+​	`jniEnable`默认是`false`的，值不应由配置文件决定，而是在调用过程中进行赋值，所有`native`函数开始执行和执行结束时都会经过`JniMethodStart`和`JniMethodEnd`函数，所以只需要在进入该函数时，将该字段修改为`true`，在结束时，再将其关闭即可。下面是实现代码。
+
+```c++
+extern uint32_t JniMethodStart(Thread* self) {
+  JNIEnvExt* env = self->GetJniEnv();
+  DCHECK(env != nullptr);
+  uint32_t saved_local_ref_cookie = bit_cast<uint32_t>(env->GetLocalRefCookie());
+  env->SetLocalRefCookie(env->GetLocalsSegmentState());
+  //add
+  Runtime* runtime=Runtime::Current();
+  if(runtime->GetConfigItem().isJNIMethodPrint){
+      ArtMethod* native_method = *self->GetManagedStack()->GetTopQuickFrame();
+      std::string methodname=native_method->PrettyMethod();
+      // 当前开始函数为要监控的目标函数时，则开启输出JNI
+      if(strstr(methodname.c_str(),runtime->GetConfigItem().jniFuncName)){
+          runtime->GetConfigItem().jniEnable=true;
+      }
+  }
+  //endadd
+  if (kIsDebugBuild) {
+    ArtMethod* native_method = *self->GetManagedStack()->GetTopQuickFrame();
+    CHECK(!native_method->IsFastNative()) << native_method->PrettyMethod();
+  }
+  // Transition out of runnable.
+  self->TransitionFromRunnableToSuspended(kNative);
+  return saved_local_ref_cookie;
+}
+
+
+extern void JniMethodEnd(uint32_t saved_local_ref_cookie, Thread* self) {
+    //add
+    Runtime* runtime=Runtime::Current();
+    if(runtime->GetConfigItem().isJNIMethodPrint){
+        ArtMethod* native_method = *self->GetManagedStack()->GetTopQuickFrame();
+        std::string methodname=native_method->PrettyMethod();
+        // 当前结束函数为要监控的目标函数时，则关闭输出JNI
+        if(strstr(methodname.c_str(),runtime->GetConfigItem().jniFuncName)){
+            runtime->GetConfigItem().jniEnable=false;
+        }
+    }
+    //endadd
+
+  GoToRunnable(self);
+  PopLocalReferences(saved_local_ref_cookie, self);
+}
+```
 
 ## 12.5 打桩函数分类
+
+​	前文中仅仅对其中类似`CallObjectMethodV`函数，进行简单的输出，而实际场景中，大量的`JNI`函数调用，并非有着这些参数，所以需要将`ShowVarArgs`进行封装，并有多种重载实现。具体重载参数需要根据实际`JNI`函数中有哪些参数来决定。在这里篇幅有限，所以不会将所有的`JNI`函数情况进行处理，主要将前文中测试中调用到的`JNI`函数进行对应处理。
+
+​	根据`JniTrace`中的日志，需要对四个`JNI`函数进行打桩处理，分别是`GetMethodID、GetStringUTFChars、NewStringUTF、CallObjectMethodV`。根据这些函数对应的参数，对打桩的函数进行重载处理。
+
+### 12.5.1 GetMethodID打桩
+
+​	在开始修改代码前，先看看该函数的定义。
+
+```c++
+// 根据函数名，以及对应的函数签名来获取对应函数
+static jmethodID GetMethodID(JNIEnv* env, jclass java_class, const char* name, const char* sig);
+```
+
+​	再看看`JniTrace`对于该函数的输出。
+
+```
+           /* TID 6996 */
+    310 ms [+] JNIEnv->GetMethodID
+    310 ms |- JNIEnv*          : 0x7d3892f610
+    310 ms |- jclass           : 0x71    { cn/mik/nativedemo/MainActivity }
+    310 ms |- char*            : 0x7c011aaf1f
+    310 ms |:     demo
+    310 ms |- char*            : 0x7c011aaf24
+    310 ms |:     ()Ljava/lang/String;
+    310 ms |= jmethodID        : 0x39    { demo()Ljava/lang/String; }
+
+    310 ms ----------------------------------------------Backtrace----------------------------------------------
+    310 ms |->       0x7c01191a0c: _ZN7_JNIEnv11GetMethodIDEP7_jclassPKcS3_+0x3c (libnativedemo.so:0x7c01183000)
+    310 ms |->       0x7c01191a0c: _ZN7_JNIEnv11GetMethodIDEP7_jclassPKcS3_+0x3c (libnativedemo.so:0x7c01183000)
+```
+
+​	该输出中，关键展示了函数所在类的类名称、函数名称、函数签名，以及所找到的对应函数id，调用堆栈。参考该类型的`JNI`调用，下面重构一个相应的打桩函数。
+
+```c++
+// 是否需要打印
+bool HasShow(){
+    Runtime* runtime=Runtime::Current();
+    if(!runtime->GetConfigItem().isJNIMethodPrint ||!runtime->GetConfigItem().jniEnable){
+        return false;
+    }
+    return true;
+}
+
+// JNI打桩函数重载,针对GetMethodID进行输出
+void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,const char* funcname,jclass java_class, const char* name, const char* sig,jmethodID methodID){
+    if(!HasShow()){
+        return;
+    }
+    ObjPtr<mirror::Class> c = soa.Decode<mirror::Class>(java_class);
+    std::string temp;
+    const char* className= c->GetDescriptor(&temp);
+    ArtMethod* method = jni::DecodeArtMethod(methodID);
+    pthread_t threadId = pthread_self();
+    // 前面加上标志是为了方便搜索日志
+    ALOGD("%s           /* TID %ld */","mikrom",threadId);
+    ALOGD("%s           [+] JNIEnv->%s","mikrom",funcname);
+    ALOGD("%s           |- jclass           :%s","mikrom",className);
+    ALOGD("%s           |- char*            :%p","mikrom",name);
+    ALOGD("%s           |:     %s","mikrom",name);
+    ALOGD("%s           |- char*            :%p","mikrom",sig);
+    ALOGD("%s           |:     %s","mikrom",sig);
+    ALOGD("%s           |= jmethodID        :0x%x   {%s}","mikrom",method->GetMethodIndex(),method->PrettyMethod().c_str());
+}
+```
+
+​	最后在`JNI`函数调用处，使用该打桩函数。
+
+```c++
+static jmethodID GetMethodID(JNIEnv* env, jclass java_class, const char* name, const char* sig) {
+    CHECK_NON_NULL_ARGUMENT(java_class);
+    CHECK_NON_NULL_ARGUMENT(name);
+    CHECK_NON_NULL_ARGUMENT(sig);
+    ScopedObjectAccess soa(env);
+    jmethodID result = FindMethodID<kEnableIndexIds>(soa, java_class, name, sig, false);
+    ShowVarArgs(soa,__FUNCTION__,java_class,name,sig,result);
+    return result;
+  }
+```
+
+### 12.5.2 GetStringUTFChars打桩
+
+​	参考上面的流程，首先了解该函数的定义结构。
+
+```c++
+static const char* GetStringUTFChars(JNIEnv* env, jstring java_string, jboolean* is_copy);
+```
+
+​	接着查看`JniTrace`的输出显示。
+
+ ```
+            /* TID 6996 */
+     313 ms [+] JNIEnv->GetStringUTFChars
+     313 ms |- JNIEnv*          : 0x7d3892f610
+     313 ms |- jstring          : 0x85
+     313 ms |- jboolean*        : 0x0
+     313 ms |= char*            : 0x7c8893f330
+ 
+     313 ms ------------------------------------------------Backtrace------------------------------------------------
+     313 ms |->       0x7c01191b4c: _ZN7_JNIEnv17GetStringUTFCharsEP8_jstringPh+0x34 (libnativedemo.so:0x7c01183000)
+     313 ms |->       0x7c01191b4c: _ZN7_JNIEnv17GetStringUTFCharsEP8_jstringPh+0x34 (libnativedemo.so:0x7c01183000)
+ ```
+
+​	看的出来这个函数非常的简单，主要是对返回值进行输出即可。添加打桩函数如下。
+
+```c++
+void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& ,
+                 const char* funcname,
+                 jboolean* is_copy ,
+                 const char* data ){
+    if(!HasShow()){
+        return;
+    }
+    pthread_t threadId = pthread_self();
+    ALOGD("%s           /* TID %ld */","mikrom",threadId);
+    ALOGD("%s           [+] JNIEnv->%s","mikrom",funcname);
+    ALOGD("%s           |- jboolean*        : %d","mikrom",*is_copy);
+    ALOGD("%s           |= char*            : %s","mikrom",data);
+}
+```
+
+​	修改原调用函数如下。
+
+```c++
+
+  static const char* GetStringUTFChars(JNIEnv* env, jstring java_string, jboolean* is_copy) {
+    ...
+    bytes[byte_count] = '\0';
+    ShowVarArgs(soa,__FUNCTION__,is_copy,bytes);
+    return bytes;
+  }
+```
+
+### 12.5.3 NewStringUTF打桩
+
+​	该函数同样非常简单，和上一个函数相反，只需要将参数打印即可，无需处理返回值，函数定义如下。
+
+```c++
+static jstring NewStringUTF(JNIEnv* env, const char* utf);
+```
+
+​	接着看`JniTrace`的输出，同样非常简单。
+
+```
+           /* TID 6996 */
+    314 ms [+] JNIEnv->NewStringUTF
+    314 ms |- JNIEnv*          : 0x7d3892f610
+    314 ms |- char*            : 0x7ff8e862c1
+    314 ms |:     hello
+    314 ms |= jstring          : 0x99    { hello }
+```
+
+​	添加对应打桩函数如下。
+
+```c++
+void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& ,
+                 const char* funcname,
+                 const char* data ){
+    if(!HasShow()){
+        return;
+    }
+    pthread_t threadId = pthread_self();
+    ALOGD("%s           /* TID %ld */","mikrom",threadId);
+    ALOGD("%s           [+] JNIEnv->%s","mikrom",funcname);
+    ALOGD("%s           |- char*        : %d","mikrom",data);
+}
+```
+
+​	调整原函数调用该打桩如下。
+
+```c++
+
+static jstring NewStringUTF(JNIEnv* env, const char* utf) {
+    ...
+    ScopedObjectAccess soa(env);
+    ShowVarArgs(soa,__FUNCTION__,utf);
+    ObjPtr<mirror::String> result =
+        mirror::String::AllocFromModifiedUtf8(soa.Self(), utf16_length, utf, utf8_length);
+    return soa.AddLocalReference<jstring>(result);
+}
+```
+
+### 12.5.4 CallObjectMethodV打桩
+
+​	这个`JNI`函数不同于前面几种函数，在前几个函数中，参数是明确固定的，而`CallObjectMethodV`是通过`JNI`，调用一个`java`函数，而为此`java`函数提供的所有参数的类型，以及参数个数。都是未知的。而这些参数的信息同样是需要打桩展示出来的。
+
+
 
 
 
 ## 12.6 调用栈展示
-
-
-
-## 12.7 解析参数和返回值
 
 
 
