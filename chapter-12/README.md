@@ -606,6 +606,7 @@ extern uint32_t JniMethodStart(Thread* self) {
       // 当前开始函数为要监控的目标函数时，则开启输出JNI
       if(strstr(methodname.c_str(),runtime->GetConfigItem().jniFuncName)){
           runtime->GetConfigItem().jniEnable=true;
+          ALOGD("mikrom enter jni %s",methodname.c_str());
       }
   }
   //endadd
@@ -628,12 +629,32 @@ extern void JniMethodEnd(uint32_t saved_local_ref_cookie, Thread* self) {
         // 当前结束函数为要监控的目标函数时，则关闭输出JNI
         if(strstr(methodname.c_str(),runtime->GetConfigItem().jniFuncName)){
             runtime->GetConfigItem().jniEnable=false;
+            ALOGD("mikrom leave jni %s",methodname.c_str());
         }
     }
     //endadd
 
   GoToRunnable(self);
   PopLocalReferences(saved_local_ref_cookie, self);
+}
+
+
+static mirror::Object* JniMethodEndWithReferenceHandleResult(jobject result,
+                                                             uint32_t saved_local_ref_cookie,
+                                                             Thread* self)
+    NO_THREAD_SAFETY_ANALYSIS {
+    //add
+    Runtime* runtime=Runtime::Current();
+    if(runtime->GetConfigItem().isJNIMethodPrint){
+        ArtMethod* native_method = *self->GetManagedStack()->GetTopQuickFrame();
+        std::string methodname=native_method->PrettyMethod();
+        if(strstr(methodname.c_str(),runtime->GetConfigItem().jniFuncName)){
+            runtime->GetConfigItem().jniEnable=false;
+            ALOGD("mikrom leave jni %s",methodname.c_str());
+        }
+    }
+    //endadd
+	...
 }
 ```
 
@@ -691,9 +712,9 @@ void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,const char* funcna
     std::string temp;
     const char* className= c->GetDescriptor(&temp);
     ArtMethod* method = jni::DecodeArtMethod(methodID);
-    pthread_t threadId = pthread_self();
+    pid_t pid = getpid();
     // 前面加上标志是为了方便搜索日志
-    ALOGD("%s           /* TID %ld */","mikrom",threadId);
+    ALOGD("%s           /* TID %d */","mikrom",pid);
     ALOGD("%s           [+] JNIEnv->%s","mikrom",funcname);
     ALOGD("%s           |- jclass           :%s","mikrom",className);
     ALOGD("%s           |- char*            :%p","mikrom",name);
@@ -751,10 +772,14 @@ void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& ,
     if(!HasShow()){
         return;
     }
-    pthread_t threadId = pthread_self();
-    ALOGD("%s           /* TID %ld */","mikrom",threadId);
+    pid_t pid = getpid();
+    ALOGD("%s           /* TID %d */","mikrom",pid);
     ALOGD("%s           [+] JNIEnv->%s","mikrom",funcname);
-    ALOGD("%s           |- jboolean*        : %d","mikrom",*is_copy);
+    if(is_copy== nullptr){
+        ALOGD("%s           |- jboolean*        : %d","mikrom",false);
+    }else{
+        ALOGD("%s           |- jboolean*        : %d","mikrom",*is_copy);
+    }
     ALOGD("%s           |= char*            : %s","mikrom",data);
 }
 ```
@@ -799,8 +824,8 @@ void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& ,
     if(!HasShow()){
         return;
     }
-    pthread_t threadId = pthread_self();
-    ALOGD("%s           /* TID %ld */","mikrom",threadId);
+    pid_t pid = getpid();
+    ALOGD("%s           /* TID %d */","mikrom",pid);
     ALOGD("%s           [+] JNIEnv->%s","mikrom",funcname);
     ALOGD("%s           |- char*        : %d","mikrom",data);
 }
@@ -824,11 +849,523 @@ static jstring NewStringUTF(JNIEnv* env, const char* utf) {
 
 ​	这个`JNI`函数不同于前面几种函数，在前几个函数中，参数是明确固定的，而`CallObjectMethodV`是通过`JNI`，调用一个`java`函数，而为此`java`函数提供的所有参数的类型，以及参数个数。都是未知的。而这些参数的信息同样是需要打桩展示出来的。
 
+​	将测试样例中，被调用的`java`函数进行调整，将测试函数新增参数，并且使用`JniTrace`观察`CallObjectMethodV`的输出结果。样例函数修改如下。
+
+```java
+public String demo(int a,float b,long c,String d){
+    return a+b+c+d;
+}
+```
+
+​	同时修改`native`函数中使用`JNI`调用的逻辑。
+
+```c++
+extern "C" JNIEXPORT jstring JNICALL
+Java_cn_mik_nativedemo_MainActivity_stringFromJNI(
+        JNIEnv* env,
+        jobject obj /* this */) {
+    jclass cls= env->FindClass("cn/mik/nativedemo/MainActivity");
+    jmethodID mid=env->GetMethodID(cls,"demo", "(IFLjava/lang/String;)Ljava/lang/String;");
+    jstring c=env->NewStringUTF("newdemo");
+    jstring data= (jstring)env->CallObjectMethod(obj,mid,1,2.0f,c);
+    std::string datatmp= env->GetStringUTFChars(data,nullptr);
+    return env->NewStringUTF(datatmp.c_str());
+}
+```
+
+​	再次使用`JniTrace`观察到的`CallObjectMethodV`输出如下。
+
+```
+           /* TID 18863 */
+   2169 ms [+] JNIEnv->CallObjectMethodV
+   2169 ms |- JNIEnv*          : 0x704e856090
+   2169 ms |- jobject          : 0x7fe4d55d38
+   2169 ms |- jmethodID        : 0x3d    { demo(IFLjava/lang/String;)Ljava/lang/String; }
+   2169 ms |- va_list          : 0x7fe4d55b30
+   2169 ms |:     jint         : 1
+   2169 ms |:     jfloat       : 2
+   2169 ms |:     jstring      : 0x81    { newdemo }
+   2169 ms |= jobject          : 0x95    { java/lang/String }
+
+   2169 ms ------------------------------------------------------Backtrace------------------------------------------------------
+   2169 ms |->       0x6f5d458ae4: _ZN7_JNIEnv16CallObjectMethodEP8_jobjectP10_jmethodIDz+0xc4 (libnativedemo.so:0x6f5d44a000)
+   2169 ms |->       0x6f5d458ae4: _ZN7_JNIEnv16CallObjectMethodEP8_jobjectP10_jmethodIDz+0xc4 (libnativedemo.so:0x6f5d44a000)
+```
+
+​	从日志中能看到，参数列表被解析后将具体的值进行输出，而返回值的部分，如果是`jobject`，则将其类型进行输出。明白具体需求后，接着就可以开始根据`CallObjectMethodV`类型参数定义来准备打桩函数了。定义描述如下。
+
+```c++
+static jobject CallObjectMethodV(JNIEnv* env, jobject obj, jmethodID mid, va_list args);
+```
+
+​	根据参考，需要输出调用的目标函数，参数，以及其返回值。而其他的类似调用函数的情况，和该函数差不多的处理，只是返回值的输出不同。优化后的打桩函数如下。
+
+```c++
+// 输出JNI的参数部分
+void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,
+                 const char* funcname,
+                 jmethodID mid,
+                 va_list vaList){
+    if(!HasShow()){
+        return;
+    }
+
+    ArtMethod* method = jni::DecodeArtMethod(mid);
+    pid_t pid = getpid();
+    ALOGD("%s           /* TID %d */","mikrom",pid);
+    ALOGD("%s           [+] JNIEnv->%s","mikrom",funcname);
+    ALOGD("%s           |- jmethodID        :0x%x   {%s}","mikrom",method->GetMethodIndex(),method->PrettyMethod().c_str());
+    ALOGD("%s           |- va_list          :%p","mikrom",&vaList);
+
+    uint32_t shorty_len = 0;
+    const char* shorty =
+            method->GetInterfaceMethodIfProxy(kRuntimePointerSize)->GetShorty(&shorty_len);
+    ArgArray arg_array(shorty, shorty_len);
+    arg_array.VarArgsShowArg(soa, vaList);
+}
 
 
+void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,
+                 const char* funcname,
+                 jmethodID mid,
+                 va_list valist,
+                 jobject ret){
+    if(!HasShow()){
+        return;
+    }
+    // 输出JNI的参数部分
+    ShowVarArgs(soa,funcname,mid,valist);
+	// 输出JNI的返回值
+    ObjPtr<mirror::Object> receiver =soa.Decode<mirror::Object>(ret);
+    if(receiver==nullptr){
+        return;
+    }
+    ObjPtr<mirror::Class> cls=receiver->GetClass();
+    if (cls->DescriptorEquals("Ljava/lang/String;")){
+        ObjPtr<mirror::String> retStr =soa.Decode<mirror::String>(ret);
+        ALOGD("%s           |= jstring          :%s","mikrom",(const char*)retStr->GetValue());
+    }else{
+        std::string temp;
+        const char* className= cls->GetDescriptor(&temp);
+        ALOGD("%s           |= jobject          :%p   {%s}","mikrom",&ret,className);
+    }
+}
+```
 
+​	很多`JNI`的调用函数除了返回值的处理不同，其他调用部分都是相同的，所以将打印参数部分和打印返回值部分拆分开来，而参数`va_list`的解析，可以直接参考`AOSP`源码中，函数`BuildArgArrayFromVarArgs`对其的处理。实现如下。
+
+```c++
+void VarArgsShowArg(const ScopedObjectAccessAlreadyRunnable& soa,
+                        va_list ap)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+            std::stringstream ss;
+            for (size_t i = 1; i < shorty_len_; ++i) {
+                switch (shorty_[i]) {
+                    case 'Z':
+                    case 'B':
+                    case 'C':
+                    case 'S':
+                    case 'I':
+                        ss<<"mikrom"<<"           |:     jint         : "<<va_arg(ap, jint)<<"\n";
+                        break;
+                    case 'F':
+                        ss<<"mikrom"<<"           |:     jfloat       : "<<va_arg(ap, jdouble)<<"\n";
+                        break;
+                    case 'L':{
+                        jobject obj=va_arg(ap, jobject);
+                        ObjPtr<mirror::Object> receiver =soa.Decode<mirror::Object>(obj);
+                        if(receiver==nullptr){
+                            ss<<"mikrom"<<"           |:     jobject      : null\n";
+                            break;
+                        }
+                        ObjPtr<mirror::Class> cls=receiver->GetClass();
+                        if (cls->DescriptorEquals("Ljava/lang/String;")){
+                            ObjPtr<mirror::String> argStr =soa.Decode<mirror::String>(obj);
+                            ss<<"mikrom"<<"           |:     jstring      : "<<(const char*)argStr->GetValue()<<"\n";
+                        }else{
+                            ss<<"mikrom"<<"           |:     jobject      : "<<&obj<<"\n";
+                        }
+                        break;
+                    }
+                    case 'D':
+                        ss<<"mikrom"<<"           |:     jdouble       : "<<va_arg(ap, jdouble)<<"\n";
+                        break;
+                    case 'J':
+                        ss<<"mikrom"<<"           |:     jlong         : "<<va_arg(ap, jlong)<<"\n";
+                        break;
+                }
+            }
+            ALOGD("%s",ss.str().c_str());
+    }
+```
+
+​	到这里案例中使用的相关`JNI`函数处理就添加完成了，编译后刷入测试机。当点击样例中的按钮时，最后输出效果如下所示。
+
+```
+mikrom enter jni java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI() 0x74656a77b0
+mikrom           /* TID 5465 */
+mikrom           [+] JNIEnv->GetMethodID
+mikrom           |- jclass           :Lcn/mik/nativedemo/MainActivity;
+mikrom           |- char*            :0x7275d69f1b
+mikrom           |:     demo
+mikrom           |- char*            :0x7275d69eef
+mikrom           |:     (IFLjava/lang/String;)Ljava/lang/String;
+mikrom           |= jmethodID        :0x277   {java.lang.String cn.mik.nativedemo.MainActivity.demo(int, float, java.lang.String)}
+mikrom           /* TID 5465 */
+mikrom           [+] JNIEnv->NewStringUTF
+mikrom           |- char*        : newdemo
+mikrom           /* TID 5465 */
+mikrom           [+] JNIEnv->CallObjectMethodV
+mikrom           |- jmethodID        :0x277   {java.lang.String cn.mik.nativedemo.MainActivity.demo(int, float, java.lang.String)}
+mikrom           |- va_list          :0x7fe0461bb0
+mikrom           |:     jint         : 1
+mikrom           |:     jfloat       : 2
+mikrom           |:     jstring      : newdemo
+mikrom           |= jstring          :3.0newdemo
+mikrom           /* TID 5465 */
+mikrom           [+] JNIEnv->GetStringUTFChars
+mikrom           |- jboolean*        : 0
+mikrom           |= char*            : 3.0newdemo
+mikrom           /* TID 5465 */
+mikrom           [+] JNIEnv->NewStringUTF
+mikrom           |- char*        : 3.0newdemo
+mikrom leave jni java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI()
+```
 
 ## 12.6 调用栈展示
 
+​	经过调整后，打桩函数已经非常接近`JniTrace`的输出效果了，但是还有最后的一点区别是在于`JNI`函数的调用堆栈，不仅仅需要看到函数的参数和返回值，还需要知道是在哪里触发了该函数。而获取调用堆栈地址，在`AOSP`源码是有相关支持的，当应用崩溃时，在`logcat`中能看到详细的堆栈信息。
+
+### 12.6.1 xUnwind获取调用栈
+
+​	`xUnwind`是一个开源工具，该工具将堆栈获取进行了封装，并且有简单的`demo`演示如何获取堆栈。下载地址：`https://github.com/hexhacking/xUnwind.git`。接下来将分析该工具是如何实现的获取堆栈，然后再将其内置到`AOSP`中，在`JNI`函数调用结束时获取堆栈进行输出。
+
+​	`xUnwind`提供了三种调用堆栈回溯方案。
+
+- `CFI (Call Frame Info)`：由安卓系统库提供。
+- `EH (Exception handling GCC extension)`：由编译器提供。
+- `FP (Frame Pointer)`：只支持 `ARM64`。
+
+​	其中`CFI`主要针对`java`层调用回溯，`FP`仅支持`ARM64`。根据功能需要，选择`EH`方案进行调用栈回溯。下面看看该工具是如何实现的，首先查看`JNI_OnLoad`的实现。
+
+```c++
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
+  JNIEnv *env;
+  jclass cls;
+
+  (void)reserved;
+
+  if (NULL == vm) return JNI_ERR;
+  if (JNI_OK != (*vm)->GetEnv(vm, (void **)&env, SAMPLE_JNI_VERSION)) return JNI_ERR;
+  if (NULL == env || NULL == *env) return JNI_ERR;
+  if (NULL == (cls = (*env)->FindClass(env, SAMPLE_JNI_CLASS_NAME))) return JNI_ERR;
+  // 注册对应的函数
+  if (0 != (*env)->RegisterNatives(env, cls, sample_jni_methods,
+                                   sizeof(sample_jni_methods) / sizeof(sample_jni_methods[0])))
+    return JNI_ERR;
+  // 注册信号处理
+  sample_signal_register();
+
+  return SAMPLE_JNI_VERSION;
+}
+```
+
+​	然后看看`sample_signal_register`对信号进行了什么处理
+
+```c++
+static void sample_signal_register(void) {
+  struct sigaction act;
+  // 清空act
+  memset(&act, 0, sizeof(act));
+    
+  // 填充所有信号
+  sigfillset(&act.sa_mask);
+  // 删除SIGSEGV信号
+  sigdelset(&act.sa_mask, SIGSEGV);
+  // 设置信号动作的对应函数
+  act.sa_sigaction = sample_sigabrt_handler;
+  act.sa_flags = SA_RESTART | SA_SIGINFO | SA_ONSTACK;
+  // 设置指定信号的动作
+  sigaction(SIGABRT, &act, NULL);
+  // 清空act
+  memset(&act, 0, sizeof(act));
+  // 填充所有信号
+  sigfillset(&act.sa_mask);
+  // 设置信号动作的对应函数
+  act.sa_sigaction = sample_sigsegv_handler;
+  act.sa_flags = SA_RESTART | SA_SIGINFO | SA_ONSTACK;
+  // 设置指定信号的动作
+  sigaction(SIGSEGV, &act, &g_sigsegv_oldact);
+}
+```
+
+​	在这个函数中主要是对信号指定了处理函数，`SIGSEGV` 是一种表示段错误的信号，通常意味着进程访问了无法访问的内存地址。
+
+​	`SIGABRT` 是一种表示异常终止的信号，通常由调用 `abort()` 函数或 C++ 异常处理程序显式引发。 `abort()` 函数会向进程发送 `SIGABRT` 信号，并导致进程异常终止。
+
+​	如果进程接收到 `SIGABRT` 信号，操作系统将其发送给进程，并中断进程的正常执行流程。此时，进程通常会尝试处理该信号并进行恢复或退出。如果进程没有为 `SIGABRT` 信号设置信号处理程序，则默认行为是终止进程。
+
+​	接着开始跟踪`EH`的调用栈获取函数`sample_test_eh`的实现。
+
+```c++
+static void sample_test_eh(JNIEnv *env, jobject thiz, jboolean with_context, jboolean signal_interrupted) {
+  (void)env, (void)thiz;
+
+  sample_test(SAMPLE_SOLUTION_EH, JNI_FALSE, with_context, signal_interrupted);
+}
+```
+
+​	继续查看`sample_test`的实现。
+
+```c++
+
+static void sample_test(int solution, jboolean remote_unwind, jboolean with_context,
+                        jboolean signal_interrupted) {
+  // 将参数存储到全局变量
+  g_solution = solution;
+  g_remote_unwind = (JNI_TRUE == remote_unwind ? true : false);
+  g_with_context = (JNI_TRUE == with_context ? true : false);
+  g_signal_interrupted = (JNI_TRUE == signal_interrupted ? true : false);
+  
+  // 原子请求，为了保证获取到的g_frames_sz没问题
+  __atomic_store_n(&g_frames_sz, 0, __ATOMIC_SEQ_CST);
+  // 触发SIGABRT信号
+  tgkill(getpid(), gettid(), SIGABRT);
+
+  if ((solution == SAMPLE_SOLUTION_FP || solution == SAMPLE_SOLUTION_EH) &&
+      __atomic_load_n(&g_frames_sz, __ATOMIC_SEQ_CST) > 0)
+    // 根据堆栈的地址信息，打印堆栈日志
+    xunwind_frames_log(g_frames, g_frames_sz, SAMPLE_LOG_TAG, SAMPLE_LOG_PRIORITY, NULL);
+}
+```
+
+​	由于堆栈信息需要通过触发信号后，在信号处理函数中获取，所以这里的参数没办法传过去，这里就将参数放到了全局变量中。然后信号函数执行完毕后，将会填充`g_frames`调用栈的地址信息，最后使用`xunwind_frames_log`函数解析调用栈，最后输出详细的调用栈。
+
+​	接下来查看`SIGABRT`信号的处理函数`sample_sigabrt_handler`的实现。
+
+```java
+
+static void sample_sigabrt_handler(int signum, siginfo_t *siginfo, void *context) {
+  (void)signum, (void)siginfo;
+
+  if (g_solution == SAMPLE_SOLUTION_FP || g_solution == SAMPLE_SOLUTION_EH) {
+    if (!g_signal_interrupted) {
+      if (g_solution == SAMPLE_SOLUTION_FP) {
+        // FP local unwind
+		...
+      } else if (g_solution == SAMPLE_SOLUTION_EH) {
+        // EH local unwind
+        size_t frames_sz = xunwind_eh_unwind(g_frames, sizeof(g_frames) / sizeof(g_frames[0]),
+                                             g_with_context ? context : NULL);
+        __atomic_store_n(&g_frames_sz, frames_sz, __ATOMIC_SEQ_CST);
+      }
+    } else {
+      // trigger a segfault, we will do "FP local unwind" in the sigsegv's signal handler
+      ...
+    }
+  } else if (!g_remote_unwind) {
+    // CFI local unwind
+    ...
+  } else {
+    // CFI remote unwind
+    ...
+  }
+}
+```
+
+​	`EH`方案是通过`xunwind_eh_unwind`函数获取的调用栈信息，继续查看其具体实现。
+
+```c++
+size_t xunwind_eh_unwind(uintptr_t *frames, size_t frames_cap, void *context) {
+  return xu_eh_unwind(frames, frames_cap, context);
+}
+
+size_t xu_eh_unwind(uintptr_t *frames, size_t frames_cap, void *context) {
+  if (NULL == frames || 0 == frames_cap) return 0;
+
+  xu_eh_info_t info;
+  info.frames = frames;
+  info.frames_cap = frames_cap;
+  info.frames_sz = 0;
+  info.prev_sp = 0;
+  info.uc = (ucontext_t *)context;
+
+  _Unwind_Backtrace(xu_eh_unwind_cb, &info);
+
+  return info.frames_sz;
+}
+```
+
+​	`_Unwind_Backtrace`函数用于获取当前线程的调用堆栈信息。它使用`C++`异常处理机制中的`unwind`操作来实现，因此只能在支持`C++`异常处理的系统上使用。到这里就知道堆栈获取的来源了。但是这里的信息和真实看的还是有一定差距，继续看看`xunwind_frames_log`是如何对其进行转换展示的。
+
+```c++
+void xunwind_frames_log(uintptr_t *frames, size_t frames_sz, const char *logtag, android_LogPriority priority,
+                        const char *prefix) {
+  if (priority < ANDROID_LOG_VERBOSE || ANDROID_LOG_FATAL < priority) return;
+
+  xu_printer_t printer;
+  xu_printer_init_log(&printer, logtag, priority);
+
+  xu_formatter_print(frames, frames_sz, prefix, &printer);
+}
+```
+
+​	继续跟踪`xu_formatter_print`的实现。
+
+```c++
+
+void xu_formatter_print(uintptr_t *frames, size_t frames_sz, const char *prefix, xu_printer_t *printer) {
+  if (NULL == frames || 0 == frames_sz) return;
+
+  if (NULL == prefix) prefix = "";
+
+  void *cache = NULL;
+  xdl_info_t info;
+  for (size_t i = 0; i < frames_sz; i++) {
+    memset(&info, 0, sizeof(xdl_info_t));
+    int r = 0;
+
+    if (0 != frames[i]) {
+      // 根据调用栈地址获取动态库的信息
+      r = xdl_addr((void *)(frames[i]), &info, &cache);
+
+      // 如果查找到的动态库的起始地址大于这条调用栈信息的地址，则从maps中重新找动态库信息
+      char buf[512];
+      if (0 == r || (uintptr_t)info.dli_fbase > frames[i])
+        r = xu_formatter_maps_addr(frames[i], &info, buf, sizeof(buf));
+    }
+
+    // 输出打印
+    if (0 == r || (uintptr_t)info.dli_fbase > frames[i])
+      xu_printer_append_format(printer, XU_FORMATTER_PREFIX "<unknown>\n", prefix, i, frames[i]);
+    else if (NULL == info.dli_fname || '\0' == info.dli_fname[0])
+      xu_printer_append_format(printer, XU_FORMATTER_PREFIX "<anonymous:" XU_FORMATTER_ADDR ">\n", prefix, i,
+                               frames[i] - (uintptr_t)info.dli_fbase, (uintptr_t)info.dli_fbase);
+    else if (NULL == info.dli_sname || '\0' == info.dli_sname[0])
+      xu_printer_append_format(printer, XU_FORMATTER_PREFIX "%s\n", prefix, i,
+                               frames[i] - (uintptr_t)info.dli_fbase, info.dli_fname);
+    else if (0 == (uintptr_t)info.dli_saddr || (uintptr_t)info.dli_saddr > frames[i])
+      xu_printer_append_format(printer, XU_FORMATTER_PREFIX "%s (%s)\n", prefix, i,
+                               frames[i] - (uintptr_t)info.dli_fbase, info.dli_fname, info.dli_sname);
+    else
+      xu_printer_append_format(printer, XU_FORMATTER_PREFIX "%s (%s+%" PRIuPTR ")\n", prefix, i,
+                               frames[i] - (uintptr_t)info.dli_fbase, info.dli_fname, info.dli_sname,
+                               frames[i] - (uintptr_t)info.dli_saddr);
+  }
+  xdl_addr_clean(&cache);
+}
+
+```
+
+​	继续查看是如何输出的。
+
+```c++
+void xu_printer_append_format(xu_printer_t *self, const char *format, ...) {
+  va_list ap;
+  va_start(ap, format);
+
+  char tmpbuf[1024];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+  vsnprintf(tmpbuf, sizeof(tmpbuf), format, ap);
+#pragma clang diagnostic pop
+
+  va_end(ap);
+
+  xu_printer_append_string(self, tmpbuf);
+}
 
 
+void xu_printer_append_string(xu_printer_t *self, const char *str) {
+  if (XU_PRINTER_TYPE_LOG == self->type) {
+    __android_log_print(self->data.log.priority, self->data.log.logtag, "%s", str);
+  } else if (XU_PRINTER_TYPE_DUMP == self->type) {
+    size_t len = strlen(str);
+    if (len > 0) {
+      xu_util_write(self->data.dump.fd, str, len);
+      if ('\n' != str[len - 1]) xu_util_write(self->data.dump.fd, "\n", 1);
+    }
+  } else if (XU_PRINTER_TYPE_GET == self->type) {
+    size_t len = strlen(str);
+    if (len > 0) {
+      xu_printer_string_append_to_buf(self, str);
+      if ('\n' != str[len - 1]) xu_printer_string_append_to_buf(self, "\n");
+    }
+  }
+}
+```
+
+​	到了最后输出的部分可以看到，支持三种方式输出，在调用时，根据不同的需求来选择合适的输出方式。
+
+* `XU_PRINTER_TYPE_LOG` 直接`logcat`输出信息
+* `XU_PRINTER_TYPE_DUMP `将堆栈信息写入到指定描述符
+* `XU_PRINTER_TYPE_GET` 返回堆栈信息的字符串。
+
+​	了解完整个实现原理后，最后看看其输出效果。`EH`方案的调用栈输出如下。
+
+```
+I/xunwind_tag: >>> EH: Local Process (pid: 6713), Current Thread (tid: 6713) <<<
+I/xunwind_tag: #00 pc 00000000000093a4  /data/app/~~H824r8gCTUibCXd65QZfPw==/io.github.hexhacking.xunwind.sample-1gWu3tav0VA7-qGsCc7nZQ==/lib/arm64/libxunwind.so (xunwind_eh_unwind+72)
+I/xunwind_tag: #01 pc 00000000000014a8  /data/app/~~H824r8gCTUibCXd65QZfPw==/io.github.hexhacking.xunwind.sample-1gWu3tav0VA7-qGsCc7nZQ==/lib/arm64/libsample.so
+I/xunwind_tag: #02 pc 00000000000008b0  [vdso] (__kernel_rt_sigreturn+0)
+I/xunwind_tag: #03 pc 000000000009e598  /apex/com.android.runtime/lib64/bionic/libc.so (tgkill+8)
+I/xunwind_tag: #04 pc 0000000000001320  /data/app/~~H824r8gCTUibCXd65QZfPw==/io.github.hexhacking.xunwind.sample-1gWu3tav0VA7-qGsCc7nZQ==/lib/arm64/libsample.so
+I/xunwind_tag: #05 pc 0000000000001254  /data/app/~~H824r8gCTUibCXd65QZfPw==/io.github.hexhacking.xunwind.sample-1gWu3tav0VA7-qGsCc7nZQ==/lib/arm64/libsample.so
+I/xunwind_tag: #06 pc 0000000000222248  /apex/com.android.art/lib64/libart.so (art_quick_generic_jni_trampoline+152)
+I/xunwind_tag: #07 pc 0000000000218bec  /apex/com.android.art/lib64/libart.so (art_quick_invoke_static_stub+572)
+I/xunwind_tag: #08 pc 0000000000290300  /apex/com.android.art/lib64/libart.so (_ZN3art9ArtMethod6InvokeEPNS_6ThreadEPjjPNS_6JValueEPKc+536)
+I/xunwind_tag: #09 pc 00000000003f09e4  /apex/com.android.art/lib64/libart.so (_ZN3art11interpreter34ArtInterpreterToCompiledCodeBridgeEPNS_6ThreadEPNS_9ArtMethodEPNS_11ShadowFrameEtPNS_6JValueE+404)
+I/xunwind_tag: #10 pc 00000000003eb858  /apex/com.android.art/lib64/libart.so (_ZN3art11interpreter6DoCallILb0ELb0EEEbPNS_9ArtMethodEPNS_6ThreadERNS_11ShadowFrameEPKNS_11InstructionEtPNS_6JValueE+808)
+I/xunwind_tag: #11 pc 00000000007658d0  /apex/com.android.art/lib64/libart.so (MterpInvokeStatic+984)
+I/xunwind_tag: #12 pc 0000000000203998  /apex/com.android.art/lib64/libart.so (mterp_op_invoke_static+24)
+I/xunwind_tag: #13 pc 00000000003e3688  /apex/com.android.art/lib64/libart.so (_ZN3art11interpreterL7ExecuteEPNS_6ThreadERKNS_20CodeItemDataAccessorERNS_11ShadowFrameENS_6JValueEbb+348)
+I/xunwind_tag: #14 pc 000000000074920c  /apex/com.android.art/lib64/libart.so (artQuickToInterpreterBridge+780)
+I/xunwind_tag: #15 pc 000000000022237c  /apex/com.android.art/lib64/libart.so (art_quick_to_interpreter_bridge+92)
+I/xunwind_tag: #16 pc 000000000021160c  /apex/com.android.art/lib64/libart.so (nterp_helper+156)
+I/xunwind_tag: #17 pc 0000000000218968  /apex/com.android.art/lib64/libart.so (art_quick_invoke_stub+552)
+I/xunwind_tag: #18 pc 00000000002902d4  /apex/com.android.art/lib64/libart.so (_ZN3art9ArtMethod6InvokeEPNS_6ThreadEPjjPNS_6JValueEPKc+492)
+I/xunwind_tag: #19 pc 000000000062ba5c  /apex/com.android.art/lib64/libart.so (_ZN3art12InvokeMethodILNS_11PointerSizeE8EEEP8_jobjectRKNS_33ScopedObjectAccessAlreadyRunnableES3_S3_S3_m+1388)
+I/xunwind_tag: #20 pc 000000000059d2f8  /apex/com.android.art/lib64/libart.so (_ZN3artL13Method_invokeEP7_JNIEnvP8_jobjectS3_P13_jobjectArray+56)
+I/xunwind_tag: #21 pc 0000000000222248  /apex/com.android.art/lib64/libart.so (art_quick_generic_jni_trampoline+152)
+I/xunwind_tag: #22 pc 0000000000212524  /apex/com.android.art/lib64/libart.so (nterp_helper+4020)
+I/xunwind_tag: #23 pc 00000000002132e8  /apex/com.android.art/lib64/libart.so (nterp_helper+7544)
+I/xunwind_tag: #24 pc 00000000002124c8  /apex/com.android.art/lib64/libart.so (nterp_helper+3928)
+I/xunwind_tag: #25 pc 00000000002124c8  /apex/com.android.art/lib64/libart.so (nterp_helper+3928)
+I/xunwind_tag: #26 pc 00000000002115a8  /apex/com.android.art/lib64/libart.so (nterp_helper+56)
+I/xunwind_tag: #27 pc 00000000002132e8  /apex/com.android.art/lib64/libart.so (nterp_helper+7544)
+I/xunwind_tag: #28 pc 00000000002115a8  /apex/com.android.art/lib64/libart.so (nterp_helper+56)
+I/xunwind_tag: #29 pc 00000000002124c8  /apex/com.android.art/lib64/libart.so (nterp_helper+3928)
+I/xunwind_tag: #30 pc 00000000002115a8  /apex/com.android.art/lib64/libart.so (nterp_helper+56)
+I/xunwind_tag: #31 pc 00000000002115a8  /apex/com.android.art/lib64/libart.so (nterp_helper+56)
+I/xunwind_tag: #32 pc 0000000000218bec  /apex/com.android.art/lib64/libart.so (art_quick_invoke_static_stub+572)
+I/xunwind_tag: #33 pc 0000000000290300  /apex/com.android.art/lib64/libart.so (_ZN3art9ArtMethod6InvokeEPNS_6ThreadEPjjPNS_6JValueEPKc+536)
+I/xunwind_tag: #34 pc 000000000062ba5c  /apex/com.android.art/lib64/libart.so (_ZN3art12InvokeMethodILNS_11PointerSizeE8EEEP8_jobjectRKNS_33ScopedObjectAccessAlreadyRunnableES3_S3_S3_m+1388)
+I/xunwind_tag: #35 pc 000000000059d2f8  /apex/com.android.art/lib64/libart.so (_ZN3artL13Method_invokeEP7_JNIEnvP8_jobjectS3_P13_jobjectArray+56)
+I/xunwind_tag: #36 pc 0000000000222248  /apex/com.android.art/lib64/libart.so (art_quick_generic_jni_trampoline+152)
+I/xunwind_tag: #37 pc 0000000000212524  /apex/com.android.art/lib64/libart.so (nterp_helper+4020)
+I/xunwind_tag: #38 pc 00000000002132e8  /apex/com.android.art/lib64/libart.so (nterp_helper+7544)
+I/xunwind_tag: #39 pc 0000000000218bec  /apex/com.android.art/lib64/libart.so (art_quick_invoke_static_stub+572)
+I/xunwind_tag: #40 pc 0000000000290300  /apex/com.android.art/lib64/libart.so (_ZN3art9ArtMethod6InvokeEPNS_6ThreadEPjjPNS_6JValueEPKc+536)
+I/xunwind_tag: #41 pc 000000000062c1b4  /apex/com.android.art/lib64/libart.so (_ZN3art17InvokeWithVarArgsIPNS_9ArtMethodEEENS_6JValueERKNS_33ScopedObjectAccessAlreadyRunnableEP8_jobjectT_St9__va_list+452)
+I/xunwind_tag: #42 pc 000000000062c678  /apex/com.android.art/lib64/libart.so (_ZN3art17InvokeWithVarArgsIP10_jmethodIDEENS_6JValueERKNS_33ScopedObjectAccessAlreadyRunnableEP8_jobjectT_St9__va_list+96)
+I/xunwind_tag: #43 pc 0000000000507c68  /apex/com.android.art/lib64/libart.so (_ZN3art3JNIILb1EE21CallStaticVoidMethodVEP7_JNIEnvP7_jclassP10_jmethodIDSt9__va_list+620)
+I/xunwind_tag: #44 pc 00000000000aeac8  /system/lib64/libandroid_runtime.so (_ZN7_JNIEnv20CallStaticVoidMethodEP7_jclassP10_jmethodIDz+124)
+I/xunwind_tag: #45 pc 00000000000ba060  /system/lib64/libandroid_runtime.so (_ZN7android14AndroidRuntime5startEPKcRKNS_6VectorINS_7String8EEEb+840)
+I/xunwind_tag: #46 pc 00000000000025a8  /system/bin/app_process64 (main+1364)
+I/xunwind_tag: #47 pc 00000000000498cc  /apex/com.android.runtime/lib64/bionic/libc.so (__libc_init+100)
+I/xunwind_tag: >>> finished <<<
+```
+
+### 12.6.2 优化调用栈样例
+
+​	尽管在该工具中的样例可以直接使用，但是想要将其内置到`AOSP`中还需要将其进行优化处理，简单写一个模拟注入流程的样例，对样例做出以下调整。
+
+* 去掉非`EH`获取方案的代码部分
+* 优化获取调用栈信息的代码，让其结果仅输出想要关注的目标动态库的调用栈。
+* 直接输出日志调整为返回调用栈字符串。
+
+​	新建`native`的项目，将`xUnwind`的样例`apk`解压后，取出其`lib`目录中的依赖动态库，将其复制到新项目的`libs`目录中，如下图。
+
+​	
+
+### 12.6.3 内置获取调用栈
