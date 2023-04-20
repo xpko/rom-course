@@ -1315,39 +1315,8 @@ I/xunwind_tag: #06 pc 0000000000222248  /apex/com.android.art/lib64/libart.so (a
 I/xunwind_tag: #07 pc 0000000000218bec  /apex/com.android.art/lib64/libart.so (art_quick_invoke_static_stub+572)
 I/xunwind_tag: #08 pc 0000000000290300  /apex/com.android.art/lib64/libart.so (_ZN3art9ArtMethod6InvokeEPNS_6ThreadEPjjPNS_6JValueEPKc+536)
 I/xunwind_tag: #09 pc 00000000003f09e4  /apex/com.android.art/lib64/libart.so (_ZN3art11interpreter34ArtInterpreterToCompiledCodeBridgeEPNS_6ThreadEPNS_9ArtMethodEPNS_11ShadowFrameEtPNS_6JValueE+404)
-I/xunwind_tag: #10 pc 00000000003eb858  /apex/com.android.art/lib64/libart.so (_ZN3art11interpreter6DoCallILb0ELb0EEEbPNS_9ArtMethodEPNS_6ThreadERNS_11ShadowFrameEPKNS_11InstructionEtPNS_6JValueE+808)
-I/xunwind_tag: #11 pc 00000000007658d0  /apex/com.android.art/lib64/libart.so (MterpInvokeStatic+984)
-I/xunwind_tag: #12 pc 0000000000203998  /apex/com.android.art/lib64/libart.so (mterp_op_invoke_static+24)
-I/xunwind_tag: #13 pc 00000000003e3688  /apex/com.android.art/lib64/libart.so (_ZN3art11interpreterL7ExecuteEPNS_6ThreadERKNS_20CodeItemDataAccessorERNS_11ShadowFrameENS_6JValueEbb+348)
-I/xunwind_tag: #14 pc 000000000074920c  /apex/com.android.art/lib64/libart.so (artQuickToInterpreterBridge+780)
-I/xunwind_tag: #15 pc 000000000022237c  /apex/com.android.art/lib64/libart.so (art_quick_to_interpreter_bridge+92)
-I/xunwind_tag: #16 pc 000000000021160c  /apex/com.android.art/lib64/libart.so (nterp_helper+156)
-I/xunwind_tag: #17 pc 0000000000218968  /apex/com.android.art/lib64/libart.so (art_quick_invoke_stub+552)
-I/xunwind_tag: #18 pc 00000000002902d4  /apex/com.android.art/lib64/libart.so (_ZN3art9ArtMethod6InvokeEPNS_6ThreadEPjjPNS_6JValueEPKc+492)
-I/xunwind_tag: #19 pc 000000000062ba5c  /apex/com.android.art/lib64/libart.so (_ZN3art12InvokeMethodILNS_11PointerSizeE8EEEP8_jobjectRKNS_33ScopedObjectAccessAlreadyRunnableES3_S3_S3_m+1388)
-I/xunwind_tag: #20 pc 000000000059d2f8  /apex/com.android.art/lib64/libart.so (_ZN3artL13Method_invokeEP7_JNIEnvP8_jobjectS3_P13_jobjectArray+56)
-I/xunwind_tag: #21 pc 0000000000222248  /apex/com.android.art/lib64/libart.so (art_quick_generic_jni_trampoline+152)
-I/xunwind_tag: #22 pc 0000000000212524  /apex/com.android.art/lib64/libart.so (nterp_helper+4020)
-I/xunwind_tag: #23 pc 00000000002132e8  /apex/com.android.art/lib64/libart.so (nterp_helper+7544)
-I/xunwind_tag: #24 pc 00000000002124c8  /apex/com.android.art/lib64/libart.so (nterp_helper+3928)
-I/xunwind_tag: #25 pc 00000000002124c8  /apex/com.android.art/lib64/libart.so (nterp_helper+3928)
-I/xunwind_tag: #26 pc 00000000002115a8  /apex/com.android.art/lib64/libart.so (nterp_helper+56)
-I/xunwind_tag: #27 pc 00000000002132e8  /apex/com.android.art/lib64/libart.so (nterp_helper+7544)
-I/xunwind_tag: #28 pc 00000000002115a8  /apex/com.android.art/lib64/libart.so (nterp_helper+56)
-I/xunwind_tag: #29 pc 00000000002124c8  /apex/com.android.art/lib64/libart.so (nterp_helper+3928)
-I/xunwind_tag: #30 pc 00000000002115a8  /apex/com.android.art/lib64/libart.so (nterp_helper+56)
-I/xunwind_tag: #31 pc 00000000002115a8  /apex/com.android.art/lib64/libart.so (nterp_helper+56)
-I/xunwind_tag: #32 pc 0000000000218bec  /apex/com.android.art/lib64/libart.so (art_quick_invoke_static_stub+572)
-I/xunwind_tag: #33 pc 0000000000290300  /apex/com.android.art/lib64/libart.so (_ZN3art9ArtMethod6InvokeEPNS_6ThreadEPjjPNS_6JValueEPKc+536)
-I/xunwind_tag: #34 pc 000000000062ba5c  /apex/com.android.art/lib64/libart.so (_ZN3art12InvokeMethodILNS_11PointerSizeE8EEEP8_jobjectRKNS_33ScopedObjectAccessAlreadyRunnableES3_S3_S3_m+1388)
-I/xunwind_tag: #35 pc 000000000059d2f8  /apex/com.android.art/lib64/libart.so (_ZN3artL13Method_invokeEP7_JNIEnvP8_jobjectS3_P13_jobjectArray+56)
-I/xunwind_tag: #36 pc 0000000000222248  /apex/com.android.art/lib64/libart.so (art_quick_generic_jni_trampoline+152)
-I/xunwind_tag: #37 pc 0000000000212524  /apex/com.android.art/lib64/libart.so (nterp_helper+4020)
-I/xunwind_tag: #38 pc 00000000002132e8  /apex/com.android.art/lib64/libart.so (nterp_helper+7544)
-I/xunwind_tag: #39 pc 0000000000218bec  /apex/com.android.art/lib64/libart.so (art_quick_invoke_static_stub+572)
-I/xunwind_tag: #40 pc 0000000000290300  /apex/com.android.art/lib64/libart.so (_ZN3art9ArtMethod6InvokeEPNS_6ThreadEPjjPNS_6JValueEPKc+536)
-I/xunwind_tag: #41 pc 000000000062c1b4  /apex/com.android.art/lib64/libart.so (_ZN3art17InvokeWithVarArgsIPNS_9ArtMethodEEENS_6JValueERKNS_33ScopedObjectAccessAlreadyRunnableEP8_jobjectT_St9__va_list+452)
-I/xunwind_tag: #42 pc 000000000062c678  /apex/com.android.art/lib64/libart.so (_ZN3art17InvokeWithVarArgsIP10_jmethodIDEENS_6JValueERKNS_33ScopedObjectAccessAlreadyRunnableEP8_jobjectT_St9__va_list+96)
+...
+...
 I/xunwind_tag: #43 pc 0000000000507c68  /apex/com.android.art/lib64/libart.so (_ZN3art3JNIILb1EE21CallStaticVoidMethodVEP7_JNIEnvP7_jclassP10_jmethodIDSt9__va_list+620)
 I/xunwind_tag: #44 pc 00000000000aeac8  /system/lib64/libandroid_runtime.so (_ZN7_JNIEnv20CallStaticVoidMethodEP7_jclassP10_jmethodIDz+124)
 I/xunwind_tag: #45 pc 00000000000ba060  /system/lib64/libandroid_runtime.so (_ZN7android14AndroidRuntime5startEPKcRKNS_6VectorINS_7String8EEEb+840)
@@ -1364,8 +1333,321 @@ I/xunwind_tag: >>> finished <<<
 * 优化获取调用栈信息的代码，让其结果仅输出想要关注的目标动态库的调用栈。
 * 直接输出日志调整为返回调用栈字符串。
 
-​	新建`native`的项目，将`xUnwind`的样例`apk`解压后，取出其`lib`目录中的依赖动态库，将其复制到新项目的`libs`目录中，如下图。
+​	首先将`xUnwind`中的样例`apk`解压，找到`lib`目录查看其依赖的动态库，分别是`libxdl.so、libxunwind.so`。在源码中能看到`libxunwind.so`中使用`libxdl.so`来查询指定地址对应的动态库信息。所以在加载动态库时，需要优先加载`libxdl.so`。
 
-​	
+​	新建`native`的项目，将`libxdl.so、libxunwind.so`复制到新项目的`libs`目录中，然后修改`build.gradle`文件如下。
+
+```
+android {
+	...
+	defaultConfig {
+        ...
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+        ...
+    }
+    ...
+	sourceSets {
+        main {
+            jniLibs.srcDirs = ['libs']
+        }
+    }
+    ...
+
+}
+```
+
+​	然后添加测试代码如下。
+
+```java
+
+public class MainActivity extends AppCompatActivity {
+
+    // 注入三个动态库
+    static {
+        System.loadLibrary("xdl");
+        System.loadLibrary("xunwind");
+        System.loadLibrary("nativecppdemo");
+    }
+
+    private ActivityMainBinding binding;
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+        TextView tv = binding.sampleText;
+        tv.setText(stringFromJNI());
+    }
+    public native String stringFromJNI();
+}
+```
+
+​	然后在`stringFromJNI`函数调时，获取调用栈，参考样例中的代码，并删除非`EH`方案的代码。创建一个存放头文件`kbacktrace.h`，内容如下。
+
+```c++
+#ifndef __KBACKTRACE_H__
+#define __KBACKTRACE_H__
+
+
+#include <sys/wait.h>
+
+void sigabrt_handler(int signum, siginfo_t *siginfo, void *context);
+void signal_register(void);
+const char* kbacktrace(bool with_context,const char* moduleName);
+
+#endif
+```
+
+​	接着创建一个对应的源码文件`kbacktrace.cpp`，优化后的内容如下。
+
+```c++
+#include "kbacktrace.h"
+#include <string>
+#include <unistd.h>
+#include "xunwind.h"
+#include <setjmp.h>
+
+static bool g_with_context = false;
+
+static uintptr_t g_frames[128];
+static size_t g_frames_sz = 0;
+
+
+void sigabrt_handler(int signum, siginfo_t *siginfo, void *context) {
+    (void)signum, (void)siginfo;
+    // EH local unwind
+    size_t frames_sz = xunwind_eh_unwind(g_frames, sizeof(g_frames) / sizeof(g_frames[0]),
+                                         g_with_context ? context : NULL);
+    __atomic_store_n(&g_frames_sz, frames_sz, __ATOMIC_SEQ_CST);
+}
+
+void signal_register(void) {
+    struct sigaction act;
+    memset(&act, 0, sizeof(act));
+    sigfillset(&act.sa_mask);
+    sigdelset(&act.sa_mask, SIGSEGV);
+    act.sa_sigaction = sigabrt_handler;
+    act.sa_flags = SA_RESTART | SA_SIGINFO | SA_ONSTACK;
+    sigaction(SIGABRT, &act, NULL);
+}
+
+const char* kbacktrace(bool with_context,const char* moduleName) {
+    g_with_context = with_context;
+
+    __atomic_store_n(&g_frames_sz, 0, __ATOMIC_SEQ_CST);
+
+    tgkill(getpid(), gettid(), SIGABRT);
+
+    if ( __atomic_load_n(&g_frames_sz, __ATOMIC_SEQ_CST) > 0){
+        const char* res= xunwind_frames_get(g_frames, g_frames_sz,nullptr,moduleName);
+        return res;
+    }
+    return "";
+}
+```
+
+​	在原来的样例中有两种信号方式获取调用栈，内置在`AOSP`中固定使用一种方式即可，所以仅保留`SIGABRT`信号获取堆栈即可。接着就可以使用该函数获取调用栈了。示例如下。
+
+```c++
+#include <jni.h>
+#include <android/log.h>
+#include "kbacktrace.h"
+
+
+#define TAG        "mikrom"
+#define LOG_PRIORITY   ANDROID_LOG_INFO
+#define ALOGI(fmt, ...) __android_log_print(LOG_PRIORITY, TAG, fmt, ##__VA_ARGS__)
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_mik_nativecppdemo_MainActivity_stringFromJNI(
+        JNIEnv* env,
+        jobject obj /* this */) {
+    jstring resObj=env->NewStringUTF("test");
+    const char* res= kbacktrace(true,"libnativecppdemo.so");
+    ALOGI("-------------------------Backtrace-------------------------\n%s",res);
+    return resObj;
+}
+
+// 在动态库加载时调用，完成本地方法的注册
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *, void *) {
+    signal_register();
+    return JNI_VERSION_1_6;
+}
+
+```
+
+​	修改完样例后，动态库中的`xunwind_frames_get`函数也需要调整，为其新增参数，将动态库名称传递进去，让其仅返回包含该动态库名称的调用栈。修改如下。
+
+```c++
+char *xunwind_frames_get(uintptr_t *frames, size_t frames_sz, const char *prefix,const char* moduleName) {
+  xu_printer_t printer;
+  xu_printer_init_get(&printer);
+
+  xu_formatter_print(frames, frames_sz, prefix, &printer,moduleName);
+  return xu_printer_get(&printer);
+}
+```
+
+​	继续修改`xu_formatter_print`函数，添加对动态库的过滤。
+
+```c++
+void xu_formatter_print(uintptr_t *frames, size_t frames_sz, const char *prefix, xu_printer_t *printer,const char* moduleName) {
+  if (NULL == frames || 0 == frames_sz) return;
+  if (NULL == prefix) prefix = "";
+  void *cache = NULL;
+  xdl_info_t info;
+  for (size_t i = 0; i < frames_sz; i++) {
+    memset(&info, 0, sizeof(xdl_info_t));
+    int r = 0;
+    if (0 != frames[i]) {
+      // find info from linker
+      r = xdl_addr((void *)(frames[i]), &info, &cache);
+      // 非目标动态库，则直接跳过
+      if(!strstr(info.dli_fname,moduleName)){
+        continue;
+      }
+      // find info from maps
+      char buf[512];
+      if (0 == r || (uintptr_t)info.dli_fbase > frames[i])
+        r = xu_formatter_maps_addr(frames[i], &info, buf, sizeof(buf));
+
+    }
+    ...
+  }
+  xdl_addr_clean(&cache);
+}
+```
+
+​	完成修改后，编译时发现错误，是因为没有指定依赖的动态库，修改`CMakeLists`文件如下。
+
+```cmake
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64*")
+    # 当前 CPU 架构为 arm64
+    target_link_libraries( # Specifies the target library.
+            kbacktrace
+            ${PROJECT_SOURCE_DIR}/../../../../app/libs/arm64-v8a/libxunwind.so
+            # Links the target library to the log library
+            # included in the NDK.
+            ${log-lib})
+endif()
+
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm*")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "v7*")
+        # 当前 CPU 架构为 armeabi-v7a
+        target_link_libraries( # Specifies the target library.
+                kbacktrace
+                ${PROJECT_SOURCE_DIR}/../../../../app/libs/armeabi-v7a/libxunwind.so
+                # Links the target library to the log library
+                # included in the NDK.
+                ${log-lib})
+    endif()
+endif()
+```
+
+​	最后运行这个新的测试样例，输出日志如下。
+
+```
+com.mik.nativecppdemo                I  -------------------------Backtrace-------------------------
+                                                                                                    #01 pc 000000000001e02c  /data/app/~~-XZEZm9rvOBJhceZK8LuKg==/com.mik.nativecppdemo-SoSNN-J1eghWN4JW7rNYqw==/base.apk!/lib/arm64-v8a/libnativecppdemo.so
+                                                                                                    #02 pc 000000000001dd74  /data/app/~~-XZEZm9rvOBJhceZK8LuKg==/com.mik.nativecppdemo-SoSNN-J1eghWN4JW7rNYqw==/base.apk!/lib/arm64-v8a/libnativecppdemo.so (Java_com_mik_nativecppdemo_MainActivity_stringFromJNI+180)
+
+```
 
 ### 12.6.3 内置获取调用栈
+
+​	在测试样例中将主要功能逻辑完成后，最后需要将该功能内置到`AOSP`中，提供`JNI`中打桩函数调用。首先是将`libxdl.so、libxunwind.so、libkbacktrace.so`动态库内置到系统目录中。
+
+​	在`AOSP`源码目录`frameworks/base/packages/apps/`下新建目录，用于存放内置的动态库，然后将样例程序`armeabi-v7a`和`arm64-v8`中的动态库放在新目录下。在新目录下添加规则文件`Android.mk`。内容如下。
+
+```
+
+#--------------------------------
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libxdl
+LOCAL_SRC_FILES_arm := libxdl.so
+LOCAL_SRC_FILES_arm64 := libxdl_arm64.so
+LOCAL_MODULE_TARGET_ARCHS:= arm arm64
+LOCAL_MULTILIB := both
+LOCAL_MODULE_SUFFIX := .so
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_TAGS := optional
+LOCAL_SHARED_LIBRARIES := liblog
+
+include $(BUILD_PREBUILT)
+
+#--------------------------------
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libxunwind
+LOCAL_SRC_FILES_arm := libxunwind.so
+LOCAL_SRC_FILES_arm64 := libxunwind_arm64.so
+LOCAL_MODULE_TARGET_ARCHS:= arm arm64
+LOCAL_MULTILIB := both
+LOCAL_MODULE_SUFFIX := .so
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_TAGS := optional
+LOCAL_SHARED_LIBRARIES := liblog libxdl
+
+include $(BUILD_PREBUILT)
+
+#--------------------------------
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libkbacktrace
+LOCAL_SRC_FILES_arm := libkbacktrace.so
+LOCAL_SRC_FILES_arm64 := libkbacktrace_arm64.so
+LOCAL_MODULE_TARGET_ARCHS:= arm arm64
+LOCAL_MULTILIB := both
+LOCAL_MODULE_SUFFIX := .so
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_TAGS := optional
+LOCAL_SHARED_LIBRARIES := liblog libxunwind
+
+include $(BUILD_PREBUILT)
+```
+
+​	然后在文件`build/make/target/product/generic_system.mk`中添加这模块。
+
+```
+PRODUCT_PACKAGES += \
+	libxdl \
+	libxunwind \
+	libkbacktrace \
+```
+
+​	编译刷入手机后，即可在系统动态库目录中找到内置进去的动态库。接下来在应用的启动阶段，判断其是否为目标应用，是目标应用则按顺序加载动态库，所以下面回到在前面准备好的读取配置的测试代码。
+
+```java
+public static void loadBlackTraceSo(){
+	System.loadLibrary("xdl");
+	System.loadLibrary("xunwind");
+    System.loadLibrary("kbacktrace");
+}
+
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+	...
+    // 判断当前app是否为目标应用
+    PackageItem currentItem=null;
+    for(PackageItem item : packageItems){
+        if(item.packageName.contains(this.getPackageName())){
+            currentItem=item;
+            break;
+        }
+    }
+    if(currentItem==null){
+        return;
+    }
+    if(currentItem.isJNIMethodPrint){
+        loadBlackTraceSo();
+    }
+    ...
+}
+```
+
+​	最后在`JNI`打桩函数的结尾获取调用栈信息，
