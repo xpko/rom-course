@@ -1434,7 +1434,14 @@ void signal_register(void) {
     sigaction(SIGABRT, &act, NULL);
 }
 
+
+static bool isInit=false;
+
 const char* kbacktrace(bool with_context,const char* moduleName) {
+    if(!isInit){
+        signal_register();
+        isInit=true;
+    }
     g_with_context = with_context;
 
     __atomic_store_n(&g_frames_sz, 0, __ATOMIC_SEQ_CST);
@@ -1473,7 +1480,6 @@ Java_com_mik_nativecppdemo_MainActivity_stringFromJNI(
 
 // 在动态库加载时调用，完成本地方法的注册
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *, void *) {
-    signal_register();
     return JNI_VERSION_1_6;
 }
 
@@ -1619,35 +1625,201 @@ PRODUCT_PACKAGES += \
 	libkbacktrace \
 ```
 
-​	编译刷入手机后，即可在系统动态库目录中找到内置进去的动态库。接下来在应用的启动阶段，判断其是否为目标应用，是目标应用则按顺序加载动态库，所以下面回到在前面准备好的读取配置的测试代码。
+​	最后将这三个动态库添加到公共库的清单文件，修改文件`system/core/rootdir/etc/public.libraries.android.txt`，添加内容如下。
 
-```java
-public static void loadBlackTraceSo(){
-	System.loadLibrary("xdl");
-	System.loadLibrary("xunwind");
-    System.loadLibrary("kbacktrace");
-}
+```
+libxdl.so
+libxunwind.so
+libkbacktrace.so
+```
 
-@Override
-protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-	...
-    // 判断当前app是否为目标应用
-    PackageItem currentItem=null;
-    for(PackageItem item : packageItems){
-        if(item.packageName.contains(this.getPackageName())){
-            currentItem=item;
-            break;
-        }
-    }
-    if(currentItem==null){
+​	编译刷入手机后，即可在系统动态库目录中找到内置进去的动态库。那么应该如何使用内置的动态库来获取堆栈信息呢，在直接修改`JNI`调用时机前，先用一个简单的代码测试能否轻易的获取堆栈。
+
+​	新建`native c++`项目，修改`stringFromJNI`函数，添加打印调用栈信息的代码如下。
+
+```c++
+#include <jni.h>
+#include <string>
+#include <android/log.h>
+#include <dlfcn.h>
+
+#define TAG        "mikrom"
+#define LOG_PRIORITY   ANDROID_LOG_INFO
+#define ALOGI(fmt, ...) __android_log_print(LOG_PRIORITY, TAG, fmt, ##__VA_ARGS__)
+
+typedef const char* (*kbacktraceFunc)(bool with_context,const char* moduleName);
+
+void showBacktrace(const char* moduleName){
+    kbacktraceFunc kbacktrace = (kbacktraceFunc)dlsym(RTLD_DEFAULT, "_Z10kbacktracebPKc");
+    if(kbacktrace==NULL){
+        const char* error = dlerror();
+        ALOGI("not found method.%s",error);
         return;
     }
-    if(currentItem.isJNIMethodPrint){
-        loadBlackTraceSo();
-    }
-    ...
+    const char* res=kbacktrace(true,moduleName);
+    ALOGI("%s\n",res);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_example_backtracedemo_MainActivity_stringFromJNI(
+        JNIEnv* env,
+        jobject /* this */) {
+    std::string hello = "Hello from C++";
+
+    showBacktrace("");
+
+    return env->NewStringUTF(hello.c_str());
 }
 ```
 
-​	最后在`JNI`打桩函数的结尾获取调用栈信息，
+​	运行该项目后，成功输出调用栈信息，到这里已经能随时获取调用栈了。在初始化配置的时候获取到该函数指针，并存储起来。修改`initConfig`代码如下。
+
+```c++
+
+static void
+DexFile_initConfig(JNIEnv* env, jobject ,jobject item) {
+
+    Runtime* runtime=Runtime::Current();
+    jclass jcInfo = env->FindClass("java/krom/PackageItem");
+    jfieldID jPackageName = env->GetFieldID(jcInfo, "packageName", "Ljava/lang/String;");
+    jfieldID jJniModuleName = env->GetFieldID(jcInfo, "jniModuleName", "Ljava/lang/String;");
+    jfieldID jJniFuncName = env->GetFieldID(jcInfo, "jniFuncName", "Ljava/lang/String;");
+    jfieldID jIsRegisterNativePrint = env->GetFieldID(jcInfo, "isRegisterNativePrint", "Z");
+    jfieldID jIsJNIMethodPrint = env->GetFieldID(jcInfo, "isJNIMethodPrint", "Z");
+
+    PackageItem citem;
+
+    jstring jstrPackageName = (jstring)env->GetObjectField(item, jPackageName);
+    const char* pPackageName = (char*)env->GetStringUTFChars(jstrPackageName, 0);
+    strcpy(citem.packageName, pPackageName);
+
+    jstring jstrJniModuleName = (jstring)env->GetObjectField(item, jJniModuleName);
+    const char* pJniModuleName = (char*)env->GetStringUTFChars(jstrJniModuleName, 0);
+    strcpy(citem.jniModuleName, pJniModuleName);
+
+    jstring jstrJniFuncName = (jstring)env->GetObjectField(item, jJniFuncName);
+    const char* pJniFuncName = (char*)env->GetStringUTFChars(jstrJniFuncName, 0);
+    strcpy(citem.jniFuncName, pJniFuncName);
+
+    citem.isRegisterNativePrint = env->GetBooleanField(item, jIsRegisterNativePrint);
+    citem.isJNIMethodPrint = env->GetBooleanField(item, jIsJNIMethodPrint);
+
+    if(citem.isJNIMethodPrint){
+        void* handle_xdl=NULL;
+        void* handle_xunwind=NULL;
+        void* handle_kbacktrace=NULL;
+        #if defined(__aarch64__)
+                // 当前 CPU 架构为 arm64
+            handle_xdl= dlopen("/system/lib64/libxdl.so",RTLD_NOW);
+            handle_xunwind= dlopen("/system/lib64/libxunwind.so",RTLD_NOW);
+            handle_kbacktrace= dlopen("/system/lib64/libkbacktrace.so",RTLD_NOW);
+        #else
+            // 当前 CPU 架构为 armeabi-v7a 或更早版本
+            handle_xdl= dlopen("/system/lib/libxdl.so",RTLD_NOW);
+            handle_xunwind= dlopen("/system/lib/libxunwind.so",RTLD_NOW);
+            handle_kbacktrace= dlopen("/system/lib/libkbacktrace.so",RTLD_NOW);
+        #endif
+        if(handle_kbacktrace!=nullptr){
+            citem.kbacktrace= dlsym(handle_kbacktrace, "_Z10kbacktracebPKc");
+            if(citem.kbacktrace==nullptr){
+                ALOGD("mikrom kbacktrace is null.err:%s",dlerror());
+            }else{
+                ALOGD("mikrom kbacktrace:%p.",citem.kbacktrace);
+            }
+        }else{
+            ALOGD("mikrom handle_kbacktrace is null.err:%s",dlerror());
+        }
+    }
+    runtime->SetConfigItem(citem);
+}
+
+```
+
+​	然后就可以在`JNI`打桩函数时输出堆栈信息了，下面将代码进行简单封装和调用。
+
+```c++
+typedef const char* (*kbacktraceFunc)(bool,const char*);
+
+const char* getBacktrace(const char* moduleName){
+    Runtime* runtime=Runtime::Current();
+    if(runtime->GetConfigItem().kbacktrace== nullptr){
+        ALOGD("mikrom kbacktrace is null");
+        return nullptr;
+    }
+    kbacktraceFunc kbacktrace=(kbacktraceFunc)runtime->GetConfigItem().kbacktrace;
+    return kbacktrace(true,moduleName);
+}
+
+void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,const char* funcname,jclass java_class, const char* name, const char* sig,jmethodID methodID){
+    if(!HasShow()){
+        return;
+    }
+    ObjPtr<mirror::Class> c = soa.Decode<mirror::Class>(java_class);
+    std::string temp;
+    const char* className= c->GetDescriptor(&temp);
+    ArtMethod* method = jni::DecodeArtMethod(methodID);
+    pid_t pid = getpid();
+    ALOGD("%s           /* TID %d */","mikrom",pid);
+    ALOGD("%s           [+] JNIEnv->%s","mikrom",funcname);
+    ALOGD("%s           |- jclass           :%s","mikrom",className);
+    ALOGD("%s           |- char*            :%p","mikrom",name);
+    ALOGD("%s           |:     %s","mikrom",name);
+    ALOGD("%s           |- char*            :%p","mikrom",sig);
+    ALOGD("%s           |:     %s","mikrom",sig);
+    ALOGD("%s           |= jmethodID        :0x%x   {%s}","mikrom",method->GetMethodIndex(),method->PrettyMethod().c_str());
+    Runtime* runtime=Runtime::Current();
+    const char* backtrace= getBacktrace(runtime->GetConfigItem().jniModuleName);
+    ALOGD("-------------------------mikrom Backtrace-------------------------\n%s\n",backtrace);
+}
+```
+
+​	到这里`JniTrace`的`AOSP`版本就完成了，其他的函数调用参考前面的做法即可，最后优化后的日志输入如下。
+
+```
+mikrom enter jni java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI() 0x7a0bc06010
+mikrom           /* TID 5641 */
+mikrom           [+] JNIEnv->GetMethodID
+mikrom           |- jclass           :Lcn/mik/nativedemo/MainActivity;
+mikrom           |- char*            :0x781eb6cf1b
+mikrom           |:     demo
+mikrom           |- char*            :0x781eb6ceef
+mikrom           |:     (IFLjava/lang/String;)Ljava/lang/String;
+mikrom           |= jmethodID        :0x277   {java.lang.String cn.mik.nativedemo.MainActivity.demo(int, float, java.lang.String)}
+-------------------------mikrom Backtrace-------------------------
+#05 pc 000000000000e9dc  /data/app/~~MjwExmAtQBa8X1Xp3ifz_g==/cn.mik.nativedemo-YbmCkQ7SdhNqbL7iXfOeug==/lib/arm64/libnativedemo.so (_ZN7_JNIEnv11GetMethodIDEP7_jclassPKcS3_+60)
+#06 pc 000000000000e888  /data/app/~~MjwExmAtQBa8X1Xp3ifz_g==/cn.mik.nativedemo-YbmCkQ7SdhNqbL7iXfOeug==/lib/arm64/libnativedemo.so (Java_cn_mik_nativedemo_MainActivity_stringFromJNI+80)
+mikrom           /* TID 5641 */
+mikrom           [+] JNIEnv->NewStringUTF
+mikrom           |- char*        : newdemo
+-------------------------mikrom Backtrace-------------------------
+#05 pc 000000000000ea14  /data/app/~~MjwExmAtQBa8X1Xp3ifz_g==/cn.mik.nativedemo-YbmCkQ7SdhNqbL7iXfOeug==/lib/arm64/libnativedemo.so (_ZN7_JNIEnv12NewStringUTFEPKc+44)
+#06 pc 000000000000e89c  /data/app/~~MjwExmAtQBa8X1Xp3ifz_g==/cn.mik.nativedemo-YbmCkQ7SdhNqbL7iXfOeug==/lib/arm64/libnativedemo.so (Java_cn_mik_nativedemo_MainActivity_stringFromJNI+100)
+mikrom           /* TID 5641 */
+mikrom           [+] JNIEnv->CallObjectMethodV
+mikrom           |- jmethodID        :0x277   {java.lang.String cn.mik.nativedemo.MainActivity.demo(int, float, java.lang.String)}
+mikrom           |- va_list          :0x7ffb41b790
+mikrom           |:     jint         : 1
+mikrom           |:     jfloat       : 2
+mikrom           |:     jstring      : newdemo
+mikrom           |= jstring          :3.0newdemo
+-------------------------mikrom Backtrace-------------------------
+#06 pc 000000000000eae4  /data/app/~~MjwExmAtQBa8X1Xp3ifz_g==/cn.mik.nativedemo-YbmCkQ7SdhNqbL7iXfOeug==/lib/arm64/libnativedemo.so (_ZN7_JNIEnv16CallObjectMethodEP8_jobjectP10_jmethodIDz+196)
+#07 pc 000000000000e8bc  /data/app/~~MjwExmAtQBa8X1Xp3ifz_g==/cn.mik.nativedemo-YbmCkQ7SdhNqbL7iXfOeug==/lib/arm64/libnativedemo.so (Java_cn_mik_nativedemo_MainActivity_stringFromJNI+132)
+mikrom           /* TID 5641 */
+mikrom           [+] JNIEnv->GetStringUTFChars
+mikrom           |- jboolean*        : 0
+mikrom           |= char*            : 3.0newdemo
+-------------------------mikrom Backtrace-------------------------
+#05 pc 000000000000eb54  /data/app/~~MjwExmAtQBa8X1Xp3ifz_g==/cn.mik.nativedemo-YbmCkQ7SdhNqbL7iXfOeug==/lib/arm64/libnativedemo.so (_ZN7_JNIEnv17GetStringUTFCharsEP8_jstringPh+52)
+#06 pc 000000000000e8d0  /data/app/~~MjwExmAtQBa8X1Xp3ifz_g==/cn.mik.nativedemo-YbmCkQ7SdhNqbL7iXfOeug==/lib/arm64/libnativedemo.so (Java_cn_mik_nativedemo_MainActivity_stringFromJNI+152)
+mikrom           /* TID 5641 */
+mikrom           [+] JNIEnv->NewStringUTF
+mikrom           |- char*        : 3.0newdemo
+-------------------------mikrom Backtrace-------------------------
+#05 pc 000000000000ea14  /data/app/~~MjwExmAtQBa8X1Xp3ifz_g==/cn.mik.nativedemo-YbmCkQ7SdhNqbL7iXfOeug==/lib/arm64/libnativedemo.so (_ZN7_JNIEnv12NewStringUTFEPKc+44)
+#06 pc 000000000000e910  /data/app/~~MjwExmAtQBa8X1Xp3ifz_g==/cn.mik.nativedemo-YbmCkQ7SdhNqbL7iXfOeug==/lib/arm64/libnativedemo.so (Java_cn_mik_nativedemo_MainActivity_stringFromJNI+216)
+mikrom leave jni java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI()
+```
+
+
+
