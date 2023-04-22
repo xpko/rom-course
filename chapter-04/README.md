@@ -193,4 +193,6 @@ make -j$(nproc --all)
 
 ​	需要注意的是，使用 `drawable-nodpi` 目录要慎重考虑，并尽可能避免使用。因为它们不适用于适应不同屏幕密度的需求，可能会导致在某些设备上显示不正确。需要确保图像资源已经按照目标大小进行了生成，并且能够在所有设备上显示正确。
 
-​	
+​	根据以上的信息，知道了图标是在`res`中`mipmap`开头的目录中。在这里以桌面的中的`Setting`应用为例子，找到目录`packages/apps/Settings/res/mipmap-hdpi/`看到了对应桌面中`Setting`的应用程序图标，文件名为`ic_launcher_settings.png`。而要替换该图标，直接使用新文件替换该图标即可。
+
+​	当然，如果要全部手动替换，来将系统中的图标更换是非常费力的一件事情，所以在了解完替换图标的原理后，可以通过开发一个简单的脚本来完成，例如`Setting`的图标是`ic_launcher_settings.png`，`Contacts`的图标是`ic_contacts_launcher.png`，`Calendar`的图标为`ic_launcher_calendar.png`，将系统中的常用图标找齐对应的文件名后，通过脚本来搜索目录，找到对应路径，然后根据新的素材文件对其一一替换，即可完成批量的工作。这里就不展开进行详细演示了。
