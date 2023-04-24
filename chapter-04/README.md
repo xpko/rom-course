@@ -189,10 +189,140 @@ make -j$(nproc --all)
 
 ​	通常情况下，`Android`应用程序需要为不同的屏幕密度提供不同版本的图像资源，以确保在不同的设备上以最佳方式显示。例如，在 `drawable-mdpi` 目录中存储基于中等密度屏幕（`mdpi`）的图像资源，而在 `drawable-hdpi` 目录中存储基于高密度屏幕（`hdpi`）的图像资源。
 
-​	然而，有时候应用程序需要使用固定大小的图像资源，并且不希望这些图像被缩放或扩展以适应不同的屏幕密度。在这种情况下，就可以使用 `drawable-nodpi` 目录来存储这些图像资源。这些图像将忽略设备的屏幕密度，并显示为其原始大小。
+​	然而，有时候应用程序需要使用固定大小的图像资源，并且不希望这些图像被缩放或扩展以适应不同的屏幕密度。在这种情况下，就可以使用 `drawable-nodpi` 目录来存储这些图像资源。这些图像将忽略设备的屏幕密度，并显示为其原始大小。例如在前文看到的桌面壁纸，就是使用的`nodpi`目录存放的资源文件。
 
 ​	需要注意的是，使用 `drawable-nodpi` 目录要慎重考虑，并尽可能避免使用。因为它们不适用于适应不同屏幕密度的需求，可能会导致在某些设备上显示不正确。需要确保图像资源已经按照目标大小进行了生成，并且能够在所有设备上显示正确。
 
 ​	根据以上的信息，知道了图标是在`res`中`mipmap`开头的目录中。在这里以桌面的中的`Setting`应用为例子，找到目录`packages/apps/Settings/res/mipmap-hdpi/`看到了对应桌面中`Setting`的应用程序图标，文件名为`ic_launcher_settings.png`。而要替换该图标，直接使用新文件替换该图标即可。
 
-​	当然，如果要全部手动替换，来将系统中的图标更换是非常费力的一件事情，所以在了解完替换图标的原理后，可以通过开发一个简单的脚本来完成，例如`Setting`的图标是`ic_launcher_settings.png`，`Contacts`的图标是`ic_contacts_launcher.png`，`Calendar`的图标为`ic_launcher_calendar.png`，将系统中的常用图标找齐对应的文件名后，通过脚本来搜索目录，找到对应路径，然后根据新的素材文件对其一一替换，即可完成批量的工作。这里就不展开进行详细演示了。
+​	当然，如果要全部手动替换，来将系统中的图标更换是非常费力的一件事情，所以在了解完替换图标的原理后，可以通过开发一个简单的脚本来完成，例如`Setting`的图标是`ic_launcher_settings.png`，`Contacts`的图标是`ic_contacts_launcher.png`，`Calendar`的图标为`ic_launcher_calendar.png`，将系统中的常用图标找齐对应的文件名后，通过脚本来搜索目录，找到对应路径，然后根据新的素材文件对其一一替换，即可完成批量的工作。实现代码如下。
+
+```python
+import os
+import shutil
+import subprocess
+
+# 执行cmd命令
+def exec(cmd):
+    proc = subprocess.Popen(
+        cmd,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        stdin=subprocess.PIPE  # 重定向输入值
+    )
+    proc.stdin.close()  # 既然没有命令行窗口，那就关闭输入
+    result = proc.stdout.read()  # 读取cmd执行的输出结果（是byte类型，需要decode）
+    proc.stdout.close()
+    return result.decode(encoding="utf-8")
+
+# 替换图标
+def replacePng(target,appName):
+    # 搜索该路径下的图标
+    cmdRes = exec(f"find /home/king/android_src/mikrom12_gitlab/packages/ -name {target}")
+    filePathList = cmdRes.split("\n")
+    curpath=os.getcwd()
+	# 遍历所有搜到的结果
+    for filepath in filePathList:
+        if filepath=="":
+            continue
+        # 为了避免其他应用的同名素材图标，所以使用appName过滤一下
+        if appName not in filepath:
+            continue
+        print('Found file: ' + filepath)
+        # 先将文件进行备份
+        shutil.copy(filepath,filepath+".bak")
+        # 然后将当前目录准备好的替换文件复制进去
+        replacePath=curpath+"/images/"+target
+        # 如果新文件不存在，则结束该文件的替换
+        if os.path.exists(replacePath)==False:
+            print("not found replace file:",replacePath)
+            break
+        shutil.copy(replacePath, filepath)
+
+# 使用备份的文件还原该图标
+def unReplacePng(target):
+    # 查找目标文件
+    cmdRes = exec(f"find /home/king/android_src/mikrom12_gitlab/frameworks/base/packages/ -name {target}")
+    filePathList = cmdRes.split("\n")
+    # 遍历所有结果
+    for filepath in filePathList:
+        if filepath=="":
+            continue
+        print('Found file: ' + filepath)
+        # 备份文件如果存在，则将其还原
+        bakfile=filepath + ".bak"
+        if os.path.exists(bakfile):
+            shutil.copy(bakfile, filepath)
+            print("unReplace file:",bakfile)
+
+def main():
+    # 替换为新素材
+    replacePng('ic_launcher_settings.png',"Setting")
+    replacePng('ic_contacts_launcher.png',"Contacts")
+    replacePng('ic_launcher_calendar.png',"Calendar")
+	
+    # 还原素材
+    # unReplacePng('ic_launcher_settings.png')
+    # unReplacePng('ic_contacts_launcher.png')
+    # unReplacePng('ic_launcher_calendar.png')
+
+if __name__ == '__main__':
+    main()
+
+```
+
+### 4.6 修改开机动画
+
+​	在`Android`中的开机动画并不是一个视频文件，或者`gif`文件，而是一个名为`bootanimation.zip`的压缩包文件。在这个压缩包文件中，有着若干`png`格式的图片，以及一个`desc`的描述文件，在开机时，系统会按照描述文件依次播放图片，关于该压缩文件的说明文档可以查看源码中的文件`frameworks/base/cmds/bootanimation/FORMAT.md`，下面是开机动画压缩包中的包含的文件说明。
+
+```
+    desc.txt - a text file
+    part0  \
+    part1   \  directories full of PNG frames
+    ...     /
+    partN  /
+```
+
+​	解压开机动画压缩包后的文件如下图。
+
+![image-20230424205456876](.\images\bootanimation.png)
+
+​	`desc.txt`文件内容如下。
+
+```
+832 520 30
+c 1 30 part0
+c 1 0 part1
+c 0 0 part2
+c 1 30 part3
+c 1 0 part4
+c 1 0 part5
+```
+
+​	第一行的`832 520`是图片的分辨率，`30`是播放帧率，每秒播放`30`张图片。
+
+​	第二行中，`c` 表示该部分将播放到完成，不管其他部分是否已经播放完毕。与此相反，如果第一个参数是`p` 表示该部分将一直播放，直到被新的部分替换或整个动画结束。第二个参数`1`代表播放`1`次。第三个参数表示播放的间隔，第四个参数表示对哪个目录的图片生效。
+
+​	查看其中一个目录下的文件如下图。
+
+![image-20230424210838393](.\images\play.png)
+
+​		对这些了解后，接着开始对其进行替换，为了便于简单演示，就不找新的素材进行替换了，直接讲`androidtv`的开机动画替换为当前开机动画，找到文件`device/google/atv/products/bootanimations/bootanimation.zip`，将其复制到自定义的任意目录，例如新建目录`packages/bootstart/`，将启动动画拷贝到该目录中。然后在文件`build/make/target/product/generic_system.mk`添加配置，将其拷贝到`system/media/`目录下。相关修改如下。
+
+```
+PRODUCT_COPY_FILES += \
+    packages/bootstart/bootanimation.zip:system/media/bootanimation.zip \
+```
+
+​	如果是自己制作的开机动画压缩包，可以在`desc.txt`所在的目录中执行命令`zip -0 -r ../bootanimation-832.zip ./*`，则会在上一级目录生成新的动画压缩文件。
+
+​	最后编译后，重新刷机。在开机时，即可看到开机动画发生了变动。在开机进入系统后，如果想要重新播放开机动画，可以执行下面的命令。
+
+```
+adb shell
+setprop ctl.start bootanim #执行开机动画
+getprop ctl.start bootanim #停止开机动画
+```
+
+​	
