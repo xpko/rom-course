@@ -1,62 +1,35 @@
 # 第三章 认识系统组件
 
+​		在上一章的学习中，成功编译了`Android12`以及对应的内核，并且通过多种方式刷入手机。接下来需要先对Android源码的根结构有一定的了解，对结构有一定了解能有助于更快的定位和分析源码，同时能让开发人员更好的理解Android系统。在修改系统时，有些简单的功能（例如`native`中的文件读写，`java`类型的转换`c++`类型等）并不需要我们重新实现，因为这些需求大多数在`Android`系统源码中都有类似的实现，熟练掌握`Android`系统源码，了解系统中常用的那些功能性函数，可以大大的提高定制系统的效率。在源码的学习过程中，最重要的是，**学习系统源码时，碰到问题，要学会跳过，很多时候是需要经历过一遍遍学习和实践后，才能完全理解其中的含义。**
+
 ## 3.1 源码结构介绍
 
-​	在上一章的学习中，成功编译了Android12以及对应的内核，并且通过多种方式刷入手机。接下来需要先对Android源码的根结构有一定的了解，对结构有一定了解能有助于更快的定位和分析源码，同时能让开发人员更好的理解Android系统。
+​	`Android`源码结构分为四个主要的模块：`frameworks、packages、hardware、system`。`frameworks`模块是`Android`系统的核心，包含了`Android`系统的核心类库、`Java`框架和服务，它是`Android`开发的基础。`packages`模块包括了`Android`系统的应用程序，主要是用户使用的应用程序，例如通讯录、日历和相机。`hardware`模块提供了对硬件设备的支持，例如触摸屏、摄像头等。最后，`system`模块包含了`Linux`内核和`Android`底层服务，它负责管理资源和处理系统事件。除了这些主要模块，`Android`源码中还有一些其他的文件夹，例如`build、external、prebuilts`和`tools`等，他们提供了编译系统所需的资源和工具。接下来，看看根目录的基本结构。
 
-​	Android源码结构分为四个主要的模块：frameworks、packages、hardware、system。frameworks模块是Android系统的核心，包含了Android系统的核心类库、Java框架和服务，它是Android开发的基础。packages模块包括了Android系统的应用程序，主要是用户使用的应用程序，例如通讯录、日历和相机。hardware模块提供了对硬件设备的支持，例如触摸屏、摄像头等。最后，system模块包含了Linux内核和Android底层服务，它负责管理资源和处理系统事件。除了这些主要模块，Android源码中还有一些其他的文件夹，例如build、external、prebuilts和tools等，他们提供了编译系统所需的资源和工具。接下来，看看根目录的基本结构。
-
-​	1、art：该目录是Android 5.0中新增加的，主要是实现Android RunTime（ART）的目录，它作为Android 4.4中的Dalvik虚拟机的替代，主要处理Java字节码。
-
-​	2、bionic：这是Android的C库，包含了很多标准的C库函数和头文件，还有一些Android特有的函数和头文件。
-
-​	3、bootable：包含了一些用于生成引导程序相关代码的工具和脚本，以及引导程序相关的一些源代码，但并不包含完整的引导程序代码。
-
-​	4、build：该目录包含了编译Android源代码所需要的脚本，包括makefile文件和一些构建工具。
-
-​	5、compatibility：该目录收集了Android设备的兼容性测试套件（CTS）和兼容性实现（Compatibility Implementation）。
-
-​	6、cts：该目录包含了Android设备兼容性测试套件（CTS），主要用来测试设备是否符合Android标准。
-
-​	7、dalvik：该目录包含了Dalvik虚拟机，它是Android 2.3版本之前的主要虚拟机，它主要处理Java字节码。
-
-​	8、developers：该目录包含了Android开发者文档和样例代码。
-
-​	9、development：该目录包含了一些调试工具，如systrace、monkey、ddms等。
-
-​	10、device：该目录包含了特定的Android设备的驱动程序。
-
-​	11、external：该目录包含了一些第三方库，如WebKit、OpenGL等。
-
-​	12、frameworks：该目录提供了Android应用程序调用底层服务的API，它也是Android应用程序开发的重要组成部分。
-
-​	13、hardware：该目录包含了Android设备硬件相关的驱动代码，如摄像头驱动、蓝牙驱动等。
-
-​	14、kernel：该目录包含了Android系统内核的源代码，它是Android系统的核心部分。
-
-​	15、libcore：该目录包含了Android底层库，它提供了一些基本的API，如文件系统操作、网络操作等。
-
-​	16、libnativehelper：该目录提供了一些C++库，它们可以帮助调用本地代码。
-
-​	17、packages：该目录包含了Android框架、应用程序和其他模块的源代码。 包含了 Android 系统中的所有应用程序，例如短信、电话、浏览器、相机等
-
-​	18、pdk：该目录是一个Android平台开发套件，它包含了一些工具和API，以便开发者快速开发Android应用程序。
-
-​	19、platform_testing：该目录包含了一些测试工具，用于测试Android平台的稳定性和性能。
-
-​	20、prebuilts：该目录包含了一些预先编译的文件，如编译工具、驱动程序等。
-
-​	21、sdk：该目录是Android SDK的源代码，它包含了Android SDK的API文档、代码示例、工具等。
-
-​	22、system：该目录包含了Android系统的核心部分，如系统服务、应用程序、内存管理机制、文件系统、网络协议等。
-
-​	23、test：该目录包含了一些测试代码，用于测试Android系统的各个组件。
-
-​	24、toolchain：该目录包含了一些编译器和工具链，如GCC、Clang等，用于编译Android源代码。
-
-​	25、tools：该目录包含了一些开发工具，如Android SDK工具、Android Studio、Eclipse等。
-
-​	26、vendor：该目录包含了一些硬件厂商提供的驱动程序，如摄像头驱动、蓝牙驱动等。
+1. `art`：该目录是`Android 5.0`中新增加的，主要是实现`Android RunTime（ART）`的目录，它作为`Android 4.4`中的`Dalvik`虚拟机的替代，主要处理`Java`字节码。
+2. `bionic`：这是`Android`的`C`库，包含了很多标准的`C`库函数和头文件，还有一些`Android`特有的函数和头文件。
+3. `build`：该目录包含了编译`Android`源代码所需要的脚本，包括`makefile`文件和一些构建工具。
+4. `compatibility`：该目录收集了`Android`设备的兼容性测试套件`（CTS）`和兼容性实现`（Compatibility Implementation）`。
+5. `cts`：该目录包含了Android设备兼容性测试套件`（CTS）`，主要用来测试设备是否符合`Android`标准。
+6. `dalvik`：该目录包含了`Dalvik`虚拟机，它是`Android 2.3`版本之前的主要虚拟机，它主要处理`Java`字节码。
+7. `developers`：该目录包含了`Android`开发者文档和样例代码。
+8. `development`：该目录包含了一些调试工具，如`systrace、monkey、ddms`等。
+9. `device`：该目录包含了特定的`Android`设备的驱动程序。
+10. `external`：该目录包含了一些第三方库，如`WebKit、OpenGL`等。
+11. `frameworks`：该目录提供了`Android`应用程序调用底层服务的`API`。
+12. `hardware`：该目录包含了`Android`设备硬件相关的驱动代码，如摄像头驱动、蓝牙驱动等。
+13. `kernel`：该目录包含了`Android`系统内核的源代码，它是`Android`系统的核心部分。
+14. `libcore`：该目录包含了`Android`底层库，它提供了一些基本的`API`，如文件系统操作、网络操作等。
+15. `packages`：该目录包含了`Android`框架、应用程序和其他模块的源代码。 包含了`Android`系统中的所有应用程序，例如短信、电话、浏览器、相机等
+16. `pdk`：该目录是一个`Android`平台开发套件，它包含了一些工具和`API`，以便开发者快速开发Android应用程序。
+17. `platform_testing`：该目录包含了一些测试工具，用于测试`Android`平台的稳定性和性能。
+18. `prebuilts`：该目录包含了一些预先编译的文件，如编译工具、驱动程序等。
+19. `sdk`：该目录是`Android SDK`的源代码，它包含了`Android SDK`的`API`文档、代码示例、工具等。
+20. `system`：该目录包含了`Android`系统的核心部分，如系统服务、应用程序、内存管理机制、文件系统、网络协议等。
+21. `test`：该目录包含了一些测试代码，用于测试`Android`系统的各个组件。
+22. `toolchain`：该目录包含了一些编译器和工具链，如`GCC、Clang`等，用于编译`Android`源代码。
+23. `tools`：该目录包含了一些开发工具，如`Android SDK`工具、`Android Studio、Eclipse`等。
+24. `vendor`：该目录包含了一些硬件厂商提供的驱动程序，如摄像头驱动、蓝牙驱动等。
 
 ​	并不需要全部记下，只要大致的有个印象，当你常常为了实现某个功能，查阅翻读源码时，就会不断加深你对这些目录划分的了解，回顾一下第二章中，在编译源码的过程中下载了两个驱动相关的文件。回顾下图。
 
