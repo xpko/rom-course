@@ -1260,7 +1260,17 @@ cd ~/android_src/myandroid12/
 repo sync -j8
 ```
 
-​	到这里就完成了`gitlab`源码管理AOSP源码开发了。最后如何使用`git`提交和查看历史记录我就不在这里叙述了。
+​	到这里就完成了`gitlab`源码管理AOSP源码开发了，当修改代码后，就可以使用`repo`来提交修改了。在根目录执行下面的命令提交修改代码。
+
+```
+repo forall -c 'git add .' 
+
+repo forall -c 'git commit -m "change my update" '
+
+repo forall -c 'git push'
+```
+
+​	在上面的命令中`repo forall -c`表示对清单中的所有`git`执行后面的命令。也可以选择直接在当前修改的`git`仓库中进行提交。
 
 ### 2.9 小结
 
