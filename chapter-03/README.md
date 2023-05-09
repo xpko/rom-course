@@ -1,62 +1,58 @@
 # 第三章 认识系统组件
 
-​		在上一章的学习中，成功编译了`Android12`以及对应的内核，并且通过多种方式刷入手机。接下来需要先对Android源码的根结构有一定的了解，对结构有一定了解能有助于更快的定位和分析源码，同时能让开发人员更好的理解Android系统。在修改系统时，有些简单的功能（例如`native`中的文件读写，`java`类型的转换`c++`类型等）并不需要我们重新实现，因为这些需求大多数在`Android`系统源码中都有类似的实现，熟练掌握`Android`系统源码，了解系统中常用的那些功能性函数，可以大大的提高定制系统的效率。在源码的学习过程中，最重要的是，**学习系统源码时，碰到问题，要学会跳过，很多时候是需要经历过一遍遍学习和实践后，才能完全理解其中的含义。**
+​	在上一章的学习中，成功编译了`Android12`以及对应的内核，并且通过多种方式刷入手机。接下来需要先对`Android`源码的根结构有一定的了解，了解结构能有助于更快的定位和分析源码，同时能让开发人员更好的理解`Android`系统。在修改系统时，有些简单的功能（例如`native`中的文件读写，`java`类型的转换`c++`类型等）并不需要我们重新实现，因为这些需求大多数在`Android`系统源码中都有类似的实现，熟练掌握`Android`系统源码，了解系统中常用的那些功能性函数，可以大大的提高定制系统的效率。在源码的学习过程中，最重要的是，**学习系统源码时，碰到问题，要学会跳过，很多时候是需要经历过一遍遍学习和实践后，才能完全理解其中的含义。**
 
 ## 3.1 源码结构介绍
 
-​	`Android`源码结构分为四个主要的模块：`frameworks、packages、hardware、system`。`frameworks`模块是`Android`系统的核心，包含了`Android`系统的核心类库、`Java`框架和服务，它是`Android`开发的基础。`packages`模块包括了`Android`系统的应用程序，主要是用户使用的应用程序，例如通讯录、日历和相机。`hardware`模块提供了对硬件设备的支持，例如触摸屏、摄像头等。最后，`system`模块包含了`Linux`内核和`Android`底层服务，它负责管理资源和处理系统事件。除了这些主要模块，`Android`源码中还有一些其他的文件夹，例如`build、external、prebuilts`和`tools`等，他们提供了编译系统所需的资源和工具。接下来，看看根目录的基本结构。
+​	首先看看`Android`源码根目录下，各个目录的简单介绍。
 
-1. `art`：该目录是`Android 5.0`中新增加的，主要是实现`Android RunTime（ART）`的目录，它作为`Android 4.4`中的`Dalvik`虚拟机的替代，主要处理`Java`字节码。
-2. `bionic`：这是`Android`的`C`库，包含了很多标准的`C`库函数和头文件，还有一些`Android`特有的函数和头文件。
+1. `art`：该目录在`Android 5.0`中新增加的，主要是实现`Android RunTime（ART）`的目录，它作为`Android 4.4`中的`Dalvik`虚拟机的替代，主要处理`Java`字节码执行。
+2. `bionic`：`Android`的`C`库，包含了很多标准的`C`库函数和头文件，还有一些`Android`特有的函数和头文件。
 3. `build`：该目录包含了编译`Android`源代码所需要的脚本，包括`makefile`文件和一些构建工具。
-4. `compatibility`：该目录收集了`Android`设备的兼容性测试套件`（CTS）`和兼容性实现`（Compatibility Implementation）`。
-5. `cts`：该目录包含了Android设备兼容性测试套件`（CTS）`，主要用来测试设备是否符合`Android`标准。
-6. `dalvik`：该目录包含了`Dalvik`虚拟机，它是`Android 2.3`版本之前的主要虚拟机，它主要处理`Java`字节码。
-7. `developers`：该目录包含了`Android`开发者文档和样例代码。
-8. `development`：该目录包含了一些调试工具，如`systrace、monkey、ddms`等。
-9. `device`：该目录包含了特定的`Android`设备的驱动程序。
-10. `external`：该目录包含了一些第三方库，如`WebKit、OpenGL`等。
-11. `frameworks`：该目录提供了`Android`应用程序调用底层服务的`API`。
-12. `hardware`：该目录包含了`Android`设备硬件相关的驱动代码，如摄像头驱动、蓝牙驱动等。
-13. `kernel`：该目录包含了`Android`系统内核的源代码，它是`Android`系统的核心部分。
-14. `libcore`：该目录包含了`Android`底层库，它提供了一些基本的`API`，如文件系统操作、网络操作等。
-15. `packages`：该目录包含了`Android`框架、应用程序和其他模块的源代码。 包含了`Android`系统中的所有应用程序，例如短信、电话、浏览器、相机等
-16. `pdk`：该目录是一个`Android`平台开发套件，它包含了一些工具和`API`，以便开发者快速开发Android应用程序。
-17. `platform_testing`：该目录包含了一些测试工具，用于测试`Android`平台的稳定性和性能。
-18. `prebuilts`：该目录包含了一些预先编译的文件，如编译工具、驱动程序等。
-19. `sdk`：该目录是`Android SDK`的源代码，它包含了`Android SDK`的`API`文档、代码示例、工具等。
-20. `system`：该目录包含了`Android`系统的核心部分，如系统服务、应用程序、内存管理机制、文件系统、网络协议等。
-21. `test`：该目录包含了一些测试代码，用于测试`Android`系统的各个组件。
-22. `toolchain`：该目录包含了一些编译器和工具链，如`GCC、Clang`等，用于编译`Android`源代码。
-23. `tools`：该目录包含了一些开发工具，如`Android SDK`工具、`Android Studio、Eclipse`等。
-24. `vendor`：该目录包含了一些硬件厂商提供的驱动程序，如摄像头驱动、蓝牙驱动等。
+4. `compatibility`：`Android`设备的兼容性测试套件`（CTS）`和兼容性实现`（Compatibility Implementation）`。
+5. `cts`：`Android`设备兼容性测试套件`（CTS）`，主要用来测试设备是否符合`Android`标准。
+6. `dalvik`：`Dalvik`虚拟机，它是`Android 2.3`版本之前的主要虚拟机，它主要处理`Java`字节码执行。
+7. `developers`：`Android`开发者文档和样例代码。
+8. `development`：调试工具，如`systrace、monkey、ddms`等。
+9. `device`：特定的`Android`设备的驱动程序。
+10. `external`：第三方库，如`WebKit、OpenGL`等。
+11. `frameworks`：`Android`应用程序调用底层服务的`API`。
+12. `hardware`：`Android`设备硬件相关的驱动代码，如摄像头驱动、蓝牙驱动等。
+13. `kernel`：`Android`系统内核的源代码，它是`Android`系统的核心部分。
+14. `libcore`：`Android`底层库，它提供了一些基本的`API`，如文件系统操作、网络操作等。
+15. `packages`：`Android`系统中的系统应用程序的源码，例如短信、电话、浏览器、相机等
+16. `pdk`：`Android`平台开发套件，它包含了一些工具和`API`，以便开发者快速开发Android应用程序。
+17. `platform_testing`：测试工具，用于测试`Android`平台的稳定性和性能。
+18. `prebuilts`：预先编译的文件，如编译工具、驱动程序等。
+19. `sdk`：`Android SDK`的源代码，`Android SDK`的`API`文档、代码示例、工具等。
+20. `system`：`Android`系统的核心部分，如系统服务、应用程序、内存管理机制、文件系统、网络协议等。
+21. `test`：测试代码，用于测试`Android`系统的各个组件。
+22. `toolchain`：编译器和工具链，如`GCC、Clang`等，用于编译`Android`源代码。
+23. `tools`：开发工具，如`Android SDK`工具、`Android Studio、Eclipse`等。
+24. `vendor`：硬件厂商提供的驱动程序，如摄像头驱动、蓝牙驱动等。
 
-​	并不需要全部记下，只要大致的有个印象，当你常常为了实现某个功能，查阅翻读源码时，就会不断加深你对这些目录划分的了解，回顾一下第二章中，在编译源码的过程中下载了两个驱动相关的文件。回顾下图。
-
-![image-20230219161123065](.\images\image-20230219161123065.png)
-
-​	下载两个驱动文件后，将文件放到源码根目录中解压，并且执行相应的sh脚本进行导出，到了这里，了解到vendor中是硬件厂商提供的摄像头蓝牙之类的驱动程序。可以观察到，脚本执行后，实际就是将驱动文件放到了对应目录中。对根目录结构有一个简单的了解之后，就可以开始翻阅源码了，这个步骤可通过前面搭建好的开发环境，或者是使用在线的源码查看网站http://aospxref.com/。
+​	在上述目录中，并不需要全部记下，只需要记住几个重点即可。在实践时，为了实现功能，查阅翻读源码时，就会不断加深你对这些目录划分的了解。
 
 ## 3.2 Android启动流程
 
-​	Android启动流程主要分为四个阶段：Bootloader阶段、Kernel阶段、Init进程阶段和System Server启动阶段，首先，先简单介绍下这几个阶段的启动流程。
+​	`Android`启动流程主要分为四个阶段：`Bootloader`阶段、`Kernel`阶段、`Init`进程阶段和`System Server`启动阶段，首先简单介绍下这几个阶段的启动流程。
 
-1. Bootloader阶段： 当手机或平板电脑开机时，首先会执行引导加载程序（Bootloader），它会在手机的ROM中寻找启动内核（Kernel）的镜像文件，并将其加载进RAM中。在这个阶段中，Android系统并没有完全启动，只是建立了基本的硬件和内核环境。
-2. Kernel阶段： Kernel阶段是Android启动流程的第二阶段，它主要负责初始化硬件设备、加载驱动程序、设置内存管理等。此外，Kernel还会加载initramfs，它是一个临时文件系统，包含了init程序和一些设备文件。
-3. Init进程阶段： Kernel会启动init进程，它是Android系统中的第一个用户空间进程。Init进程的主要任务是读取init.rc文件，并根据该文件中的配置信息启动和配置Android系统的各个组件。在这个阶段中，系统会依次启动各个服务和进程，包括启动Zygote进程和创建System Server进程。
-4. System Server启动阶段： System Server是Android系统的核心服务进程，它会启动所有的系统服务。其中包括Activity Manager、Package Manager、Window Manager、Location Manager、Telephony Manager、Wi-Fi Service、Bluetooth Service等。System Server启动后，Android系统就完全启动了，用户可以进入桌面，开始使用各种应用程序。
+1. `Bootloader`阶段： 当手机或平板电脑开机时，首先会执行引导加载程序（`Bootloader`），它会在手机的`ROM`中寻找启动内核（`Kernel`）的镜像文件，并将其加载进`RAM`中。在这个阶段中，`Android`系统并没有完全启动，只是建立了基本的硬件和内核环境。
+2. `Kernel`阶段： `Kernel`阶段是`Android`启动流程的第二阶段，它主要负责初始化硬件设备、加载驱动程序、设置内存管理等。此外，`Kernel`还会加载`initramfs`，它是一个临时文件系统，包含了`init`程序和一些设备文件。
+3. `Init`进程阶段： `Kernel`会启动`init`进程，它是`Android`系统中的第一个用户空间进程。`Init`进程的主要任务是读取`init.rc`文件，并根据该文件中的配置信息启动和配置`Android`系统的各个组件。在这个阶段中，系统会依次启动各个服务和进程，包括启动`Zygote`进程和创建`System Server`进程。
+4. `System Server`启动阶段： `System Server`是`Android`系统的核心服务进程，它会启动所有的系统服务。其中包括`Activity Manager、Package Manager、Window Manager、Location Manager、Telephony Manager、Wi-Fi Service、Bluetooth Service`等。`System Server`启动后，`Android`系统就完全启动了，用户可以进入桌面，开始使用各种应用程序。
 
-​	在开始启动流程代码追踪前，最重要的一点是不要试图了解所有细节过程，分析代码时要抓住需求重点，然后围绕着需求点来进行深入分析。尽管Android源码是一个非常庞大的体系，选择一个方向来熟悉代码，这样就能快速的达成目标，避免深陷代码泥沼。
+​	在开始启动流程代码追踪前，最重要的是不要试图了解所有细节过程，分析代码时要抓住需求重点，然后围绕着需求点来进行深入分析。尽管`Android`源码是一个非常庞大的体系，选择一个方向来熟悉代码，这样就能快速的达成目标，避免深陷代码泥沼。
 
 ## 3.3 内核启动
 
-​	Bootloader其实就是一段程序，这个程序的主要功能就是用来引导系统启动，也称之为引导程序，而这个引导程序是存放在一个只读的寄存器中，从物理地址0开始的一段空间分配给了这个只读存储器来存放引导程序。
+​	`Bootloader`其实就是一段程序，这个程序的主要功能就是用来引导系统启动，也称之为引导程序，而这个引导程序是存放在一个只读的寄存器中，从物理地址0开始的一段空间分配给了这个只读存储器来存放引导程序。
 
-​	Bootloader会初始化硬件设备并准备内存空间映射，为启动内核准备环境。然后寻找内核的镜像文件，验证boot分区和recovery分区的完整性，然后将其加载到内存中，最后开始执行内核。可以通过命令`adb reboot bootloader`直接重启进入引导程序。
+​	`Bootloader`会初始化硬件设备并准备内存空间映射，为启动内核准备环境。然后寻找内核的镜像文件，验证`boot`分区和`recovery`分区的完整性，然后将其加载到内存中，最后开始执行内核。可以通过命令`adb reboot bootloader`直接重启进入引导程序。
 
-​	Bootloader 将件初始化完成后，会在特定的物理地址处查找 EFI 引导头（efi_head）。如果查找到 EFI 引导头，bootloader 就会加载 EFI 引导头指定的 EFI 引导程序，然后开始执行 EFI 引导程序，以进行后续的 EFI 引导流程。而这个efi_head就是linux内核最早的入口了。
+​	`Bootloader`初始化完成后，会在特定的物理地址处查找`EFI`引导头（`efi_head`）。如果查找到`EFI`引导头，`bootloader`就会加载`EFI`引导头指定的`EFI`引导程序，然后开始执行`EFI`引导程序，以进行后续的`EFI`引导流程。而这个`efi_head`就是`linux`内核最早的入口了。
 
-​	这里注意，现在并需要完全看懂内核中的汇编部分代码，主要是为了解执行的流程，所以并不需要你有汇编的功底，只需要能看懂简单的几个指令即可，接下来，打开编译内核源码时的目录，找到文件`~/android_src/android-kernel/private/msm-google/arch/arm64/kernel/head.S`查看汇编代码如下。
+​	这里注意，现在并需要完全看懂内核中的汇编部分代码，主要是为了解执行的流程，所以并不需要你有汇编的功底，只需要能看懂简单的几个指令即可，接下来，打开编译内核源码时的目录，找到文件`android-kernel/private/msm-google/arch/arm64/kernel/head.S`查看汇编代码如下。
 
 ```assembly
 	__HEAD
@@ -75,7 +71,7 @@ _head:
 	b	stext				// branch to kernel start, magic
 ```
 
-​	在arm指令集中，指令b表示跳转，所以，继续找到stext的定义部分。
+​	在`arm`指令集中，指令`b`表示跳转，所以，继续找到`stext`的定义。
 
 ```assembly
 	/*
@@ -89,7 +85,7 @@ _head:
 	 *  x19/x20    __primary_switch()         callee preserved temp registers
 	 */
 ENTRY(stext)
-	bl	preserve_boot_args		//把引导程序传的4个参数保存在全局数组boot_args
+	bl	preserve_boot_args			// 把引导程序传的4个参数保存在全局数组boot_args
 	bl	el2_setup			// Drop to EL1, w0=cpu_boot_mode
 	adrp	x23, __PHYS_OFFSET
 	and	x23, x23, MIN_KIMG_ALIGN - 1	// KASLR offset, defaults to 0
@@ -106,7 +102,7 @@ ENTRY(stext)
 ENDPROC(stext)
 ```
 
-​	能看到最后一行是跳转到__primary_switch，接下来继续看它的实现代码
+​	能看到最后一行是跳转到`__primary_switch`，接下来继续看它的实现代码
 
 ```assembly
 __primary_switch:
@@ -151,7 +147,7 @@ __primary_switch:
 ENDPROC(__primary_switch)
 ```
 
-接着，继续跟踪`__primary_switched`函数，然后，就能看到一个重点函数start_kernel了。
+​	继续跟踪`__primary_switched`函数，就能看到调用重点函数`start_kernel`了。
 
 ```assembly
 __primary_switched:
@@ -203,7 +199,7 @@ __primary_switched:
 ENDPROC(__primary_switched)
 ```
 
-​		上面能看到最后一个指令就是start_kernel了，这个函数是内核的入口函数，同时也是c语言部分的入口函数。接下来，查看文件`~/android_src/android-kernel/private/msm-google/init/main.c`，可以看到其中大量的init初始化各种子系统的函数调用。
+​		上面能看到最后一个指令就是调用`start_kernel`了，这个函数是内核的入口函数，同时也是`c`语言部分的入口函数。接下来，查看文件`android-kernel/private/msm-google/init/main.c`，可以看到其中大量的`init`初始化各种子系统的函数调用。
 
 ```c
 asmlinkage __visible void __init start_kernel(void)
@@ -218,7 +214,7 @@ asmlinkage __visible void __init start_kernel(void)
 }
 ```
 
-​	继续追踪关键的函数rest_init，就是在这里开启的内核初始化线程以及创建内核线程。
+​	继续追踪关键的函数`rest_init`，在这里开启的内核初始化线程以及创建内核线程。
 
 ```c
 static noinline void __ref rest_init(void)
@@ -231,44 +227,13 @@ static noinline void __ref rest_init(void)
 }
 ```
 
-接着看看kernel_init线程执行的内容。
+​	继续看看`kernel_init`内核初始化线程的实现。
 
 ```c
 static int __ref kernel_init(void *unused)
 {
 	int ret;
-
-	kernel_init_freeable();
-	/* need to finish all async __init code before freeing the memory */
-	async_synchronize_full();
-	free_initmem();
-	mark_readonly();
-	system_state = SYSTEM_RUNNING;
-	numa_default_policy();
-
-	rcu_end_inkernel_boot();
-
-	if (ramdisk_execute_command) {
-		ret = run_init_process(ramdisk_execute_command);
-		if (!ret)
-			return 0;
-		pr_err("Failed to execute %s (error %d)\n",
-		       ramdisk_execute_command, ret);
-	}
-
-	/*
-	 * We try each of these until one succeeds.
-	 *
-	 * The Bourne shell can be used instead of init if we are
-	 * trying to recover a really broken machine.
-	 */
-	if (execute_command) {
-		ret = run_init_process(execute_command);
-		if (!ret)
-			return 0;
-		panic("Requested init %s failed (error %d).",
-		      execute_command, ret);
-	}
+	...
 	if (!try_to_run_init_process("/sbin/init") ||
 	    !try_to_run_init_process("/etc/init") ||
 	    !try_to_run_init_process("/bin/init") ||
@@ -280,7 +245,7 @@ static int __ref kernel_init(void *unused)
 }
 ```
 
-​	在这里，看到了原来init进程是用try_to_run_init_process启动的，运行失败的情况下会依次执行上面的4个进程。继续看看这个函数是如何启动进程的。
+​	在这里，看到了原来`init`进程是用`try_to_run_init_process`启动的，运行失败的情况下会依次执行上面的4个进程。继续看看这个函数是如何启动进程的。
 
 ```c
 static int try_to_run_init_process(const char *init_filename)
@@ -298,7 +263,7 @@ static int try_to_run_init_process(const char *init_filename)
 }
 ```
 
-这里简单包装调用的run_init_process，继续看下面的代码
+这里简单包装调用的`run_init_process`，继续看下面的代码
 
 ```c
 static int run_init_process(const char *init_filename)
@@ -310,27 +275,27 @@ static int run_init_process(const char *init_filename)
 }
 ```
 
-​	这里能看到最后是通过execve拉起来的init进程。到这里内核就成功拉起了在最后，总结内核启动的简单流程图如下。
+​	这里能看到最后是通过`execve`拉起来了系统的第一个进程，`init`进程。总结内核启动的简单流程图如下。
 
 ![startkernel](.\images\startkernel.png)
 
 ## 3.4 Init进程启动
 
-​	init进程是Android系统的第一个进程，它在系统启动之后就被启动，并且一直运行到系统关闭，它是Android系统的核心进程，隶属于系统进程，具有最高的权限，所有的其他进程都是它的子进程，它的主要功能有以下几点：
+​	`init`进程是`Android`系统的第一个进程，它在系统启动之后就被启动，并且一直运行到系统关闭，它是`Android`系统的核心进程，隶属于系统进程，具有最高的权限，所有的其他进程都是它的子进程，它的主要功能有以下几点：
 
-​	 1、启动Android系统的基础服务：init进程负责启动Android系统的基础服务，如zygote、surfaceflinger、bootanim、power manager等；
+​	 1、启动`Android`系统的基础服务：`init`进程负责启动`Android`系统的基础服务。
 
-​	 2、管理系统进程：init进程管理系统进程，比如启动和关闭系统进程；
+​	 2、管理系统进程：`init`进程管理系统进程，比如启动和关闭系统进程。
 
-​	 3、加载设备驱动：init进程会加载设备的驱动，使设备可以正常使用；
+​	 3、加载设备驱动：`init`进程会加载设备的驱动，使设备可以正常使用。
 
-​	 4、加载系统环境变量：init进程会加载系统所需要的环境变量，如PATH、LD_LIBRARY_PATH等；
+​	 4、加载系统环境变量：`init`进程会加载系统所需要的环境变量，如`PATH、LD_LIBRARY_PATH`等。
 
-​	 5、加载系统配置文件：init进程会加载系统所需要的配置文件，以便系统正常运行；
+​	 5、加载系统配置文件：`init`进程会加载系统所需要的配置文件。
 
-​	 6、启动用户进程：init进程会启动用户进程，如桌面程序、默认浏览器等。
+​	 6、启动用户进程：`init`进程会启动用户进程，如桌面程序、默认浏览器等。
 
-​	init进程的入口是在Android源码的`system/core/init/main.cpp`。下面，看看入口函数main
+​	`init`进程的入口是在`Android`源码的`system/core/init/main.cpp`。下面，看看入口函数的实现。
 
 ```cpp
 int main(int argc, char** argv) {
@@ -364,7 +329,7 @@ int main(int argc, char** argv) {
 }
 ```
 
-​	根据上一章的启动init的参数，可以判断第一次启动时，执行的是FirstStageMain函数，继续看看这个函数的实现，可以看到初始化了一些基础系统支持的目录，以及使用mount进行挂载。
+​	根据上一章的启动`init`的参数，可以判断第一次启动时，执行的是`FirstStageMain`函数，继续看看这个函数的实现，可以看到初始化了一些基础系统支持的目录，以及使用`mount`进行挂载。
 
 ```cpp
 
@@ -396,7 +361,7 @@ int FirstStageMain(int argc, char** argv) {
     CHECKCALL(mount("selinuxfs", "/sys/fs/selinux", "selinuxfs", 0, NULL));
     CHECKCALL(mknod("/dev/kmsg", S_IFCHR | 0600, makedev(1, 11)));
 	...
-    // 这里可以看到重新访问了init进程，并且参数设置为selinux_setup
+    // 重新调用拉起init进程，并且参数设置为selinux_setup
     const char* path = "/system/bin/init";
     const char* args[] = {path, "selinux_setup", nullptr};
     auto fd = open("/dev/kmsg", O_WRONLY | O_CLOEXEC);
@@ -414,7 +379,7 @@ int FirstStageMain(int argc, char** argv) {
 }
 ```
 
-​	在目录初始化完成后，又拉起了一个init进程，并且传了参数selinux_setup，接下来，直接看前面main入口函数中判断出现该参数时调用的SetupSelinux函数。
+​	在目录初始化完成后，又拉起了一个`init`进程，并且传了参数`selinux_setup`，接下来，直接看前面`main`入口函数中判断出现该参数时调用的`SetupSelinux`函数。
 
 ```cpp
 int SetupSelinux(char** argv) {
@@ -468,7 +433,7 @@ int SetupSelinux(char** argv) {
 }
 ```
 
-​	上面的代码可以看到，在完成selinux的加载处理后，又拉起了一个init进程，并且传参数second_stage。接下来，看第三步SecondStageMain函数
+​	上面的代码可以看到，在完成`selinux`的加载处理后，又拉起了一个`init`进程，并且传参数`second_stage`。接下来，看第三步`SecondStageMain`函数
 
 ```cpp
 
@@ -488,7 +453,7 @@ int SecondStageMain(int argc, char** argv) {
 }
 ```
 
-​	接下来，看看LoadBootScripts这个函数的处理
+​	继续跟踪`LoadBootScripts`函数，了解是如何解析执行的`init.rc`文件。
 
 ```cpp
 
@@ -532,7 +497,7 @@ bool Parser::ParseConfig(const std::string& path) {
 }
 ```
 
-​	如果是目录，则遍历所有文件再调用解析文件，下面直接看ParseConfigFile就好了
+​	如果是目录，则遍历所有文件再调用解析文件，所以直接看`ParseConfigFile`就好了
 
 ```cpp
 bool Parser::ParseConfigFile(const std::string& path) {
@@ -542,7 +507,7 @@ bool Parser::ParseConfigFile(const std::string& path) {
 }
 ```
 
-​	最后看看ParseData是如何解析数据的
+​	最后看看`ParseData`是如何解析数据的
 
 ```cpp
 
@@ -588,7 +553,7 @@ void Parser::ParseData(const std::string& filename, std::string* data) {
 }
 ```
 
-​	简单解读一下这里的代码，首先这里看到从section_parsers_中找到指定的节点解析对象来执行ParseSection或者ParseLineSection进行解析.rc文件中的数据，看下parse创建的函数CreateParser
+​	简单解读一下这里的代码，首先这里看到从`section_parsers_`中取出对应的节点解析对象`section_parser`，通过`section_parser`执行`ParseSection`或者`ParseLineSection`函数解析`.rc`文件中的数据。所以需要了解`section_parsers_`中存储的是什么，查看函数`CreateParser`就明白了。所谓的节点解析对象，就是`ServiceParser、ActionParser、ImportParser`。
 
 ```cpp
 void Parser::AddSectionParser(const std::string& name, std::unique_ptr<SectionParser> parser) {
@@ -608,15 +573,14 @@ Parser CreateParser(ActionManager& action_manager, ServiceList& service_list) {
 }
 ```
 
-​	如果了解过init.rc文件格式的，看到这里就很眼熟了，这就是.rc文件中配置时使用的节点名称了。他们的功能简单的描述如下。
+​	如果了解过`init.rc`文件格式的，看到这里就很眼熟了，这就是`.rc`文件中配置时使用的节点名称了。他们的功能简单的描述如下。
 
-​	1、service		定义一个服务
+1. `service`	定义一个服务
+2. `on`				触发某个`action`时，执行对应的指令
 
-​	2、on				触发某个action时，执行对应的指令
+3. `import`	  表示导入另外一个`rc`文件
 
-​	3、import	   表示导入另外一个rc文件
-
-​	再解读上面的代码就是，根据rc文件的配置不同，来使用ServiceParser、ActionParser、ImportParser这三种节点解析对象的ParseSection或者ParseLineSection函数来处理。看看这三个对象的处理函数把。
+​	再解读上面的代码就是，根据`rc`文件的配置不同，来使用`ServiceParser`、`ActionParser`、`ImportParser`这三种节点解析对象的`ParseSection`或者`ParseLineSection`函数来处理。继续看看这三个对象的解析函数实现。
 
 ```cpp
 // service节点的解析处理
@@ -705,15 +669,15 @@ Result<void> ImportParser::ParseSection(std::vector<std::string>&& args,
 
 ```
 
-​	到这里大致的init进程的启动流程相信大家已经有了一定了解。明白init的原理后，对于init.rc相信大家已经有了简单的印象，接下来将详细展开讲解init.rc文件。
+​	到这里大致的`init`进程的启动流程相信大家已经有了一定了解。明白`init`的原理后，对于`init.rc`相信大家已经有了简单的印象，接下来将详细展开讲解`init.rc`文件。
 
 ## 3.5 init.rc
 
-​	init.rc是Android系统中的一个脚本文件并非配置文件，是一种名为`Android Init Language`的脚本语言写成的文件，当然也可以简单当作是配置文件理解，主要用于启动和管理Android上的其他进程对系统进行初始化工作。
+​	`init.rc`是`Android`系统中的一个脚本文件并非配置文件，是一种名为`Android Init Language`的脚本语言写成的文件，当然也可以简单当作是配置文件理解，主要用于启动和管理`Android`上的其他进程对系统进行初始化工作。
 
-​	将init.rc看作是init进程功能的动态延申，一些经常可能需要改动的初始化系统任务就放在配置文件中，然后读取配置解析后再进行初始化执行，如此可以提高一定的灵活性，相信很多开发人员在工作中都有做过类似的封装。而init.rc就是配置文件的入口，在init.rc中再通过上一章所说的import节点来导入其他的配置文件，所以这些文件都可以算是init.rc的一部分。在上一章，通过了解Init进程的工作流程，看到了解析init.rc文件的过程，这将帮助更容易理解init.rc文件。
+​	将`init.rc`看作是`init`进程功能的动态延申，一些可能需要改动的初始化系统任务就放在配置文件中，然后读取配置解析后再进行初始化执行，如此可以提高一定的灵活性，相信很多开发人员在工作中都有做过类似的封装。而`init.rc`就是配置文件的入口，在`init.rc`中通过`import`节点来导入其他的配置文件，所以这些文件都可以算是`init.rc`的一部分。在上一章，通过了解`init`进程的工作流程，明白了解析`init.rc`文件的过程。
 
-​	init.rc是由多个section节点组成的，而节点的类型分别主要是service、on、import三种。而这三种在上一节的原理介绍中，有简单的介绍，它们的作用分别是定义服务、事件触发、导入其他rc文件。下面，来看init.rc文件中的几个例子，查看文件`system/core/rootdir/init.rc`。
+​	`init.rc`是由多个`section`节点组成的，而节点的类型分别主要是`service、on、import`三种。上一节中，有简单的介绍，它们的作用分别是定义服务、事件触发、导入其他`rc`文件。下面，来看`init.rc`文件中的几个例子，查看文件`system/core/rootdir/init.rc`。
 
 ```
 // 导入另一个rc文件
@@ -772,7 +736,7 @@ service console /system/bin/sh
     setenv HOSTNAME console
 ```
 
-​	看完各种节点的样例后，大概了解init.rc中应该如何添加一个section了。import非常简单，只需要指定一个rc文件的路径即可。on节点在源码中，看到对应的处理是ActionParser，这个节点就是当触发了一个Action的事件后就自上而下，依次执行节点下的所有命令，所以，就得了解一下一共有哪些Action事件提供使用。详细介绍参考自`http://www.gaohaiyan.com/4047.html`
+​	看完各种节点的样例后，大概了解`init.rc`中应该如何添加一个`section`了。`import`非常简单，只需要指定一个`rc`文件的路径即可。`on`节点在源码中，看到对应的处理是`ActionParser`，这个节点就是当触发了一个`Action`的事件后就自上而下，依次执行节点下的所有命令，所以，就得了解一下一共有哪些`Action`事件提供使用。详细介绍参考自`http://www.gaohaiyan.com/4047.html`
 
 ```
 on boot                     #系统启动触发
@@ -789,7 +753,7 @@ on service-exited-<name>    #在指定service退出时触发
 on <name>=<value>           #当属性<name>等于<value>时触发
 ```
 
-​	在触发Action事件后执行的命令一共有如下这些
+​	在触发`Action`事件后可以执行的命令如下。
 
 ```
 chdir <dirc>                                  更改工作目录为<dirc>
@@ -817,7 +781,7 @@ trigger <event>                               触发一个事件
 write <path> <string> [<string>]*             打开一个文件，并写入字符串
 ```
 
-​	而service节点主要是将可执行程序作为服务启动，上面的例子，看到节点下面有一系列的参数，下面是这些参数的详细描述。
+​	而`service`节点主要是将可执行程序作为服务启动，上面的例子，看到节点下面有一系列的参数，下面是这些参数的详细描述。
 
 ```
 class <name>                                       为该服务指定一个class名，同一个class的所有服务必须同时启动或者停止。
@@ -832,7 +796,7 @@ socket <name> <type> <perm> [ <user> [<group>]]    创建一个名为/dev/socket
 user <username>                                    在启动服务前将用户组切换为<username>，默认情况下用户都是root
 ```
 
-​	到这里，相信大家应该能够看懂init.rc中的大多数section的意义了。下面的例子将组合使用，定义一个自己的服务，并且启动它。
+​	到这里，相信大家应该能够看懂`init.rc`中的大多数`section`的含义了。下面的例子将组合使用，定义一个自己的服务，并且启动它。
 
 ```
 service kservice /system/bin/app_process -Djava.class.path=/system/framework/ksvr.jar /system/bin cn.mik.ksvr.kSystemSvr svr
@@ -847,11 +811,11 @@ on property:sys.boot_completed=1
     start kservice
 ```
 
-​	上面的案例中，我定义了一个kservice的服务，使用`/system/bin/app_process`作为进程启动，并设置目标jar作为应用的classpath，最后设置jar文件的入口类`cn.mik.ksvr.kSystemSvr`，最后的svr是做为参数传递给kSystemSvr中的main函数。接下来是当属性sys.boot_completed变更为1时表示手机完成引导，执行节点下的命令启动刚刚定义的服务。
+​	上面的案例中，我定义了一个`kservice`的服务，使用`/system/bin/app_process`作为进程启动，并设置目标`jar`作为应用的`classpath`，最后设置`jar`文件的入口类`cn.mik.ksvr.kSystemSvr`，最后的`svr`是做为参数传递给`kSystemSvr`中的`main`函数。接下来是当属性`sys.boot_completed`变更为1时表示手机完成引导，执行节点下的命令启动刚刚定义的服务。
 
 ## 3.6 Zygote启动
 
-​	在前面init进程的最后，知道了是解析处理init.rc文件，在上一节学习了init.rc中的各节点的详细介绍，这时，已经可以继续阅读init.rc追踪后续的启动流程了。
+​	了解`init.rc`定义的原理后，就可以继续阅读`init.rc`追踪后续的启动流程了。
 
 ```
 # 导入含有zygote服务定义的rc文件，这个会根据系统所支持的对应架构导入
@@ -864,7 +828,7 @@ on late-init
     trigger zygote-start
     ...
 
-# 最后启动了zygote和zygote_secondary
+# zygote-start事件触发时执行的节点。最后启动了zygote和zygote_secondary
 on zygote-start && property:ro.crypto.state=unencrypted
     wait_for_prop odsign.verification.done 1
     # A/B update verifier that marks a successful boot.
@@ -876,7 +840,7 @@ on zygote-start && property:ro.crypto.state=unencrypted
 
 ```
 
-​	zygote服务定义的rc文件在路径`system/core/rootdir/`中。分别是init.zygote32.rc、init.zygote64.rc、init.zygote32_64.rc、init.zygote64_32.rc，其中32_64表示32位是主模式而64_32的则表示64位是主模式。下面，查看zygote64的是如何定义的。
+​	`zygote`服务定义的`rc`文件在路径`system/core/rootdir/`中。分别是`init.zygote32.rc`、`init.zygote64.rc`、`init.zygote32_64.rc`、`init.zygote64_32.rc`，下面查看`zygote64`的是如何定义的。
 
 ```
 // --zygote 传递给app_process程序的参数,表示这是启动一个孵化器。
@@ -899,9 +863,11 @@ service zygote /system/bin/app_process64 -Xzygote /system/bin --zygote --start-s
     critical window=${zygote.critical_window.minute:-off} target=zygote-fatal
 ```
 
-​	前面定义和启动一个自己定义的java服务时也看到是通过app_process启动的。app_process是Android系统的主要进程，它是其他所有应用程序的容器，它负责创建新的进程，并启动它们。此外，它还管理应用程序的生命周期，防止任何一个应用程序占用资源过多，或者做出不良影响。app_process还负责在应用运行时为它们提供上下文，以及管理应用进程之间的通信。
+​	从定义中可以看到`zygote`进程实际启动的就是`app_process`进程。
 
-​	接下来，跟踪app_process的实现，它的入口是在目录`frameworks/base/cmds/app_process/app_main.cpp`中。
+​	`app_process`是`Android`系统的主要进程，它是其他所有应用程序的容器，它负责创建新的进程，并启动它们。此外，它还管理应用程序的生命周期，防止任何一个应用程序占用资源过多，或者做出不良影响。`app_process`还负责在应用运行时为它们提供上下文，以及管理应用进程之间的通信。
+
+​	跟踪`app_process`的实现，它的入口是在目录`frameworks/base/cmds/app_process/app_main.cpp`中。
 
 ```c++
 #if defined(__LP64__)
@@ -962,13 +928,13 @@ int main(int argc, char* const argv[])
 }
 ```
 
-​	从代码中可以看到主要是对参数进行处理包装后，然后根据是否携带--zygote选择启动ZygoteInit或者是RuntimeInit。
+​	从代码中可以看到主要是对参数进行处理包装后，然后根据是否携带`--zygote`选择启动`ZygoteInit`或者是`RuntimeInit`。
 
-​	ZygoteInit是Android应用程序运行期间的主要接口。ZygoteInit负责加载和初始化Android运行时环境，例如应用程序运行器，垃圾收集器等，并且它启动Android系统中的所有核心服务。
+​	`ZygoteInit`负责加载和初始化`Android`运行时环境，例如应用程序运行器，垃圾收集器等，并且它启动`Android`系统中的所有核心服务。
 
-​	 RuntimeInit负责将应用程序的执行环境与系统的运行环境进行联系，然后将应用程序的主类加载到运行时，最后将应用程序的控制权交给应用程序的主类。
+​	 `RuntimeInit`负责将应用程序的执行环境与系统的运行环境进行联系，然后将应用程序的主类加载到运行时，最后将应用程序的控制权交给应用程序的主类。
 
-​	下面继续看看runtime.start的实现，查看对应文件`frameworks/base/core/jni/AndroidRuntime.cpp`
+​	下面继续看看`runtime.start`的实现，查看对应文件`frameworks/base/core/jni/AndroidRuntime.cpp`
 
 ```cpp
 void AndroidRuntime::start(const char* className, const Vector<String8>& options, bool zygote)
@@ -1025,7 +991,7 @@ void AndroidRuntime::start(const char* className, const Vector<String8>& options
 }
 ```
 
-​	看到这里通过JNI函数CallStaticVoidMethod调用了ZygoteInit的main入口函数，现在就来到了java层中，查看文件代码`frameworks/base/core/java/com/android/internal/os/ZygoteInit.java`
+​	通过`JNI`函数`CallStaticVoidMethod`调用了`ZygoteInit`的`main`入口函数，现在就来到了`java`层中，查看文件代码`frameworks/base/core/java/com/android/internal/os/ZygoteInit.java`
 
 ```java
 public static void main(String[] argv) {
@@ -1061,9 +1027,7 @@ public static void main(String[] argv) {
                     return;
                 }
             }
-
             Log.i(TAG, "Accepting command socket connections");
-
             // socket服务端等待AMS的请求，收到请求后就会由Zygote服务端来通过fork创建应用程序的进程
             caller = zygoteServer.runSelectLoop(abiList);
         } catch (Throwable ex) {
@@ -1083,7 +1047,7 @@ public static void main(String[] argv) {
     }
 ```
 
-​	这里的重点是创建了一个zygoteServer，然后根据参数决定是否forkSystemServer，最后runSelectLoop等待AMS发送消息创建应用程序的进程。依次从代码观察他们的本质。首先是ZygoteServer的构造函数，可以看到，主要是创建Socket套接字。
+​	这里的重点是创建了`zygoteServer`，然后根据参数决定是否`forkSystemServer`，最后`runSelectLoop`等待`AMS`发送消息创建应用程序的进程。依次从代码观察他们的本质。首先是`ZygoteServer`的构造函数，可以看到，主要是创建`Socket`套接字。
 
 ```java
 ZygoteServer(boolean isPrimaryZygote) {
@@ -1106,7 +1070,7 @@ ZygoteServer(boolean isPrimaryZygote) {
     }
 ```
 
-​	然后就是forkSystemServer的返回值到底是什么，最后的run会调用到哪里呢
+​	接着分析`forkSystemServer`，目的是了解返回值到底是什么，返回值的`r.run()`会调用到哪里。
 
 ```java
 private static Runnable forkSystemServer(String abiList, String socketName,
@@ -1225,7 +1189,7 @@ protected static Runnable findStaticMain(String className, String[] argv,
     return new MethodAndArgsCaller(m, argv);
 }
 
-// forkSystemServer最终返回的就是这个类
+// forkSystemServer最终返回的就是MethodAndArgsCaller对象
 static class MethodAndArgsCaller implements Runnable {
     /** method to call */
     private final Method mMethod;
@@ -1258,7 +1222,7 @@ static class MethodAndArgsCaller implements Runnable {
 
 ```
 
-​	forkSystemServer函数走到最后是通过反射获取com.android.server.SystemServer的入口函数main，并封装到MethodAndArgsCaller对象中返回。最后的返回结果调用run时，就会执行到SystemServer中的main函数。继续看看main函数的实现，查看文件`frameworks/base/services/java/com/android/server/SystemServer.java`
+​	`forkSystemServer`函数走到最后是通过反射获取`com.android.server.SystemServer`的入口函数`main`，并封装到`MethodAndArgsCaller`对象中返回。最后的返回结果调用`run`时，就会执行到`SystemServer`中的`main`函数。继续看看`main`函数的实现，查看文件`frameworks/base/services/java/com/android/server/SystemServer.java`
 
 ```java
 public static void main(String[] args) {
@@ -1348,7 +1312,7 @@ public void systemReady(final Runnable goingCallback, @NonNull TimingsTraceAndSl
 
 ```
 
-​	到这里大致的服务启动流程就清楚了，最后成功抵达了Luncher的启动，后面的章节会介绍到应该如何添加一个自定义的系统服务。重新回到流程中，继续看看runSelectLoop函数是如何实现的
+​	到这里大致的服务启动流程就清楚了，最后成功抵达了`Luncher`的启动，重新回到流程中，继续看看`runSelectLoop`函数是如何实现的。
 
 ```java
 Runnable runSelectLoop(String abiList) {
@@ -1396,7 +1360,7 @@ Runnable runSelectLoop(String abiList) {
     }
 ```
 
-​	重点主要放在返回值的跟踪上，直接看fillUsapPool函数做了些什么
+​	重点主要放在返回值的跟踪上，直接看`fillUsapPool`函数做了些什么
 
 ```java
 Runnable fillUsapPool(int[] sessionSocketRawFDs, boolean isPriorityRefill) {
@@ -1470,7 +1434,7 @@ private static Runnable childMain(@Nullable ZygoteCommandBuffer argBuffer,
     }
 ```
 
-​	前面分析过了zygoteInit，所以这里就不需要再继续进去看了，看看孵化器进程是如何初始化应用程序环境的，追踪specializeAppProcess函数。
+​	前面分析过了`zygoteInit`函数，所以这里就不需要再继续进去看了，看看孵化器进程是如何初始化应用程序环境的，追踪`specializeAppProcess`函数。
 
 ```java
 private static void specializeAppProcess(int uid, int gid, int[] gids, int runtimeFlags,
@@ -1479,7 +1443,7 @@ private static void specializeAppProcess(int uid, int gid, int[] gids, int runti
             String[] pkgDataInfoList, String[] allowlistedDataInfoList,
             boolean bindMountAppDataDirs, boolean bindMountAppStorageDirs) {
 
-    	// 可以看到准备的一大堆参数，继续传递到了native层进行初始化处理了。
+    	// 参数传递到了native层进行初始化处理了。
         nativeSpecializeAppProcess(uid, gid, gids, runtimeFlags, rlimits, mountExternal, seInfo,
                 niceName, startChildZygote, instructionSet, appDataDir, isTopApp,
                 pkgDataInfoList, allowlistedDataInfoList,
@@ -1558,7 +1522,7 @@ static void SpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray gids, 
 }
 ```
 
-​	可以在这里插入一个日志，看看在android启动完成时，孵化出了哪些进程。
+​	可以在这里插入一个日志，看看在`android`启动完成时，孵化出了哪些进程。
 
 ```cpp
 env->CallStaticVoidMethod(gZygoteClass, gCallPostForkChildHooks, runtime_flags,
@@ -1585,7 +1549,7 @@ fastboot devices
 fastboot flashall -w
 ```
 
-使用android studio的logcat查看日志，或者直接使用命令`adb logcat > tmp.log`将日志输出到文件中，再进行观察。
+使用`android studio`的`logcat`查看日志，或者直接使用命令`adb logcat > tmp.log`将日志输出到文件中，再进行观察。
 
 ```
 system_process                       W  start CallStaticVoidMethod current process:(null)
@@ -1637,15 +1601,15 @@ pid-3638                             W  start CallStaticVoidMethod current proce
 
 ```
 
-​	从日志中可以看到system_process进程是孵化出来的一个进程，然后还孵化了一堆系统相关的进程，包括launcher桌面应用管理的系统应用。
+​	从日志中可以看到`system_process`进程是孵化出来的第一个进程，接着孵化了一堆系统相关的进程，包括`launcher`桌面应用管理的系统应用。
 
-​	根据前文看到的一系列的代码，能够在代码中看到以下几个结论
+​	根据前文看到的一系列的源码，分析后得出以下几个结论
 
-	1. zygote进程启动是通过app_process执行程序启动的
-	1. 由init进程解析init.rc时启动的第一个zygote
-	1. 在第一个zygote进程中创建的ZygoteServer，并开始监听消息。
-	1. zygote是在ZygoteServer这个服务中收到消息后，再去fork出新进程的
-	1. 所有进程均来自于zygote进程的fork而来，所以zygote是进程的始祖
+1. `zygote`启动实际是启动`app_process`进程。
+1. 由`init`进程解析`init.rc`时启动了第一个`zygote`进程。
+1. 在第一个`zygote`进程中创建的`ZygoteServer`，并开始监听消息。
+1. 其他`zygote`进程是在`ZygoteServer`这个服务中收到消息后，再去`fork`出的新进程。
+1. 所有进程均来自于`zygote`进程的`fork`而来，所以`zygote`是进程的始祖。
 
 ​	结合观测到的代码流程，再看下面的一个汇总图。不需要完全理解启动过程中的所有的处理，重点是在这里留下一个大致的印象以及简单的整理。
 
@@ -1653,11 +1617,11 @@ pid-3638                             W  start CallStaticVoidMethod current proce
 
 ## 3.7 Android app应用启动
 
-​	经过一系列的代码跟踪，学习到了android是如何启动的，系统服务是如何启动的，进程是如何启动。接下来相信大家也好奇，当点击打开一个应用后，系统做了一系列的什么工作，最终打开了这个app，调用到`MainActivity`的`onCreate`的呢。
+​	经过一系列的代码跟踪，学习了`android`是如何启动的，系统服务是如何启动的，进程是如何启动。相信大家也好奇，当点击打开一个应用后，系统做了一系列的什么工作，最终打开了这个`app`，调用到`MainActivity`的`onCreate`的呢。
 
-​	当Android成功进入系统后，在主界面中显示的桌面是一个叫做Launcher的系统应用，它是用来显示系统中已经安装的应用程序，并将这些信息的图标作为快捷方式显示在屏幕上，当用户点击图标时，Launcher就会启动对应的应用。在前文中，从forkSystemServer的流程中，最后能看到系统启动准备就绪后拉起了Launcher的应用。
+​	当`Android`成功进入系统后，在主界面中显示的桌面是一个叫做`Launcher`的系统应用，它是用来显示系统中已经安装的应用程序，并将这些信息的图标作为快捷方式显示在屏幕上，当用户点击图标时，`Launcher`就会启动对应的应用。在前文中，从`forkSystemServer`的流程中，最后能看到系统启动准备就绪后拉起了`Launcher`的应用。
 
-​	那么Launcher是如何打开一个应用的呢？其实Launcher本身就是作为第一个应用在系统启动后首先打开的，那么既然Launcher就是应用。那么在手机上看到各种应用的图标，就是它读取到需要展示的数据，然后布局展示出来的，点击后打开应用，就是给每个item设置的点击事件进行处理的。接着，来看看这个Launcher应用的源码。
+​	`Launcher`是如何打开一个应用的呢？其实`Launcher`本身就是作为第一个应用在系统启动后首先打开的，既然`Launcher`就是应用。那么在手机上看到各种应用的图标，就是它读取到需要展示的数据，然后布局展示出来的，点击后打开应用，就是给每个`item`设置的点击事件进行处理的。接着，来看看这个`Launcher`应用的源码。
 
 ​	查看代码`frameworks/base/core/java/android/app/LauncherActivity.java`。
 
@@ -1673,9 +1637,9 @@ public abstract class LauncherActivity extends ListActivity {
 }
 ```
 
-​	如果你是一名android开发人员，相信你对`startActivity`这个函数非常熟悉了，但是`startActivity`是如何打开一个应用的呢，很多人不会深入了解，但是，有了前文中的一系列基础铺垫，这时你已经能尝试追踪调用链了。现在，继续深入挖掘`startActivity`的原理。
+​	如果你是一名`android`开发人员，相信你对`startActivity`这个函数非常熟悉了，但是`startActivity`是如何打开一个应用的呢，很多人不会深入了解，有了前文中的一系列基础铺垫，这时你已经能尝试追踪调用链了。现在，继续深入挖掘`startActivity`的原理。
 
-​	查看代码`frameworks/base/core/java/android/app/Activity.java`
+​	查看代码`frameworks/base/core/java/android/app/Activity.java`。
 
 ```java
 public void startActivity(Intent intent, @Nullable Bundle options) {
@@ -1691,7 +1655,7 @@ public void startActivity(Intent intent, @Nullable Bundle options) {
 
 ```
 
-​	继续追踪startActivityForResult
+​	继续追踪`startActivityForResult`的实现。
 
 ```java
 
@@ -1703,6 +1667,7 @@ public void startActivityForResult(
             intent.putExtra(Intent.EXTRA_REFERRER, referrer);
         }
         options = transferSpringboardActivityOptions(options);
+    	// 运行Activity
         Instrumentation.ActivityResult ar =
             mInstrumentation.execStartActivity(
                 this, mMainThread.getApplicationThread(), mToken, who,
@@ -1716,7 +1681,7 @@ public void startActivityForResult(
     }
 ```
 
-​	接下来的关键函数是execStartActivity，继续深入
+​	接下来的关键函数是`execStartActivity`，继续深入
 
 ```java
 // 继续追踪execStartActivity
@@ -1727,6 +1692,7 @@ public ActivityResult execStartActivity(
         try {
             intent.migrateExtraStreamToClipData(who);
             intent.prepareToLeaveProcess(who);
+            // 启动Activity
             int result = ActivityTaskManager.getService().startActivity(whoThread,
                     who.getOpPackageName(), who.getAttributionTag(), intent,
                     intent.resolveTypeIfNeeded(who.getContentResolver()), token,
@@ -1741,7 +1707,7 @@ public ActivityResult execStartActivity(
 
 ```
 
-​	接下来发现是ActivityTaskManager对应的service调用的startActivity。
+​	`ActivityTaskManager`下的`service`调用的`startActivity`。
 
 ​	查看代码`frameworks/base/services/core/java/com/android/server/wm/ActivityTaskManagerService.java`
 
@@ -1780,7 +1746,7 @@ private int startActivityAsUser(IApplicationThread caller, String callingPackage
 
 ```
 
-​	最后，调用的是`execute`，先看看obtainStarter返回的对象类型
+​	先看看`obtainStarter`返回的对象类型。
 
 ```java
 ActivityStarter obtainStarter(Intent intent, String reason) {
@@ -1788,9 +1754,7 @@ ActivityStarter obtainStarter(Intent intent, String reason) {
     }
 ```
 
-​	看到返回的是`ActivityStarter`类型，找到对应的`excute`的实现
-
-​	TODO 下面的代码帮我补充下细节描述
+​	看到返回的是`ActivityStarter`类型，接着找到对应的`excute`的实现
 
 ```java
 // 处理 Activity 启动请求的接口
@@ -1810,7 +1774,6 @@ private int executeRequest(Request request) {
         ...
     }
 
-
 private int startActivityUnchecked(final ActivityRecord r, ActivityRecord sourceRecord,
                 IVoiceInteractionSession voiceSession, IVoiceInteractor voiceInteractor,
                 int startFlags, boolean doResume, ActivityOptions options, Task inTask,
@@ -1823,32 +1786,31 @@ private int startActivityUnchecked(final ActivityRecord r, ActivityRecord source
     }
 
 
-
 int startActivityInner(final ActivityRecord r, ActivityRecord sourceRecord,
             IVoiceInteractionSession voiceSession, IVoiceInteractor voiceInteractor,
             int startFlags, boolean doResume, ActivityOptions options, Task inTask,
             boolean restrictedBgActivity, NeededUriGrants intentGrants) {
-        setInitialState(r, options, inTask, doResume, startFlags, sourceRecord, voiceSession,
-                voiceInteractor, restrictedBgActivity);
-
         ...
-        // 主要作用是判断当前 activity 是否可见以及是否需要为其新建 Task
+        // 判断是否需要为 Activity 创建新的 Task
         mTargetRootTask.startActivityLocked(mStartActivity,
                 topRootTask != null ? topRootTask.getTopNonFinishingActivity() : null, newTask,
                 mKeepCurTransition, mOptions, sourceRecord);
+    	// 如果需要恢复 Activity
         if (mDoResume) {
             final ActivityRecord topTaskActivity =
                     mStartActivity.getTask().topRunningActivityLocked();
+            // 判断当前 Activity 是否可见以及是否需要暂停后台 Activity
             if (!mTargetRootTask.isTopActivityFocusable()
                     || (topTaskActivity != null && topTaskActivity.isTaskOverlay()
                     && mStartActivity != topTaskActivity)) {
                	...
             } else {
+                // 如果当前 Activity 可见，则将其移动到前台
                 if (mTargetRootTask.isTopActivityFocusable()
                         && !mRootWindowContainer.isTopDisplayFocusedRootTask(mTargetRootTask)) {
                     mTargetRootTask.moveToFront("startActivityInner");
                 }
-
+				// 恢复处于焦点状态的 Activity 的顶部 Activity
                 mRootWindowContainer.resumeFocusedTasksTopActivities(
                         mTargetRootTask, mStartActivity, mOptions, mTransientLaunch);
             }
@@ -1856,29 +1818,30 @@ int startActivityInner(final ActivityRecord r, ActivityRecord sourceRecord,
         ...
     }
 
-
-// 将所有聚焦的 Task 的所有 Activity 恢复运行，因为有些刚加入的 Activity 是处于暂停状态的
+// 恢复处于焦点状态的 Activity 的顶部 Activity。
 boolean resumeFocusedTasksTopActivities(
             Task targetRootTask, ActivityRecord target, ActivityOptions targetOptions,
             boolean deferPause) {
         ...
+        // 遍历所有显示器
         for (int displayNdx = getChildCount() - 1; displayNdx >= 0; --displayNdx) {
             final DisplayContent display = getChildAt(displayNdx);
             ...
+            // 获取当前焦点所在的任务根节点
             final Task focusedRoot = display.getFocusedRootTask();
+            // 如果有任务根节点，则恢复任务根节点中顶部的 Activity
             if (focusedRoot != null) {
                 result |= focusedRoot.resumeTopActivityUncheckedLocked(target, targetOptions);
             } else if (targetRootTask == null) {
+                // 如果没有焦点任务根节点，并且目标任务根节点为空，则恢复 Home Activity
                 result |= resumeHomeActivity(null /* prev */, "no-focusable-task",
                                              display.getDefaultTaskDisplayArea());
             }
-
         }
-
         return result;
     }
 
-
+// 恢复位于任务根节点顶部的 Activity
 boolean resumeTopActivityUncheckedLocked(ActivityRecord prev, ActivityOptions options,
             boolean deferPause) {
         ...
@@ -1886,7 +1849,7 @@ boolean resumeTopActivityUncheckedLocked(ActivityRecord prev, ActivityOptions op
         ...
     }
 
-
+// 恢复位于任务根节点顶部的 Activity。
 private boolean resumeTopActivityInnerLocked(ActivityRecord prev, ActivityOptions options,
             boolean deferPause) {
         ...
@@ -1899,16 +1862,16 @@ private boolean resumeTopActivityInnerLocked(ActivityRecord prev, ActivityOption
 
 ```
 
-​	接下来startProcessAsync判断目标Activity的应用是否在运行，在运行的则直接启动，否则启动新进程。
+​	`startSpecificActivity`将启动指定的`Activity`。
 
 ```java
 void startSpecificActivity(ActivityRecord r, boolean andResume, boolean checkConfig) {
-        // Is this activity's application already running?
+        // 是否已经有进程在运行这个应用程序?
         final WindowProcessController wpc =
                 mService.getProcessController(r.processName, r.info.applicationInfo.uid);
 
         boolean knownToBeDead = false;
-    	// 在运行中的直接启动
+    	// 如果应用程序正在运行，则直接启动 Activity
         if (wpc != null && wpc.hasThread()) {
             try {
                 realStartActivityLocked(r, wpc, andResume, checkConfig);
@@ -1922,9 +1885,9 @@ void startSpecificActivity(ActivityRecord r, boolean andResume, boolean checkCon
             // restart the application.
             knownToBeDead = true;
         }
-
+		// 通知 Keyguard 正在启动一个不确定的 Activity（仅在 Keyguard 转换期间使用）
         r.notifyUnknownVisibilityLaunchedForKeyguardTransition();
-		// 不在运行中则启动新进程
+		// 如果应用程序未运行，则异步启动新进程
         final boolean isTop = andResume && r.isTopRunningActivity();
         mService.startProcessAsync(r, knownToBeDead, isTop, isTop ? "top-activity" : "activity");
     }
@@ -1952,134 +1915,134 @@ void startProcessAsync(ActivityRecord activity, boolean knownToBeDead, boolean i
     }
 ```
 
-​	上面开启新进程的代码是异步发送消息给了ActivityManagerService。找到AMS中对应的startProcess
+​	上面开启新进程的代码是异步发送消息给了`ActivityManagerService`。找到`AMS`中对应的`startProcess`。
 
 ```java
 @Override
-        public void startProcess(String processName, ApplicationInfo info, boolean knownToBeDead,
-                boolean isTop, String hostingType, ComponentName hostingName) {
-            try {
-                if (Trace.isTagEnabled(Trace.TRACE_TAG_ACTIVITY_MANAGER)) {
-                    Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "startProcess:"
-                            + processName);
-                }
-                synchronized (ActivityManagerService.this) {
-                    // If the process is known as top app, set a hint so when the process is
-                    // started, the top priority can be applied immediately to avoid cpu being
-                    // preempted by other processes before attaching the process of top app.
-                    startProcessLocked(processName, info, knownToBeDead, 0 /* intentFlags */,
-                            new HostingRecord(hostingType, hostingName, isTop),
-                            ZYGOTE_POLICY_FLAG_LATENCY_SENSITIVE, false /* allowWhileBooting */,
-                            false /* isolated */);
-                }
-            } finally {
-                Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
-            }
+public void startProcess(String processName, ApplicationInfo info, boolean knownToBeDead,
+                         boolean isTop, String hostingType, ComponentName hostingName) {
+    try {
+        if (Trace.isTagEnabled(Trace.TRACE_TAG_ACTIVITY_MANAGER)) {
+            Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "startProcess:"
+                             + processName);
         }
+        synchronized (ActivityManagerService.this) {
+            // If the process is known as top app, set a hint so when the process is
+            // started, the top priority can be applied immediately to avoid cpu being
+            // preempted by other processes before attaching the process of top app.
+            startProcessLocked(processName, info, knownToBeDead, 0 /* intentFlags */,
+                               new HostingRecord(hostingType, hostingName, isTop),
+                               ZYGOTE_POLICY_FLAG_LATENCY_SENSITIVE, false /* allowWhileBooting */,
+                               false /* isolated */);
+        }
+    } finally {
+        Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
+    }
+}
 
 // 继续追踪startProcessLocked
 final ProcessRecord startProcessLocked(String processName,
-            ApplicationInfo info, boolean knownToBeDead, int intentFlags,
-            HostingRecord hostingRecord, int zygotePolicyFlags, boolean allowWhileBooting,
-            boolean isolated) {
-        return mProcessList.startProcessLocked(processName, info, knownToBeDead, intentFlags,
-                hostingRecord, zygotePolicyFlags, allowWhileBooting, isolated, 0 /* isolatedUid */,
-                null /* ABI override */, null /* entryPoint */,
-                null /* entryPointArgs */, null /* crashHandler */);
-    }
+                                       ApplicationInfo info, boolean knownToBeDead, int intentFlags,
+                                       HostingRecord hostingRecord, int zygotePolicyFlags, boolean allowWhileBooting,
+                                       boolean isolated) {
+    return mProcessList.startProcessLocked(processName, info, knownToBeDead, intentFlags,
+                                           hostingRecord, zygotePolicyFlags, allowWhileBooting, isolated, 0 /* isolatedUid */,
+                                           null /* ABI override */, null /* entryPoint */,
+                                           null /* entryPointArgs */, null /* crashHandler */);
+}
 
 // 在这里初始化了一堆进程信息，然后调用了另一个重载
 // 并且注意entryPoint赋值android.app.ActivityThread
 boolean startProcessLocked(ProcessRecord app, HostingRecord hostingRecord,
-            int zygotePolicyFlags, boolean disableHiddenApiChecks, boolean disableTestApiChecks,
-            String abiOverride) {
-        	...
-            // the PID of the new process, or else throw a RuntimeException.
-            final String entryPoint = "android.app.ActivityThread";
+                           int zygotePolicyFlags, boolean disableHiddenApiChecks, boolean disableTestApiChecks,
+                           String abiOverride) {
+    ...
+        // the PID of the new process, or else throw a RuntimeException.
+        final String entryPoint = "android.app.ActivityThread";
 
-            return startProcessLocked(hostingRecord, entryPoint, app, uid, gids,
-                    runtimeFlags, zygotePolicyFlags, mountExternal, seInfo, requiredAbi,
-                    instructionSet, invokeWith, startTime);
-    }
+    return startProcessLocked(hostingRecord, entryPoint, app, uid, gids,
+                              runtimeFlags, zygotePolicyFlags, mountExternal, seInfo, requiredAbi,
+                              instructionSet, invokeWith, startTime);
+}
 
 //
 boolean startProcessLocked(HostingRecord hostingRecord, String entryPoint, ProcessRecord app,
-            int uid, int[] gids, int runtimeFlags, int zygotePolicyFlags, int mountExternal,
-            String seInfo, String requiredAbi, String instructionSet, String invokeWith,
-            long startTime) {
-        	...
-            final Process.ProcessStartResult startResult = startProcess(hostingRecord,
-                                                                            entryPoint, app,
-                                                                            uid, gids, runtimeFlags, zygotePolicyFlags, mountExternal, seInfo,
-                                                                            requiredAbi, instructionSet, invokeWith, startTime);
-                handleProcessStartedLocked(app, startResult.pid, startResult.usingWrapper,
-                                           startSeq, false);
-            ...
-    		return app.getPid() > 0;
+                           int uid, int[] gids, int runtimeFlags, int zygotePolicyFlags, int mountExternal,
+                           String seInfo, String requiredAbi, String instructionSet, String invokeWith,
+                           long startTime) {
+    ...
+        final Process.ProcessStartResult startResult = startProcess(hostingRecord,
+                                                                    entryPoint, app,
+                                                                    uid, gids, runtimeFlags, zygotePolicyFlags, mountExternal, seInfo,
+                                                                    requiredAbi, instructionSet, invokeWith, startTime);
+    handleProcessStartedLocked(app, startResult.pid, startResult.usingWrapper,
+                               startSeq, false);
+    ...
+        return app.getPid() > 0;
 
-    }
+}
 
 // 继续查看startProcess
 private Process.ProcessStartResult startProcess(HostingRecord hostingRecord, String entryPoint,
-            ProcessRecord app, int uid, int[] gids, int runtimeFlags, int zygotePolicyFlags,
-            int mountExternal, String seInfo, String requiredAbi, String instructionSet,
-            String invokeWith, long startTime) {
-        	...
-            final Process.ProcessStartResult startResult;
-            boolean regularZygote = false;
-    		// 这里根据应用情况使用不同类型的zygote来启动进程
-            if (hostingRecord.usesWebviewZygote()) {
-                startResult = startWebView(entryPoint,
-                        app.processName, uid, uid, gids, runtimeFlags, mountExternal,
-                        app.info.targetSdkVersion, seInfo, requiredAbi, instructionSet,
-                        app.info.dataDir, null, app.info.packageName,
-                        app.getDisabledCompatChanges(),
-                        new String[]{PROC_START_SEQ_IDENT + app.getStartSeq()});
-            } else if (hostingRecord.usesAppZygote()) {
-                final AppZygote appZygote = createAppZygoteForProcessIfNeeded(app);
+                                                ProcessRecord app, int uid, int[] gids, int runtimeFlags, int zygotePolicyFlags,
+                                                int mountExternal, String seInfo, String requiredAbi, String instructionSet,
+                                                String invokeWith, long startTime) {
+    ...
+        final Process.ProcessStartResult startResult;
+    boolean regularZygote = false;
+    // 这里根据应用情况使用不同类型的zygote来启动进程
+    if (hostingRecord.usesWebviewZygote()) {
+        startResult = startWebView(entryPoint,
+                                   app.processName, uid, uid, gids, runtimeFlags, mountExternal,
+                                   app.info.targetSdkVersion, seInfo, requiredAbi, instructionSet,
+                                   app.info.dataDir, null, app.info.packageName,
+                                   app.getDisabledCompatChanges(),
+                                   new String[]{PROC_START_SEQ_IDENT + app.getStartSeq()});
+    } else if (hostingRecord.usesAppZygote()) {
+        final AppZygote appZygote = createAppZygoteForProcessIfNeeded(app);
 
-                // We can't isolate app data and storage data as parent zygote already did that.
-                startResult = appZygote.getProcess().start(entryPoint,
-                        app.processName, uid, uid, gids, runtimeFlags, mountExternal,
-                        app.info.targetSdkVersion, seInfo, requiredAbi, instructionSet,
-                        app.info.dataDir, null, app.info.packageName,
-                        /*zygotePolicyFlags=*/ ZYGOTE_POLICY_FLAG_EMPTY, isTopApp,
-                        app.getDisabledCompatChanges(), pkgDataInfoMap, allowlistedAppDataInfoMap,
-                        false, false,
-                        new String[]{PROC_START_SEQ_IDENT + app.getStartSeq()});
-            } else {
-                regularZygote = true;
-                startResult = Process.start(entryPoint,
-                        app.processName, uid, uid, gids, runtimeFlags, mountExternal,
-                        app.info.targetSdkVersion, seInfo, requiredAbi, instructionSet,
-                        app.info.dataDir, invokeWith, app.info.packageName, zygotePolicyFlags,
-                        isTopApp, app.getDisabledCompatChanges(), pkgDataInfoMap,
-                        allowlistedAppDataInfoMap, bindMountAppsData, bindMountAppStorageDirs,
-                        new String[]{PROC_START_SEQ_IDENT + app.getStartSeq()});
-            }
-
-            if (!regularZygote) {
-                // webview and app zygote don't have the permission to create the nodes
-                if (Process.createProcessGroup(uid, startResult.pid) < 0) {
-                    Slog.e(ActivityManagerService.TAG, "Unable to create process group for "
-                            + app.processName + " (" + startResult.pid + ")");
-                }
-            }
-			...
-            return startResult;
+        // We can't isolate app data and storage data as parent zygote already did that.
+        startResult = appZygote.getProcess().start(entryPoint,
+                                                   app.processName, uid, uid, gids, runtimeFlags, mountExternal,
+                                                   app.info.targetSdkVersion, seInfo, requiredAbi, instructionSet,
+                                                   app.info.dataDir, null, app.info.packageName,
+                                                   /*zygotePolicyFlags=*/ ZYGOTE_POLICY_FLAG_EMPTY, isTopApp,
+                                                   app.getDisabledCompatChanges(), pkgDataInfoMap, allowlistedAppDataInfoMap,
+                                                   false, false,
+                                                   new String[]{PROC_START_SEQ_IDENT + app.getStartSeq()});
+    } else {
+        regularZygote = true;
+        startResult = Process.start(entryPoint,
+                                    app.processName, uid, uid, gids, runtimeFlags, mountExternal,
+                                    app.info.targetSdkVersion, seInfo, requiredAbi, instructionSet,
+                                    app.info.dataDir, invokeWith, app.info.packageName, zygotePolicyFlags,
+                                    isTopApp, app.getDisabledCompatChanges(), pkgDataInfoMap,
+                                    allowlistedAppDataInfoMap, bindMountAppsData, bindMountAppStorageDirs,
+                                    new String[]{PROC_START_SEQ_IDENT + app.getStartSeq()});
     }
+
+    if (!regularZygote) {
+        // webview and app zygote don't have the permission to create the nodes
+        if (Process.createProcessGroup(uid, startResult.pid) < 0) {
+            Slog.e(ActivityManagerService.TAG, "Unable to create process group for "
+                   + app.processName + " (" + startResult.pid + ")");
+        }
+    }
+    ...
+        return startResult;
+}
 
 ```
 
 ​	这里，看到了`zygote`有三种类型，根据启动的应用信息使用不同类型的`zygote`来启动。
 
-1. regularZygote 常规进程，zygote32/zygote64 进程，是所有 Android Java 应用的父进程
+1. `regularZygote`常规进程，`zygote32/zygote64`进程，是所有`Android Java`应用的父进程
 
-2. appZygote 应用进程，比常规进程多一些限制。
+2. `appZygote`应用进程，比常规进程多一些限制。
 
-3. webviewZygote 辅助zygote进程，渲染不可信的web内容，最严格的安全限制
+3. `webviewZygote`辅助`zygote`进程，渲染不可信的`web`内容，最严格的安全限制
 
-​	三种zygote类型的启动流程差不多的，看常规进程启动即可。首先看getProcess返回的是什么类型
+​	三种`zygote`类型的启动流程差不多的，看常规进程启动即可。首先看`getProcess`返回的是什么类型
 
 ```java
 public ChildZygoteProcess getProcess() {
@@ -2110,7 +2073,7 @@ public class ChildZygoteProcess extends ZygoteProcess {
 
 ```
 
-​	继续找到父类ZygoteProcess的start函数，参数太长，这里省略掉参数的描述
+​	继续找到父类`ZygoteProcess`的`start`函数，参数太长，这里省略掉参数的描述
 
 ```java
 public final Process.ProcessStartResult start(...) {
@@ -2201,9 +2164,9 @@ private Process.ProcessStartResult attemptZygoteSendArgsAndGetResult(
     }
 ```
 
-​	到这里，回首看看前文中介绍`ZygoteServer`启动进程的流程，当时看到执行到最后是`findStaticMain`函数，是获取一个类名下的main函数，并返回后进行调用。现在启动进程时，在`startProcessLocked`函数中能看到类名赋值是`android.app.ActivityThread`，所以这里和`ZygoteServer`进行通信创建线程，最后调用的函数就是`android.app.ActivityThread`中的`main`函数。这样一来，启动流程就衔接上了。
+​	到这里，回首看看前文中介绍`ZygoteServer`启动进程的流程，当时看到执行到最后是`findStaticMain`函数，是获取一个类名下的`main`函数，并返回后进行调用。现在启动进程时，在`startProcessLocked`函数中能看到类名赋值是`android.app.ActivityThread`，所以这里和`ZygoteServer`进行通信创建线程，最后调用的函数就是`android.app.ActivityThread`中的`main`函数。这样一来，启动流程就进入的应用的主线程。
 
-​	`ActivityThread`是Android应用程序运行的UI主线程，负责处理应用程序的所有生命周期事件，接收系统消息并处理它们，main函数就是安卓应用的入口函数。`prepareMainLooper`函数将实例化一个`Looper`对象，然后由`Looper`对象创建一个消息队列，当`loop`函数调用时，UI线程就会进入消息循环，不断从消息队列获取到消息去进行相应的处理。
+​	`ActivityThread`是`Android`应用程序运行的`UI`主线程，负责处理应用程序的所有生命周期事件，接收系统消息并处理它们，`main`函数就是安卓应用的入口函数。`prepareMainLooper`函数将实例化一个`Looper`对象，然后由`Looper`对象创建一个消息队列，当`loop`函数调用时，`UI`线程就会进入消息循环，不断从消息队列获取到消息去进行相应的处理。
 
 ```java
 public static void main(String[] args) {
