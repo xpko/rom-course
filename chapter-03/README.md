@@ -2170,41 +2170,36 @@ private Process.ProcessStartResult attemptZygoteSendArgsAndGetResult(
 
 ```java
 public static void main(String[] args) {
-    	...
-        Looper.prepareMainLooper();
-    	...
-    	ActivityThread thread = new ActivityThread();
-        thread.attach(false, startSeq);
-    	// 主线程消息循环处理的handler
-    	if (sMainThreadHandler == null) {
-            sMainThreadHandler = thread.getHandler();
-        }
-        ...
-        Looper.loop();
+    ...
+    Looper.prepareMainLooper();
+    ...
+    ActivityThread thread = new ActivityThread();
+    thread.attach(false, startSeq);
+    // 主线程消息循环处理的handler
+    if (sMainThreadHandler == null) {
+        sMainThreadHandler = thread.getHandler();
     }
-
-//接着看attach做了什么
-private void attach(boolean system, long startSeq) {
-        ...
-        mgr.attachApplication(mAppThread, startSeq);
-        ...
-    }
-```
-
-​	先看看这个`loop`函数，在这里直接是一个死循环进行`loopOnce`调用
-
-```java
+    ...
+    Looper.loop();
+}
+// 在loop函数中是一个死循环进行`loopOnce`调用
 public static void loop() {
-        ...
-        for (;;) {
-            if (!loopOnce(me, ident, thresholdOverride)) {
-                return;
-            }
+    ...
+    for (;;) {
+        if (!loopOnce(me, ident, thresholdOverride)) {
+            return;
         }
     }
+}
+
+private void attach(boolean system, long startSeq) {
+    ...
+    mgr.attachApplication(mAppThread, startSeq);
+    ...
+}
 ```
 
-​	继续看`loopOnce`的实现，看到了从队列中获取一条消息，并且将消息派发给对应的Handler来执行。
+​	继续看`loopOnce`的实现，看到了从队列中获取一条消息，并且将消息派发给对应的`Handler`来执行。
 
 ```java
 private static boolean loopOnce(final Looper me,
@@ -2221,17 +2216,17 @@ private static boolean loopOnce(final Looper me,
     }
 ```
 
-​	对应的消息处理的Handler就是前面在入口函数main中看到的sMainThreadHandler对象前面看到是通过getHandler函数获取的，跟进去寻找具体的对象。
+​	对应的消息处理的`Handler`就是前面在入口函数`main`中看到的`sMainThreadHandler`对象，是通过`getHandler`函数获取的，跟进去寻找具体的对象。
 
 ```java
 public Handler getHandler() {
         return mH;
     }
-// 继续查看mH是如何赋值，找到代码如下。
+
 final H mH = new H();
 ```
 
-​	找到的这个H类型就是对应的主线程消息处理`Handler`了。看看相关实现。
+​	找到的这个`H`类型就是对应的主线程消息处理`Handler`了。看看相关实现。
 
 ```java
 class H extends Handler {
@@ -2271,21 +2266,29 @@ class H extends Handler {
     }
 ```
 
-​	再回头看看`attach`中的处理，`mgr`就是`AMS`，所以来到`ActivityManagerService`查看`attachApplication`：
+​	再回头看看`thread.attach`中的处理，`mgr`就是`AMS`，所以来到`ActivityManagerService`查看`attachApplication`：
 
 ```java
+// 在main中调用的thread.attach函数
+private void attach(boolean system, long startSeq) {
+    ...
+    mgr.attachApplication(mAppThread, startSeq);
+    ...
+}
+
+// 将应用程序线程与 ActivityThread 绑定
 public final void attachApplication(IApplicationThread thread, long startSeq) {
-        if (thread == null) {
-            throw new SecurityException("Invalid application interface");
-        }
-        synchronized (this) {
-            int callingPid = Binder.getCallingPid();
-            final int callingUid = Binder.getCallingUid();
-            final long origId = Binder.clearCallingIdentity();
-            attachApplicationLocked(thread, callingPid, callingUid, startSeq);
-            Binder.restoreCallingIdentity(origId);
-        }
+    if (thread == null) {
+        throw new SecurityException("Invalid application interface");
     }
+    synchronized (this) {
+        int callingPid = Binder.getCallingPid();
+        final int callingUid = Binder.getCallingUid();
+        final long origId = Binder.clearCallingIdentity();
+        attachApplicationLocked(thread, callingPid, callingUid, startSeq);
+        Binder.restoreCallingIdentity(origId);
+    }
+}
 
 // 继续追踪attachApplicationLocked
 private boolean attachApplicationLocked(@NonNull IApplicationThread thread,
@@ -2298,6 +2301,7 @@ private boolean attachApplicationLocked(@NonNull IApplicationThread thread,
                 thread.runIsolatedEntryPoint(
                         app.getIsolatedEntryPoint(), app.getIsolatedEntryPointArgs());
             } else if (instr2 != null) {
+                // 如果该应用程序未运行在隔离进程中，且有 Instrumentation
                 thread.bindApplication(processName, appInfo, providerList,
                         instr2.mClass,
                         profilerInfo, instr2.mArguments,
@@ -2311,6 +2315,7 @@ private boolean attachApplicationLocked(@NonNull IApplicationThread thread,
                         buildSerial, autofillOptions, contentCaptureOptions,
                         app.getDisabledCompatChanges(), serializedSystemFontMap);
             } else {
+                // 如果没有 Instrumentation
                 thread.bindApplication(processName, appInfo, providerList, null, profilerInfo,
                         null, null, null, testMode,
                         mBinderTransactionTrackingEnabled, enableTrackAllocation,
@@ -2325,37 +2330,39 @@ private boolean attachApplicationLocked(@NonNull IApplicationThread thread,
     }
 ```
 
-​	最后重新调用回ActivityThread的bindApplication，继续跟进去查看
+​	最后调用回`ActivityThread`的`bindApplication`，继续跟进去查看
 
 ```java
 public final void bindApplication(...) {
-            ...
-            AppBindData data = new AppBindData();
-            data.processName = processName;
-            data.appInfo = appInfo;
-            data.providers = providerList.getList();
-            data.instrumentationName = instrumentationName;
-            data.instrumentationArgs = instrumentationArgs;
-            data.instrumentationWatcher = instrumentationWatcher;
-            data.instrumentationUiAutomationConnection = instrumentationUiConnection;
-            data.debugMode = debugMode;
-            data.enableBinderTracking = enableBinderTracking;
-            data.trackAllocation = trackAllocation;
-            data.restrictedBackupMode = isRestrictedBackupMode;
-            data.persistent = persistent;
-            data.config = config;
-            data.compatInfo = compatInfo;
-            data.initProfilerInfo = profilerInfo;
-            data.buildSerial = buildSerial;
-            data.autofillOptions = autofillOptions;
-            data.contentCaptureOptions = contentCaptureOptions;
-            data.disabledCompatChanges = disabledCompatChanges;
-            data.mSerializedSystemFontMap = serializedSystemFontMap;
-            sendMessage(H.BIND_APPLICATION, data);
-        }
+    ...
+    //将应用程序和应用程序线程绑定所需的信息存储到AppBindData的各个字段中。
+    AppBindData data = new AppBindData();
+    data.processName = processName;
+    data.appInfo = appInfo;
+    data.providers = providerList.getList();
+    data.instrumentationName = instrumentationName;
+    data.instrumentationArgs = instrumentationArgs;
+    data.instrumentationWatcher = instrumentationWatcher;
+    data.instrumentationUiAutomationConnection = instrumentationUiConnection;
+    data.debugMode = debugMode;
+    data.enableBinderTracking = enableBinderTracking;
+    data.trackAllocation = trackAllocation;
+    data.restrictedBackupMode = isRestrictedBackupMode;
+    data.persistent = persistent;
+    data.config = config;
+    data.compatInfo = compatInfo;
+    data.initProfilerInfo = profilerInfo;
+    data.buildSerial = buildSerial;
+    data.autofillOptions = autofillOptions;
+    data.contentCaptureOptions = contentCaptureOptions;
+    data.disabledCompatChanges = disabledCompatChanges;
+    data.mSerializedSystemFontMap = serializedSystemFontMap;
+    // 发送消息给应用程序线程，调用 bindApplication 方法
+    sendMessage(H.BIND_APPLICATION, data);
+}
 ```
 
-​	这时`AppBindData`数据初始化完成了，最后发送消息`BIND_APPLICATION`通知准备就绪，并将准备好的数据发送过去。查看消息循环的处理部分`handleMessage`函数，看这个数据传给哪个函数处理了。
+​	`AppBindData`数据绑定完成后，最后发送消息`BIND_APPLICATION`通知准备就绪，并将准备好的数据发送过去。查看消息循环的处理部分`handleMessage`函数，看这个数据传给哪个函数处理了。
 
 ```java
 public void handleMessage(Message msg) {
@@ -2371,367 +2378,289 @@ public void handleMessage(Message msg) {
 }
 ```
 
-​	发现调用到了`handleBindApplication`，继续追踪这个函数
+​	发现调用到了`handleBindApplication`，继续跟进查看。
 
 ```java
 private void handleBindApplication(AppBindData data) {
+    ...
+    //前面准备好的data数据赋值给了mBoundApplication
+    mBoundApplication = data;
+    ...
+    // 创建出了Context
+    final ContextImpl appContext = ContextImpl.createAppContext(this, data.info);
+    ...
+    Application app;
+    final StrictMode.ThreadPolicy savedPolicy = StrictMode.allowThreadDiskWrites();
+    final StrictMode.ThreadPolicy writesAllowedPolicy = StrictMode.getThreadPolicy();
+    try {
+        // 创建出了Application
+        app = data.info.makeApplication(data.restrictedBackupMode, null);
         ...
-        //前面准备好的data数据赋值给了mBoundApplication
-        mBoundApplication = data;
+        // Application赋值给了mInitialApplication
+        mInitialApplication = app;
         ...
-        // 创建出了Context
-        final ContextImpl appContext = ContextImpl.createAppContext(this, data.info);
-        ...
-        Application app;
-        final StrictMode.ThreadPolicy savedPolicy = StrictMode.allowThreadDiskWrites();
-        final StrictMode.ThreadPolicy writesAllowedPolicy = StrictMode.getThreadPolicy();
         try {
-            // 创建出了Application
-            app = data.info.makeApplication(data.restrictedBackupMode, null);
-            ...
-            // Application赋值给了mInitialApplication
-            mInitialApplication = app;
-            ...
-            try {
-                mInstrumentation.callApplicationOnCreate(app);
-            } catch (Exception e) {
-                ...
-            }
-        } finally {
+            mInstrumentation.callApplicationOnCreate(app);
+        } catch (Exception e) {
             ...
         }
-		...
+    } finally {
+        ...
     }
+    ...
+}
 
 // 看看是如何创建出Application的
 public Application makeApplication(boolean forceDefaultAppClass,
-            Instrumentation instrumentation) {
-        if (mApplication != null) {
-            return mApplication;
-        }
-		...
-        app = mActivityThread.mInstrumentation.newApplication(
-                    cl, appClass, appContext);
-        ...
-        return app;
+                                   Instrumentation instrumentation) {
+    if (mApplication != null) {
+        return mApplication;
     }
+    ...
+    app = mActivityThread.mInstrumentation.newApplication(
+    cl, appClass, appContext);
+    ...
+    return app;
+}
 
 // 继续看newApplication的实现
 static public Application newApplication(Class<?> clazz, Context context)
-            throws InstantiationException, IllegalAccessException,
-            ClassNotFoundException {
-        Application app = (Application)clazz.newInstance();
-        // 最后发现调用了attach
-        app.attach(context);
-        return app;
-    }
+    throws InstantiationException, IllegalAccessException,
+ClassNotFoundException {
+    Application app = (Application)clazz.newInstance();
+    // 最后发现调用了attach
+    app.attach(context);
+    return app;
+}
 
 ```
 
-​	在上面看到了`Context`的创建和`Application`的创建，继续看看怎么调用到自己开发的app中的`onCreate`的，继续追踪`callApplicationOnCreate`的实现
+​	在上面看到了`Context`的创建和`Application`的创建，继续看看怎么调用到自己开发的`app`中的`onCreate`的，追踪`callApplicationOnCreate`的实现
 
 ```java
 public void callApplicationOnCreate(Application app) {
-    	...
-        app.onCreate();
-    }
+    ...
+    app.onCreate();
+}
 ```
 
-​	到这里，成功跟踪到最后调用app应用的`onCreate`函数，并且发现为什么很多人喜欢hook attach函数，因为在Application创建出来最早先调用了这个函数，所以这里是一个较早hook时机。下面是结合跟踪的代码总结的简单的启动流程图。
+​	到这里，成功跟踪到最后调用`app`应用的`onCreate`函数，为什么很多人喜欢`hook attach`函数，因为在`Application`创建出来最早先调用了这个函数，该函数是一个较早`hook`时机。下面是结合跟踪的代码总结的简单的启动流程图。
 
 TODO 流程图
 
-​	在这一小节，不断加深对Android源码的了解，由分析Android的启动流程和App应用的启动流程两个分析点入手将过程划为一条线，接着，将围绕着追踪流程中，碰到的一些较为重要的模块进行介绍。
-
 ## 3.8 了解Service
 
-​	Service是一种运行在后台的组件也可以称之为服务，它不像Activity那样有前台显示用户界面的能力，而是一种更加抽象的组件，它可以提供后台服务，如播放音乐、下载文件等操作，或者在后台定时执行某些任务。Service可以被应用程序绑定，也可以独立运行，它可以接收外部的命令，执行耗时的任务，并提供不依赖于用户界面的后台运行。这些
+​	`Service`是一种运行在后台的组件也可以称之为服务，它不像`Activity`那样有前台显示用户界面的能力，而是一种更加抽象的组件，它可以提供后台服务，在后台定时执行某些任务。`Service`可以被应用程序绑定，也可以独立运行，它可以接收外部的命令，执行耗时的任务。
 
-​	在Android启动流程中，就已经看到了很多Service的启动，前文代码看到当系统启动后通过`forkSystemServer`执行到`SystemServer`来启动一系列的Service。这些Service有着各自负责的功能，其中最关键的是ActivityManagerService，常常被简称为`AMS`。而启动了`AMS`的`SystemServer`也是一个服务，这个服务负责在Android完成启动后，加载和启动所有的系统服务，管理系统级别的资源。
+​	在`Android`启动流程中，就已经看到了很多`Service`的启动，前文代码看到当系统启动后通过`forkSystemServer`执行到`SystemServer`来启动一系列的`Service`。这些`Service`有着各自负责的功能，其中最关键的是`ActivityManagerService`，常常被简称为`AMS`。而启动了`AMS`的`SystemServer`也是一个服务，这个服务负责在`Android`完成启动后，加载和启动所有的系统服务，管理系统级别的资源。
 
-​	AMS是Android系统中的一个核心服务，它是一个系统级服务，负责Android系统中的所有活动管理，包括应用程序的启动，暂停，恢复，终止，以及对系统资源的管理和分配。负责Android系统中所有活动的管理。它负责管理任务栈，并允许任务栈中的任务来回切换，以便在任务之间改变焦点。它还负责管理进程，并将进程启动，暂停，恢复，终止，以及分配系统资源。在启动流程中能看到，所有Service都是由它来启动的.
+​	`AMS`是`Android`系统中的一个核心服务，负责`Android`系统中的所有活动管理，包括应用程序的启动，暂停，恢复，终止，以及对系统资源的管理和分配。负责`Android`系统中所有活动的管理。它负责管理任务栈，并允许任务栈中的任务来回切换，以便在任务之间改变焦点。它还负责管理进程，并将进程启动，暂停，恢复，终止，以及分配系统资源。在启动流程中能看到，所有`Service`都是由它来启动的.
 
-​	除了AMS外，也有其他重要的Service为Android应用提供基础的功能，下面简单介绍这些常用的Service。
+​	除了`AMS`外，还有其他重要的`Service`为`Android`应用提供基础的功能，下面简单介绍这些常见的`Service`。
 
-​	 WindowManagerService是Android系统中一个非常重要的服务，它主要功能是负责管理系统上所有窗口的显示和操作，包括管理全屏窗口、小窗口、弹窗、菜单和其他应用程序的窗口，使窗口在手机屏幕上正确的显示。 它包括以下几个部分：
+​	 `WindowManagerService`，它是负责管理系统上所有窗口的显示和操作，包括管理全屏窗口、小窗口、弹窗、菜单和其他应用程序的窗口，使窗口在手机屏幕上正确的显示。 
 
-​	1、布局管理器：负责管理系统中所有窗口的位置和大小，实现窗口的移动、调整大小、切换窗口等功能。
+​	`PackageManagerService`，`Android`系统中提供给应用程序访问`Android`软件包的主要服务。负责管理`Android`软件包的安装、删除和更新，以及软件包的查询和配置。它有一个名为`Packages.xml`的`XML`文档，该文档是`Android`系统中所有软件包的列表，其中包含了每个软件包的基本信息，如应用程序的版本，安装时间，文件大小等。
 
-​	2、窗口管理器：负责管理系统中所有窗口的显示和操作，比如添加、移除、隐藏、显示窗口，以及设置窗口的属性如背景、边框、大小等。
+​	`PowerManagerService`，管理设备电源状态的服务，可以有效地管理设备的电源，从而大大提升设备的电池续航能力，也可以降低设备运行时的功耗。它负责处理设备上的所有电源相关操作，例如屏幕亮度、屏幕超时时间、电池和充电时的运行模式、设备锁以及设备唤醒功能。
 
-​	3、动画管理器：负责实现窗口的过渡动画，比如淡入淡出、缩放、旋转等。
+​	`InputMethodManagerService`，输入法服务，它负责处理用户输入，管理输入法状态，以及向应用程序提供输入服务，例如可以安装、卸载和更新输入法，还可以管理系统的输入法开关，应用程序可以通过它来访问输入法的当前状态和内容，以及实时输入的文本内容，可以接收并处理用户的输入事件，包括按键、触摸屏、语音输入等。
 
-​	4、事件处理器：负责处理窗口上的触摸、按键等事件，实现窗口的响应功能。
+​	`NotificationManagerService`，通知服务。它主要是用来管理系统的通知，包括消息、提醒、更新等，它实现了通知的管理，收集、组织、过滤通知，并将它们发送给用户。它能够管理所有应用程序发出的通知，包括系统通知、应用程序发出的通知，并可以根据用户的偏好，显示哪些通知。
 
-​	PackageManagerService是Android系统中提供给应用程序访问Android软件包的主要服务。下面是这个服务提供的相关功能。
+​	`LocationManagerService`，位置管理服务。可以根据应用程序的要求调用`GPS`、网络和其他位置技术来获取当前设备的定位信息。根据设备的位置信息，控制应用程序的定位功能，以及设备的位置报警功能。
 
-​	1、负责管理Android软件包的安装、删除和更新，以及软件包的查询和配置。
+​	`InputManagerService`，负责输入设备的管理和控制，以及系统中所有输入事件的处理。例如触摸屏、虚拟按键、键盘、轨迹球等。会将输入事件传递给应用程序，以便处理和响应。
 
-​	2、它有一个名为Packages.xml的XML文档，该文档是Android系统中所有软件包的列表，其中包含了每个软件包的基本信息，如应用程序的版本，安装时间，文件大小等。
+​	`AlarmManagerService`负责处理所有系统定时任务，如闹钟，定时器等。它可以安排可执行的任务，使它们在指定的时刻开始执行。监控系统中的各种时间事件，以执行指定的任务。可以发送唤醒广播，以启动指定的服务或应用程序。可以用于处理设备睡眠、唤醒等系统状态切换。
 
-​	3、同时还负责检查安装的软件包是否与Android系统兼容，并确保软件包的安全性。它还可以检查某一软件包是否已安装，并获取软件包的版本号。
+​	`NetworkManagementService`，网络管理服务。用于控制和管理`Android`系统中的网络连接，能够在不同的网络之间进行切换，检查和管理手机的网络状态，监控网络设备的连接状态，如WiFi、蓝牙、移动数据等。
 
-​	4、提供了应用程序组件的管理功能，可以查看应用程序的组件，如活动，服务，广播接收器，内容提供器等，并提供对它们的控制。
+​	`BluetoothService`，蓝牙服务，它可以实现蓝牙设备之间的无线通信。它提供了一种方便的方式来建立和管理蓝牙连接，使蓝牙设备之间能够进行文件传输、远程打印、蓝牙键盘连接等活动。
 
-​	5、提供了对Android系统的配置的访问，可以检查与Android系统相关的系统属性，用户设置，系统设置等。
-
-​	PowerManagerService是Android系统中用来管理设备电源状态的服务可以有效地管理设备的电源，从而大大提升设备的电池续航能力，也可以降低设备运行时的功耗。它负责处理设备上的所有电源相关操作。下面是提供的相关功能。
-
-​	1、设置设备的电源模式，如在电池和充电时的运行模式。
-
-​	2、管理屏幕状态，如屏幕亮度、屏幕超时时间。
-
-​	3、管理CPU频率，确保CPU在低频下运行，以节省电量。
-
-​	4、根据需要自动检测电池电量，以及提供充电提醒。
-
-​	5、管理设备上的设备锁以及设备唤醒功能，确保在特定情况下设备可以正常工作
-
-​	InputMethodManagerService是Android系统中输入法服务的核心，它负责处理用户输入，管理输入法状态，以及向应用程序提供输入服务。
-
-​	1、输入法管理：负责管理当前输入法，它可以安装、卸载和更新输入法，还可以管理系统的输入法开关，以及支持多种输入法语言切换。
-
-​	2、 输入法状态管理：管理输入法的状态，包括输入法最近使用的语言，以及输入法当前输入的内容和应用程序上下文。
-
-​	3、输入服务：可以通过服务接口为应用程序提供输入服务，例如，应用程序可以通过它来访问输入法的当前状态和内容，以及实时输入的文本内容。
-
-​	4、 输入事件处理：可以接收并处理用户的输入事件，包括按键、触摸屏、语音输入等，并将这些输入事件发送给当前输入法，从而实现用户输入的实时响应。
-
-​	NotificationManagerService是Android框架的一部分，它负责处理和管理应用程序发出的通知。它主要是用来管理系统的通知，包括消息、提醒、更新等，相关功能如下。
-
-​	1、它实现了通知的管理，收集、组织、过滤通知，并将它们发送给用户。它能够管理所有应用程序发出的通知，包括系统通知、应用程序发出的通知，并可以根据用户的偏好，显示哪些通知。
-
-​	2、包含一系列用于处理不同类型通知的回调方法，例如，当应用程序发出新消息时，它将调用NotificationManagerService的onNotificationPosted()回调方法，并将新消息传递给该方法。此外，NotificationManagerService还可以拦截用户设备上的所有通知，并在必要时修改它们，例如更改通知栏的显示格式等。
-
-​	LocationManagerService是Android操作系统中的一个位置管理服务，相关功能如下。
-
-​	1、可以根据应用程序的要求调用GPS、网络和其他位置技术来获取当前设备的定位信息。
-
-​	2、可以根据设备的位置信息，控制应用程序的定位功能，以及设备的位置报警功能。
-
-​	3、还可以收集设备的位置数据，并将其存储在系统中，以便应用程序可以获取设备的历史位置数据。
-
-​	InputManagerService是Android系统中一个重要的核心服务，它负责输入设备的管理和控制，以及系统中所有输入事件的处理。相关功能如下。
-
-​	1、负责管理Android系统的输入设备，如触摸屏、虚拟按键、键盘、轨迹球等。
-
-​	2、会将输入事件传递给应用程序，以便处理和响应。
-
-​	3、负责输入设备的管理和控制，能够根据应用程序的需求，对输入设备进行调整和控制。
-
-​	4、负责处理Android系统中所有输入事件，并将处理结果传递给相应的应用程序。
-
-​	AlarmManagerService负责处理所有系统定时任务，如闹钟，定时器等。它可以安排可执行的任务，使它们在指定的时刻开始执行。
-
-​	1、监控系统中的各种时间事件，以执行指定的任务。
-
-​	2、可以安排可执行的任务，使它们在指定的时刻开始执行。
-
-​	3、可以发送唤醒广播，以启动指定的服务或应用程序。
-
-​	4、可以安排周期性的任务，可以在指定的时间间隔内重复执行指定的任务。
-
-​	5、可以用于处理设备睡眠、唤醒等系统状态切换。
-
-​	6、可以按照特定的时间间隔定期更新设备的时间。
-
-​	NetworkManagementService是Android操作系统中的一种网络管理服务。它是Android操作系统的一部分，用于控制和管理Android系统中的网络连接，并且能够在不同的网络之间进行切换。
-
-​	1、能够检查和管理手机的网络状态，能够监控网络设备的连接状态，如WiFi、蓝牙、移动数据等，能够有效地检测当前手机所连接的网络信息和状态，并进行相应的网络状态管理。
-
-​	2、能够为Android系统中的应用提供网络接入服务，提供网络连接状态的反馈，以及网络设备连接状态的反馈，以便应用能够更好的控制网络连接。
-
-​	3、能够实现网络连接的切换，并且能够在不同的网络之间进行切换，从而实现最优路由，有效地提升网络性能和体验。
-
-​	4、能够实现网络安全管理，可以针对不同的网络设备进行安全管理，以防止网络攻击，保护系统的安全性。
-
-​	5、能够实现网络信息的统计和分析，可以统计网络设备的使用情况，并对其进行分析，以便对网络的管理更加有效。
-
-​	BluetoothService是Android操作系统中的一种服务，它可以实现蓝牙设备之间的无线通信。它提供了一种方便的方式来建立和管理蓝牙连接，使蓝牙设备之间能够进行文件传输、远程打印、蓝牙键盘连接等活动。
-
-​	还有更多的系统服务为Android的运行提供着各模块的基础功能，这里就不展开详细叙述了，当对某一个服务的功能实现感兴趣时，可以顺着启动服务的地方开始跟踪代码，分析实现的逻辑。也可以直接参考系统服务的定义模式来自定义系统服务来提供特殊需求的功能。
+​	还有更多的系统服务为`Android`的运行提供着各模块的基础功能，这里就不展开详细叙述了，当对某一个服务的功能实现感兴趣时，可以顺着启动服务的地方开始跟踪代码，分析实现的逻辑。也可以直接参考系统服务的定义方式来自定义系统服务来提供特殊需求的功能。
 
 ## 3.9 了解Framework
 
-​	Framework指的是软件开发框架，由于系统处于内核中，无法直接对系统的功能进行请求，而是由框架层为开发的顶层应用提供接口调用，从而不必烦恼如何与底层交互，开发框架为开发人员提供各种功能以及Android应用工具的支持来便于创建和管理Android应用程序，最终达到让用户能高效开发Android应用的目的，以生活中的事务为例，Framework就像是一个配套完善的小区，有高效的物业，周边配套有学校、医院、商场，各类设施非常齐全，而用户就像是小区内的业主。
+​	`Framework`指的是软件开发框架，由于系统处于内核中，无法直接对系统的功能进行请求，而是由框架层为开发的顶层应用提供接口调用，从而不必烦恼如何与底层交互，开发框架为开发人员提供各种功能，以及`Android`应用工具的支持来便于创建和管理`Android`应用程序，最终达到让用户能高效开发`Android`应用的目的，以生活中的事务为例，`Framework`就像是一个配套完善的小区，有高效的物业，周边配套有学校、医院、商场，各类设施非常齐全，而用户就像是小区内的业主。
 
-看一张经典的架构图。
+​	看一张经典的`Android`架构图。
 
 ![在这里插入图片描述](.\images\android-framework.jpg)
 
-​	从上图中可以看到Framewok的组成部分，它们的功能分别是：
+​	从上图中可以看到`Framewok`的组成部分，它们的功能分别是：
 
-1. Activity Manager：用于管理和协调所有Android应用程序的活动和任务。
-2. Content Providers：允许Android应用程序之间共享数据。
-3. Package Manager：用于安装，升级和管理应用程序，以及处理应用程序的权限。
-4. Resource Manager：管理应用程序使用的资源，例如图像，字符串，布局。
-5. Notification Manager：处理Android系统的通知机制。
-6. Telephony Manager：提供电话功能，例如拨打电话，接听电话等。
-7. Location Manager：用于获取设备的位置信息。
-8. View System：提供用户界面的基本组件或部件，例如按钮，文本框等。
-9. Window Manager：处理屏幕上的窗口，例如在屏幕上绘制UI元素和管理窗口焦点。
-10. Package Installer：用于在设备上安装应用程序的控制面板。
-11. Resource Manager：管理所有允许应用程序访问的公共资源，例如铃声，照片和联系人信息。
-12. Activity和Fragment：提供应用程序的用户界面和控制器。
+1. `Activity Manager`：用于管理和协调所有`Android`应用程序的活动和任务。
+2. `Content Providers`：允许`Android`应用程序之间共享数据。
+3. `Package Manager`：用于安装，升级和管理应用程序，以及处理应用程序的权限。
+4. `Resource Manager`：管理应用程序使用的资源，例如图像，字符串，布局。
+5. `Notification Manager`：处理`Android`系统的通知机制。
+6. `Telephony Manager`：提供电话功能，例如拨打电话，接听电话等。
+7. `Location Manager`：用于获取设备的位置信息。
+8. `View System`：提供用户界面的基本组件或部件，例如按钮，文本框等。
+9. `Window Manager`：处理屏幕上的窗口，例如在屏幕上绘制UI元素和管理窗口焦点。
+10. `Package Installer`：用于在设备上安装应用程序的控制面板。
+11. `Resource Manager`：管理所有允许应用程序访问的公共资源，例如铃声，照片和联系人信息。
+12. `Activity`和`Fragment`：提供应用程序的用户界面和控制器。
 
-​	可以看到前文中的各种系统服务就是属于Framework中的一部分，但是用户层并不能直接的访问系统服务提供的功能，而是通过各服务对应的管理器来对系统服务进行调用。接下来开始跟踪，在开发应用中，当调用一个系统服务提供的功能时发生了哪些调用，使用Android Studio创建一个项目，添加如下代码。
+​	可以看到前文中的各种系统服务就是属于`Framework`中的一部分，但是用户层并不能直接的访问系统服务提供的功能，而是通过各服务对应的管理器来对系统服务进行调用。接下来开始跟踪，在开发应用中，当调用一个系统服务功能时发生了哪些调用，使用`Android Studio`创建一个项目，添加如下代码。
 
 ```java
 protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        TelephonyManager tm = (TelephonyManager) this.getSystemService(TELEPHONY_SERVICE);
-        /*
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main);
+    TelephonyManager tm = (TelephonyManager) this.getSystemService(TELEPHONY_SERVICE);
+    /*
          * 电话状态：
          * 1.tm.CALL_STATE_IDLE=0     无活动
          * 2.tm.CALL_STATE_RINGING=1  响铃
          * 3.tm.CALL_STATE_OFFHOOK=2  摘机
          */
-        int state= tm.getCallState();//int
-        Log.i("MainActivity","phone state "+state);
-    }
+    int state= tm.getCallState();//int
+    Log.i("MainActivity","phone state "+state);
+}
 ```
 
-​	通过getSystemService函数提供了一个系统服务的名称，获取到了对应系统服务对应管理器，通过调用管理器的函数来触发对应系统服务的功能，看看具体是如何获取到系统服务的。找到Android源码中Activity.java文件。
+​	通过`getSystemService`函数提供了一个系统服务的名称，获取到了对应系统服务对应管理器，通过调用管理器的函数来触发对应系统服务的功能，看看具体是如何获取到系统服务的。找到`Android`源码中`Activity.java`文件。
 
 ```java
 public Object getSystemService(@ServiceName @NonNull String name) {
-        if (getBaseContext() == null) {
-            throw new IllegalStateException(
-                    "System services not available to Activities before onCreate()");
-        }
-
-        if (WINDOW_SERVICE.equals(name)) {
-            return mWindowManager;
-        } else if (SEARCH_SERVICE.equals(name)) {
-            ensureSearchManager();
-            return mSearchManager;
-        }
-        return super.getSystemService(name);
+    if (getBaseContext() == null) {
+        throw new IllegalStateException(
+            "System services not available to Activities before onCreate()");
     }
+
+    if (WINDOW_SERVICE.equals(name)) {
+        return mWindowManager;
+    } else if (SEARCH_SERVICE.equals(name)) {
+        ensureSearchManager();
+        return mSearchManager;
+    }
+    return super.getSystemService(name);
+}
 ```
 
-​	如果是WINDOW_SERVICE或者SEARCH_SERVICE就快速的返回对应的管理器了，其他系统服务则继续调用父类的函数。Activity继承自ContextThemeWrapper，找到对应实现代码如下。
+​	如果是`WINDOW_SERVICE`或者`SEARCH_SERVICE`就快速的返回对应的管理器了，其他系统服务则继续调用父类的函数。`Activity`继承自`ContextThemeWrapper`，找到对应实现代码如下。
 
 ```java
 public Object getSystemService(String name) {
-        if (LAYOUT_INFLATER_SERVICE.equals(name)) {
-            if (mInflater == null) {
-                mInflater = LayoutInflater.from(getBaseContext()).cloneInContext(this);
-            }
-            return mInflater;
+    if (LAYOUT_INFLATER_SERVICE.equals(name)) {
+        if (mInflater == null) {
+            mInflater = LayoutInflater.from(getBaseContext()).cloneInContext(this);
         }
-        return getBaseContext().getSystemService(name);
+        return mInflater;
     }
+    return getBaseContext().getSystemService(name);
+}
 ```
 
-​	找到ContextImpl中的对应实现
+​	找到`ContextImpl`中的对应实现
 
 ```java
 public Object getSystemService(String name) {
-        ...
-        return SystemServiceRegistry.getSystemService(this, name);
-    }
+    ...
+    return SystemServiceRegistry.getSystemService(this, name);
+}
 ```
 
-​	继续查看SystemServiceRegistry中的实现
+​	继续查看`SystemServiceRegistry`中的实现
 
 ```java
 public static Object getSystemService(ContextImpl ctx, String name) {
-        if (name == null) {
-            return null;
-        }
-        final ServiceFetcher<?> fetcher = SYSTEM_SERVICE_FETCHERS.get(name);
-        if (fetcher == null) {
-            if (sEnableServiceNotFoundWtf) {
-                Slog.wtf(TAG, "Unknown manager requested: " + name);
-            }
-            return null;
-        }
-        final Object ret = fetcher.getService(ctx);
-        ...
-        return ret;
+    if (name == null) {
+        return null;
     }
+    final ServiceFetcher<?> fetcher = SYSTEM_SERVICE_FETCHERS.get(name);
+    if (fetcher == null) {
+        if (sEnableServiceNotFoundWtf) {
+            Slog.wtf(TAG, "Unknown manager requested: " + name);
+        }
+        return null;
+    }
+    final Object ret = fetcher.getService(ctx);
+    ...
+    return ret;
+}
 ```
 
-​	发现服务是从SYSTEM_SERVICE_FETCHERS中获取出来，然后返回的。看看这个对象的值是如何插进去的。搜索该对象的put函数调用处找到相关函数如下。
+​	发现服务是从`SYSTEM_SERVICE_FETCHERS`中获取出来，然后返回的。看看这个对象的值是如何插进去的。搜索该对象的`put`函数调用处找到相关函数如下。
 
 ```java
 private static <T> void registerService(@NonNull String serviceName,
-            @NonNull Class<T> serviceClass, @NonNull ServiceFetcher<T> serviceFetcher) {
-        SYSTEM_SERVICE_NAMES.put(serviceClass, serviceName);
-        SYSTEM_SERVICE_FETCHERS.put(serviceName, serviceFetcher);
-        SYSTEM_SERVICE_CLASS_NAMES.put(serviceName, serviceClass.getSimpleName());
-    }
+                                        @NonNull Class<T> serviceClass, @NonNull ServiceFetcher<T> serviceFetcher) {
+    SYSTEM_SERVICE_NAMES.put(serviceClass, serviceName);
+    SYSTEM_SERVICE_FETCHERS.put(serviceName, serviceFetcher);
+    SYSTEM_SERVICE_CLASS_NAMES.put(serviceName, serviceClass.getSimpleName());
+}
 ```
 
-​	从名字就能看的出来，这是一个注册系统服务的函数，知道了想要查找到一个系统服务，必须通过`registerService`函数注册。顺着这个函数，找到在`SystemServiceRegistry`类中进行了大量的系统服务注册，如果添加一个自定义的系统服务，同样也是需要在这里进行系统服务的注册。
+​	从名字就能看的出来，这是一个注册系统服务的函数，在该函数中对大多数系统服务进行注册，想要查找到一个系统服务，可以顺着`registerService`注册函数进行跟踪，如果添加一个自定义的系统服务，同样也是需要在这里进行系统服务的注册。
 
-看看TelephonyManager中getCallState函数的实现。
+​	下面继续观察`TelephonyManager`中`getCallState`函数的实现。
 
 ```java
 public @CallState int getCallState() {
-        if (mContext != null) {
-            TelecomManager telecomManager = mContext.getSystemService(TelecomManager.class);
-            if (telecomManager != null) {
-                return telecomManager.getCallState();
-            }
+    if (mContext != null) {
+        TelecomManager telecomManager = mContext.getSystemService(TelecomManager.class);
+        if (telecomManager != null) {
+            return telecomManager.getCallState();
         }
-        return CALL_STATE_IDLE;
     }
+    return CALL_STATE_IDLE;
+}
 ```
 
 ​	这里又通过另一个管理器进行的函数调用，继续跟进去
 
 ```java
 public @CallState int getCallState() {
-        ITelecomService service = getTelecomService();
-        if (service != null) {
-            try {
-                return service.getCallStateUsingPackage(mContext.getPackageName(),
-                        mContext.getAttributionTag());
-            } catch (RemoteException e) {
-                Log.d(TAG, "RemoteException calling getCallState().", e);
-            }
+    ITelecomService service = getTelecomService();
+    if (service != null) {
+        try {
+            return service.getCallStateUsingPackage(mContext.getPackageName(),
+                                                    mContext.getAttributionTag());
+        } catch (RemoteException e) {
+            Log.d(TAG, "RemoteException calling getCallState().", e);
         }
-        return TelephonyManager.CALL_STATE_IDLE;
     }
+    return TelephonyManager.CALL_STATE_IDLE;
+}
 ```
 
-​	然后就看到了，管理器并不负责业务相关的处理，主要是调用对应的系统服务来获取结果。继续查看getCallStateUsingPackage函数实现
+​	然后就看到了，管理器并不负责业务相关的处理，主要是调用对应的系统服务来获取结果。继续查看`getCallStateUsingPackage`函数实现
 
 ```java
 public int getCallStateUsingPackage(String callingPackage, String callingFeatureId) {
-            try {
-                Log.startSession("TSI.getCallStateUsingPackage");
-                if (CompatChanges.isChangeEnabled(
-                        TelecomManager.ENABLE_GET_CALL_STATE_PERMISSION_PROTECTION, callingPackage,
-                        Binder.getCallingUserHandle())) {
-                    // Bypass canReadPhoneState check if this is being called from SHELL UID
-                    if (Binder.getCallingUid() != Process.SHELL_UID && !canReadPhoneState(
-                            callingPackage, callingFeatureId, "getCallState")) {
-                        throw new SecurityException("getCallState API requires READ_PHONE_STATE"
-                                + " for API version 31+");
-                    }
-                }
-                synchronized (mLock) {
-                    return mCallsManager.getCallState();
-                }
-            } finally {
-                Log.endSession();
+    try {
+        Log.startSession("TSI.getCallStateUsingPackage");
+        if (CompatChanges.isChangeEnabled(
+            TelecomManager.ENABLE_GET_CALL_STATE_PERMISSION_PROTECTION, callingPackage,
+            Binder.getCallingUserHandle())) {
+            // Bypass canReadPhoneState check if this is being called from SHELL UID
+            if (Binder.getCallingUid() != Process.SHELL_UID && !canReadPhoneState(
+                callingPackage, callingFeatureId, "getCallState")) {
+                throw new SecurityException("getCallState API requires READ_PHONE_STATE"
+                                            + " for API version 31+");
             }
         }
+        synchronized (mLock) {
+            return mCallsManager.getCallState();
+        }
+    } finally {
+        Log.endSession();
+    }
+}
 ```
 
-​	在系统服务中就看到了管理状态相关的具体业务代码了，继续观察getCallStae的实现
+​	在系统服务中就看到了管理状态相关的具体业务代码了，继续观察`mCallsManager.getCallStae`的实现
 
 ```java
 int getCallState() {
-        return mPhoneStateBroadcaster.getCallState();
-    }
+    return mPhoneStateBroadcaster.getCallState();
+}
 ```
 
-​	最后是由PhoneStateBroadcaster对象维护着电话的状态信息了，PhoneStateBroadcaster是Android中的一个系统广播机制，它用于在电话状态发生变化时发出通知，以便其他组件和应用程序能够接收和处理这些变化。它可以发出包括新来电，挂断电话，拨号等状态变化的通知，以使系统中的其他组件能够更新和处理这些变化。PhoneStateBroadcaster还提供了一些其他的功能，例如电话状态监控，用于检测电话状态的变化，以便能够及时响应。简单的贴一下相关的代码如下。
+​	最后是由`PhoneStateBroadcaster`对象维护着电话的状态信息了，`PhoneStateBroadcaster`是`Android`中的一个系统广播机制，它用于在电话状态发生变化时发出通知，以便其他组件和应用程序能够接收和处理这些变化。它可以发出包括新来电，挂断电话，拨号等状态变化的通知，以使系统中的其他组件能够更新和处理这些变化。`PhoneStateBroadcaster`还提供了一些其他的功能，例如电话状态监控，用于检测电话状态的变化，以便能够及时响应。简单的贴一下相关的代码如下。
 
 ```java
 final class PhoneStateBroadcaster extends CallsManagerListenerBase {
@@ -2799,22 +2728,9 @@ final class PhoneStateBroadcaster extends CallsManagerListenerBase {
 
 ## 3.9 了解libcore
 
-​	libcore是Android平台下的Java核心库，主要提供与Java语言核心相关的类，如Object类、String类，Java集合类以及输入/输出流等。同时，libcore还包括了平台支持库，提供了一些用于Android平台特定功能的实现，如Socket、SSL、File、URI等类的平台特定实现。
+​	`libcore`是`Android`平台下的`Java`核心库，主要提供与`Java`语言核心相关的类，如`Object`类、`String`类，`Java`集合类以及输入/输出流等。同时，`libcore`还包括了平台支持库，提供了一些用于`Android`平台特定功能的实现，如`Socket、SSL、File、URI`等类的平台特定实现。在`Android`应用程序开发中，`libcore`库是必不可少的一部分，其提供的类和实现对于开发和调试应用程序都具有非常重要的作用。
 
-​	libcore库还包括了面向移动设备的一些实现，如用于应用程序沙箱、低内存设备优化和运行时的权限管理等。这些功能使得Android应用程序开发更加便捷，具有更高的安全性和稳定性。
-
-​	在Android应用程序开发中，libcore库是必不可少的一部分，其提供的类和实现对于开发和调试应用程序都具有非常重要的作用。
-
-​	在libcore库中，luni是其中的一个子库，是指Java的基础类库（LUNI = LANG + UTIL + NET + IO），ojluni是OpenJDK的代码在Android中的实现，其目录结构与luni子库类似，包含了Java语言核心类、Java集合类和I/O类等。ojluni是在Java标准库的基础上进行了一些定制化的修改，以便更好地适配Android系统。
-
-在ojluni子库中，主要包含了以下类和接口：
-
-1. java.lang包：包含了Java语言的核心类，如Object、String、Class、System等。
-2. java.util包：包含了Java集合类，如ArrayList、HashMap等。
-3. java.io包：包含了Java I/O类，如File、InputStream、OutputStream等。
-4. java.net包：包含了Java网络编程类，如Socket、URL等。
-
-​	在Android应用程序开发中，ojluni子库也是非常重要的一部分，它提供了Java语言的核心类和接口，以及Java集合类和I/O类等，在使用Java标准库时需要注意一些Android系统特殊性的修改。可以通过在这里阅读和修改openjdk中的实现，或添加一些目录和类为开发定制功能提供便利。下面用`tree`命令展开目录的树状图。
+​	在`libcore`库中，`luni`是其中的一个子库，是指`Java`的基础类库（`LUNI = LANG + UTIL + NET + IO`），而`ojluni`是`OpenJDK`的代码在`Android`中的实现，其目录结构与`luni`子库类似，包含了`Java`语言核心类、`Java`集合类和`I/O`类等。`ojluni`是在`Java`标准库的基础上进行了一些定制化的修改，以便更好地适配`Android`系统。下面看看`ojluni`的目录结构。
 
 ```
 tree ./libcore/ojluni/src/main/java/ -d
@@ -2934,45 +2850,36 @@ tree ./libcore/ojluni/src/main/java/ -d
 
 ## 3.11 了解sepolicy
 
-​	sepolicy是指Android系统中实现访问控制的一种安全机制，它在Linux内核的基础上实现，用于保证手机安全。
+​	`sepolicy`主要用来存放`SELinux`策略的目录，`SELinux`是一种强制访问控制机制，`Android`系统中实现访问控制的一种安全机制，它在`Linux`内核的基础上实现，用于保证手机安全。
 
-在Android中，sepolicy主要用于限制应用程序的权限，使其只能访问其所需的资源，并在需要时向用户请求权限。通过限制应用程序的权限，可以防止恶意软件和攻击者攻击系统。
-
-具体而言，sepolicy可以做到以下几点：
+​	`SELinux`主要用于限制应用程序的权限，使其只能访问其所需的资源，并在需要时向用户请求权限。通过限制应用程序的权限，可以防止恶意软件和攻击者攻击系统。具体而言，`sepolicy`可以做到以下几点：
 
 1. 限制应用程序访问系统的资源，例如系统设置、网络接口等。
 2. 限制应用程序的使用权限，例如读取联系人、访问存储空间等。
 3. 保护系统文件和目录，防止应用程序和攻击者修改和删除系统关键文件。
-4. 限制system_server和其他服务的访问权限，以提高系统的安全性。
 
-为了实现这些功能，Android sepolicy使用了许多安全策略，包括：
+​	`Type Enforcement`是`SELinux`中的一个安全策略机制，用于对系统中每个对象和主体的访问进行强制访问控制。在`Type Enforcement`的模型中，每个对象和主体都被赋予了一个安全上下文（`Security Context`），该上下文由多个标签组成。
 
-1. Type Enforcemen是一种强制式访问控制（MAC）策略，它可以将每一个资源（如文件、目录、设备等）和进程依据其安全等级划分到一个预先定义好的类型域（domain）之中，并且限制这些资源之间的访问。。
-2. Role Based Access Control（RBAC）：使用了基于角色的访问控制策略，在系统安全范围内分配相应角色并运用于用户。
-3. Mandatory Access Control（MAC）：在安全措施中使用永久访问控制的策略来强化安全风险管理。
+​	`Role-Based Access Control（RBAC）`也是 `SELinux` 中的一种访问控制机制，用于对系统中多个用户、角色和对象的访问进行授权和限制。在`RBAC`模型中，每个用户都被分配了一个或多个角色，每个角色都有一组特定的权限和访问控制规则。与传统的访问控制方式不同，`RBAC`可以根据用户的职责和角色来授权和限制其访问，并且可以通过添加或删除角色等方式对访问控制进行动态管理。这种机制可以确保系统中不同用户之间的隔离和资源保护，并提高系统的安全性和可靠性。
 
-通过以上措施的组合，Android sepolicy可以保证手机系统的安全性和可靠性，使得用户使用手机更加放心，保护了手机中存储的个人和敏感信息。
+​	在`SELinux`中，标签分为三种类型：用户标签（`User ID`）、角色标签（`Role`）和类型标签（`Type`）。每个安全上下文都包含了这三种标签的组合，如“`u:r:system_app:s0`”表示该上下文对应一个用户标签为“`system_app`”的进程，其角色标签和类型标签分别为“`r`”和“`s0`”。
 
-​	在ROM定制时，常会添加某些功能时由于权限问题导致系统输出警告信息提示错误，这种情况需要调整策略，通过以上的一种方式为app开放权限。调整策略的位置在 Android 源代码的 `./system/sepolicy/` 目录中，`public`、`private`、`prebuilts` 目录下。
+​	通过安全上下文，`SELinux`可以对系统中的对象和主体进行细粒度控制，并限制它们之间的交互。例如，如果两个对象或主体的安全上下文不匹配，则它们不能相互通信或共享资源。这种机制可以有效地防止恶意应用程序或者攻击者对系统进行攻击或滥用。也可以通过修改 `sepolicy` 目录下的文件来调整安全策略，从而适应不同的应用程序和系统需求。
 
-1. `public`：该目录包含 Android 系统与函数库等公共的 sepolicy 规则。这些规则是开发人员和厂商可以自由使用和修改的，因为这些规则涉及到的是公共区域的访问控制。
-2. `private`：该目录包含硬编码到 Android 系统中的特定规则。这些规则用于控制既定的 Android 系统功能和应用程序，例如拨号应用程序、电源管理等，因此这些规则不能被修改或覆盖。
-3. `prebuilts`: 该目录包含预制的 sepolicy 文件，通常在 Android 设备的启动映像中用于定制芯片厂商的定制设备。它包括一组针对不同芯片和设备制造商的 sepolicy 规则和策略，找不到与特定设备相关联的策略时，预置策略可作为 Fallback 值。
+​	在`ROM`定制时，常会添加某些功能时由于权限问题导致系统输出警告信息提示错误，这种情况需要调整安全策略。调整策略的位置在`Android`源代码的 `./system/sepolicy/` 目录中，`public`、`private`目录下。
 
-​	在构建安卓设备时，sepolicy 在以上的基础上会使用 *.te（Type Enforcement） 和 *.fc（File Context） 规则来生成 sepolicy 文件，以针对特定设备和应用程序修补平台策略。在这个过程中，可以将上述的默认策略与特定设备或应用程序的安全策略独立或合并起来，以进一步加强安全性。
+1. `public`：该目录包含`Android`系统与函数库等公共的`sepolicy`规则。这些规则是开发人员和厂商可以自由使用和修改的，因为这些规则涉及到的是公共区域的访问控制。
+2. `private`：该目录包含硬编码到`Android`系统中的特定规则。这些规则用于控制既定的`Android`系统功能和应用程序，例如拨号应用程序、电源管理等，因此这些规则不能被修改或覆盖。
 
-​	当修改 Android 系统的 sepolicy 策略时，系统会使用 prebuilts 中的策略进行对比，这是因为 prebuilts 中包含了在 Android 设备上预置的 sepolicy 策略和规则。
-
-​	首先，系统先会加载 `public` 目录中的公共 sepolicy 规则，然后会使用 `private` 目录中的预设规则来控制既定的 Android 系统功能和应用程序。如果系统需要更改某些规则，系统会加载 `public` 和 `private` 目录中的规则文件，并根据这些文件进行修改。
-
-​	在这个过程中，如果需要新的规则并且它不存在于 `public` 和 `private` 目录中，则系统需要使用预制的 `prebuilts` 规则对新规则进行对比。因为预置的 prebuilts 规则是与设备和芯片厂商紧密相关的，因此这有助于系统保持原有的稳定性和设备兼容性，并防止在修改规则时发生不可预测的错误。
-
-​	通过使用预置的 prebuilts 规则，开发人员可以更容易地定制和开发 Android 对特定设备和应用程序的 sepolicy 策略，从而提高系统的安全性和稳定性。
+​	当修改`Android`系统的`SELinux`策略时，系统会使用`prebuilts`目录中的策略进行对比，这是因为`prebuilts`中包含了在 `Android`设备上预置的`SELinux`策略和规则。
 
 ​	对安全策略有一个大致的了解后，先看一个简单的例子，找到文件`./system/sepolicy/public/adbd.te`
 
 ```
+# 定义类型
 type adbd, domain;
+
+# 允许adbd类型的进程，在类型shell_test_data_file中的目录内创建子目录
 allow adbd shell_test_data_file:dir create_dir_perms;
 ```
 
@@ -2982,38 +2889,38 @@ allow adbd shell_test_data_file:dir create_dir_perms;
 - `domain`：指定域的类型；
 - `shell_test_data_file`：指定目录的类型。
 
-规则使用了`allow`关键字，表示允许某些操作。具体来说，上述规则允许`adbd`类型的进程在`shell_test_data_file`目录下创建目录，并且该目录将被赋予允许创建子目录的权限（由`create_dir_perms`定义）。
+​	规则使用了`allow`关键字，表示允许某些操作。具体来说，上述规则允许`adbd`类型的进程在`shell_test_data_file`类型的目录下创建目录，并且该目录将被赋予允许创建子目录的权限（由`create_dir_perms`定义）。
 
 ​	这个规则的实际意义是，当`adbd`进程需要在`shell_test_data_file`目录下创建子目录时，允许该操作，并为新创建的目录设置适当的权限。注意，这个规则只对该目录有效，不能用于其他目录。
 
-​	通常情况下我是采用按需修改的方式调整安全策略，当添加的功能被安全策略拦住时，会打印提示。例如当我在文件`com_android_internal_os_Zygote.cpp`的`SpecializeCommon`函数中加入如下代码，访问data目录。
+​	通常情况下采用按需修改的方式调整安全策略，当添加的功能被安全策略拦住时，会输出警告提示。例如在文件`com_android_internal_os_Zygote.cpp`的`SpecializeCommon`函数中加入如下代码，访问data目录。
 
 ```cpp
 std::string filepath="/data/app/demo";
 ReadFileToString(filepath,&file_contents)
 ```
 
-​	然后就会被selinux给拦截并提示警告信息如下
+​	然后就会被`SELinux`拦截并提示警告信息如下
 
 ```
 avc: denied { search } for name="app" dev="dm-8" ino=100 scontext=u:r:zygote:s0 tcontext=u:object_r:apk_data_file:s0 tclass=dir permissive=0
 ```
 
-​	在SELinux中，`avc: denied`是出现最频繁的提示之一，表示SELinux权限被拒绝的操作。给出的操作名在花括号中。如果提示被拒绝的进程、文件或目录有更多的上下文信息。
+​	在`SELinux`中，`avc: denied`是出现最频繁的提示之一，根据提示可以知道，进程`zygote`对安全上下文为`u:object_r:apk_data_file:s0`的目录进行`search`操作，该行为被拒绝了。除此之外，还有其他拒绝访问的提示消息如下。
 
-​	1、avc: denied {open} - 表示进程被禁止打开文件或设备。
+* `avc: denied {open} `- 表示进程被禁止打开文件或设备。
 
-​	2、avc: denied {read} - 表示进程被禁止读取一个文件、设备或目录。
+* `avc: denied {read} `- 表示进程被禁止读取一个文件、设备或目录。
 
-​	3、avc: denied {write} - 表示进程被禁止写入一个文件、设备或目录。
+* `avc: denied {write}` - 表示进程被禁止写入一个文件、设备或目录。
 
-​	4、avc: denied {getattr} - 表示进程被禁止读取一个文件或目录的元数据（例如，所有权、组、权限等）。
+* `avc: denied {getattr}` - 表示进程被禁止读取一个文件或目录的元数据（例如，所有权、组、权限等）。
 
-​	5、avc: denied {execute} - 表示进程被禁止执行一个文件或进程。
+* `avc: denied {execute}` - 表示进程被禁止执行一个文件或进程。
 
-​	6、avc: denied {create} - 表示进程被禁止创建一个文件。
+* `avc: denied {create} `- 表示进程被禁止创建一个文件。
 
-​	7、avc: denied {search} - 表示此进程被禁止在某目录中搜索文件的操作
+* `avc: denied {search} `- 表示此进程被禁止在某目录中搜索文件的操作
 
 ​	除了 `avc: denied`之外，还有其他一些可能出现的提示信息。以下是一些常见提示信息以及它们的含义：
 
