@@ -2627,7 +2627,7 @@ public @CallState int getCallState() {
 }
 ```
 
-​	然后就看到了，管理器并不负责业务相关的处理，主要是调用对应的系统服务来获取结果。继续查看`getCallStateUsingPackage`函数实现
+​	上述代码可以看出，`TelephonyManager`管理器不负责业务相关的处理，主要是调用对应的系统服务来获取结果。继续查看`getCallStateUsingPackage`函数实现
 
 ```java
 public int getCallStateUsingPackage(String callingPackage, String callingFeatureId) {
@@ -2924,29 +2924,29 @@ avc: denied { search } for name="app" dev="dm-8" ino=100 scontext=u:r:zygote:s0 
 
 ​	除了 `avc: denied`之外，还有其他一些可能出现的提示信息。以下是一些常见提示信息以及它们的含义：
 
-​	1、avc: granted - 表示操作被允许。
+* `avc: granted` - 操作被允许。
 
-​	2、avc: audit - 表示SELinux正在监视执行上下文之间的交互，并将相关信息记录到审计日志中。
+* `avc: audit` - 正在监视执行上下文之间的交互，并将相关信息记录到审计日志中。
 
-​	3、avc: no audit - 表示SELinux没有记录此操作的详细信息，这通常是因为没有启用SELinux的审计功能。
+* `avc: no audit` - 没有记录此操作的详细信息，这通常是因为没有启用`SELinux`的审计功能。
 
-​	4、avc: invalid - 表示操作请求的权限非法或无效。
+* `avc: invalid` - 操作请求的权限非法或无效。
 
-​	5、avc: timeout - 表示SELinux规则分析器超时无法确定操作是否应该允许。在这种情况下，操作通常会被拒绝。
+* `avc: timeout` - `SELinux`规则分析器超时无法确定操作是否应该允许。在这种情况下，操作通常会被拒绝。
 
-​	6、avc: failed - 表示SELinux规则分析器无法确定操作是否应该被允许或拒绝。
+* `avc: failed` - `SELinux`规则分析器无法确定操作是否应该被允许或拒绝。
 
-​	在SELinux中，scontext代表系统中的安全上下文，tcontext代表对象的安全上下文。每个具有权限要求的进程和对象都有一个安全上下文。 SELinux使用这些安全上下文来进行访问控制决策。
+​	在`SELinux`中，`scontext`代表系统中的安全上下文，`tcontext`代表对象的安全上下文。每个具有权限要求的进程和对象都有一个安全上下文。`SELinux`使用这些安全上下文来进行访问控制决策。
 
-scontext和tcontext中的“u”，“r”和“s0”是安全上下文标记的不同部分。含义如下：
+`scontext`和`tcontext`中的“`u`”，“`r`”和“`s0`”是安全上下文标记的不同部分。含义如下：
 
-​	1、u - 代表selinux中定义的用户，tcontext中的u代表对象所属用户。
+* `u `- 代表`selinux`中定义的用户，`tcontext`中的`u`代表对象所属用户。
 
-​	2、r - 代表进程的角色（role），tcontext中的r代表对象的角色。
+* `r `- 代表进程的角色（`role`），`tcontext`中的r代表对象的角色。
 
-​	3、s0 - 代表进程的安全策略范围（security level），tcontext中的s0代表对象的安全策略范围。s0通常表示为默认值。
+* `s0` - 代表进程的安全策略范围（`security level`），`tcontext`中的`s0`代表对象的安全策略范围。`s0`通常表示为默认值。
 
-​	可以通过命令`ps -eZ`来查看进程的scontext。
+​	可以通过命令`ps -eZ`来查看进程的`scontext`。
 
 ```
 ps -eZ
@@ -2958,7 +2958,7 @@ u:r:vndservicemanager:s0       system         675     1 10813436  2884 SyS_epoll
 u:r:kernel:s0                  root           676     2       0      0 kthread_w+          0 S [psimon]
 ```
 
-​	可以通过命令`ls -Z`来查看文件的scontext
+​	可以通过命令`ls -Z`来查看文件的`scontext`
 
 ```
 cd /data/app
@@ -2968,7 +2968,7 @@ drwxrwxr-x  3 system system u:object_r:apk_data_file:s0          3488 2023-02-26
 drwxrwxr-x  3 system system u:object_r:apk_data_file:s0          3488 2023-03-02 22:12:29.802016689 +0800 ~~W9dmzmphiDsjJm79RiBwdg==
 ```
 
-​	重新对下面的这个提示进行一次解读。`selinux`拒绝搜索一个目录，目录名称为app，所在设备为dm-8，被拒绝的进程上下文特征是`u:r:zygote:s0`，角色是zygote，目标文件上下文特征是`u:object_r:apk_data_file:s0`，用户级别为object_r，文件的所属类型是`apk_data_file`，表示应用程序的数据文件。`tclass`表示请求对象的类型，`dir`为适用于目录，`file`表示适用于文件
+​	重新对下面的这个提示进行一次解读。`selinux`拒绝搜索一个目录，目录名称为`app`，所在设备为`dm-8`，被拒绝的进程上下文特征是`u:r:zygote:s0`，角色是`zygote`，目标文件上下文特征是`u:object_r:apk_data_file:s0`，用户级别为`object_r`，文件的所属类型是`apk_data_file`，表示应用程序的数据文件。`tclass`表示请求对象的类型，`dir`为目录，`file`表示文件
 
 ```
 avc: denied { search } for name="app" dev="dm-8" ino=100 scontext=u:r:zygote:s0 tcontext=u:object_r:apk_data_file:s0 tclass=dir permissive=0
@@ -2980,9 +2980,9 @@ avc: denied { search } for name="app" dev="dm-8" ino=100 scontext=u:r:zygote:s0 
 allow zygote apk_data_file:dir search;
 ```
 
-​	修改完成后编译时，会报错，提示diff对比文件时发现内容不一致。最后再将文件`system/sepolicy/prebuilts/api/31.0/private/zygote.te`下添加相同的策略即可成功编译。
+​	修改完成后编译时，会报错，提示`diff`对比文件时发现内容不一致。最后再将文件`system/sepolicy/prebuilts/api/31.0/private/zygote.te`下添加相同的策略即可成功编译。
 
-​	neverallow`是 SELinux 策略语言中的一个规则，它用于指定某个操作永远不允许执行。neverallow规则用于设置一些强制访问控制规则，以在安全策略中明确禁止某些行为，从而提高其安全性。neverallow 规则与 allow规则在语法上非常相似，但在作用上截然不同。
+​	`neverallow`是`SELinux`策略语言中的一个规则，它用于指定某个操作永远不允许执行。`neverallow`规则用于设置一些强制访问控制规则，以在安全策略中明确禁止某些行为，从而提高其安全性。`neverallow`规则与`allow`规则在语法上非常相似，但在作用上截然不同。
 
 ​	有时按照警告信息提示，添加了对应策略后无法编译通过提示违反了`neverallow`。这种情况可以找到对应的`neverallow`，进行修改添加一个白名单来放过添加的规则。例如下面这个例子
 
@@ -2996,184 +2996,169 @@ allow zygote apk_data_file:dir search;
   } device:{ blk_file file } no_rw_file_perms;
 ```
 
-​	这个规则禁止上述进程以可读可写权限读写 `device` 类型的文件，其中-zygote，这种前面带有`-`表示排除掉这种进程，如果被设置了永不允许，只要找到对应的设置处，添加上排除对应进程即可成功编译了。
+​	这个规则禁止上述进程以可读可写权限读写 `device` 类型的文件，其中`-zygote`，这种前面带有`-`表示排除掉这种进程，如果被设置了永不允许，只要找到对应的设置处，添加上排除对应进程即可成功编译了。
 
 ## 3.12 了解Linker
 
-​	Linker是安卓中的一个系统组件，负责加载和链接系统动态库文件。Linker的主要作用有两个。
+​	`Linker`是安卓中的一个系统组件，负责加载和链接系统动态库文件。
 
-​	1、符号解析：在应用程序中发现对系统库中符号的引用，然后在具有相应功能的系统库中查找这些符号的实现。一旦找到实现，Linker会将引用的地址替换为实现。
+​	在`Android`源代码中，`Linker`源码的主要目录是`bionic/linker`。该目录包含`Linker`的核心实现，如动态加载、符号表管理、重定位、符号解析、`SO`文件搜索等。其中，`linker.c`是`Linker`的主要入口点，该文件中包含了大量的实现细节。`linker_phdr.c`是负责加载和处理`ELF`格式库文件的代码，`linker_namespaces.cpp`负责管理命名空间的代码，`linker_relocs.cpp`负责处理重定位的代码，`linker_sleb128.cpp`和`linker_uleb128.cpp`负责压缩和解压缩数据的实现等。除了`bionic/linker`目录外，`Linker`相关的代码还分散在其他系统组件中，例如系统服务和应用程序框架。
 
-​	2、重定位：当可执行文件加载到内存中时，它们在内存中的位置与在其开发环境中链接时的位置不同。Linker负责解决这个问题，使文件中的所有跳转指令都指向正确的内存地址。
+​	`linker`提供的一些函数来操作动态库，相关函数如下。
 
-​	在Android源代码中，Linker源码的主要目录是`bionic/linker`。该目录包含Linker的核心实现，如动态加载、符号表管理、重定位、符号解析、SO文件搜索等。其中，`linker.c`是Linker的主要入口点，该文件中包含了大量的实现细节。`linker_phdr.c`是负责加载和处理ELF格式库文件的代码，`linker_namespaces.cpp`负责管理命名空间的代码，`linker_relocs.cpp`负责处理重定位的代码，`linker_sleb128.cpp`和`linker_uleb128.cpp`负责压缩和解压缩数据的实现等。除了`bionic/linker`目录外，Linker相关的代码还分散在其他系统组件中，例如系统服务和应用程序框架。
+​	1. `dlopen`：打开一个动态链接库并返回句柄。
 
-​	在开始了解Linker如何加载动态库so文件前，需要先对so文件有一个简单的了解。
+​	2. `dlsym`：查找动态链接库中符号的地址。
+
+​	3. `dlclose`：关闭先前打开的动态链接库。
+
+​	4. `dlerror`：返回最近的动态链接库错误。
+
+​	5. `dladdr`：根据一个内存地址，返回映射到该地址的函数或变量的信息。
+
+​	6. `dl_iterate_phdr`：遍历进程的动态链接库模块，可以获取模块地址、同名模块列表等信息。
+
+​	在开始了解`Linker`如何加载动态库`so`文件前，需要先对`so`文件有一个简单的了解。
 
 ### 3.12.1 ELF格式
 
-​	在Android中，so（Shared Object）动态库是一种是一种基于ELF格式（Executable and Linkable Format）的可执行文件，它包含已编译的函数和数据，可以在运行时被加载到内存中，并被多个应用程序或共享库使用。
+​	在`Android`中，`so（Shared Object）`动态库是一种是一种基于`ELF`格式`（Executable and Linkable Format）`的可执行文件，它包含已编译的函数和数据，可以在运行时被加载到内存中，并被多个应用程序或共享库使用。
 
-​	与静态库不同，动态库中的代码在可执行文件中并不存在，取而代之的是一些动态链接器（Linker）编译时不知道的外部引用符号。在运行时，Linker会根据动态库中的符号表来解析这些引用，并将动态库中的函数和数据链接到可执行程序中。
+​	与静态库不同，动态库中的代码在可执行文件中并不存在，取而代之的是一些动态链接器（`Linker`）编译时不知道的外部引用符号。在运行时，`Linker`会根据动态库中的符号表来解析这些引用，并将动态库中的函数和数据链接到可执行程序中。
 
 ​	进程间共享动态库可以大大减少内存使用，提高代码重用性和可维护性。例如，如果多个应用程序都需要使用同一组件库，可以将其实现作为共享库提供。这样一来，每个应用程序都可以使用同一份库，而不必将代码重复添加到每个应用程序中。
 
-​	在ELF文件结构中，包含以下三个部分：
+​	在`ELF`文件结构中，包含以下三个部分：
 
-​	1、ELF Header，即ELF文件头，包含了文件的基本信息，例如文件类型、程序入口地址、节表的位置和大小等。
+1. `ELF Header`，`ELF`文件头，包含了文件的基本信息，例如文件类型、程序入口地址、节表的位置和大小等。
 
-​	2、Section Header，即节头部分，描述了文件中各个节的大小、类型和位置等信息。ELF文件中的每个节都包含某种类型的信息，例如代码、数据、符号表、重定位表以及其他调试信息等。
+2. `Section Header`，节头部分，描述了文件中各个节的大小、类型和位置等信息。`ELF`文件中的每个节都包含某种类型的信息，例如代码、数据、符号表、重定位表以及其他调试信息等。
 
-​	3、Program Header，即段头部分，描述了可执行文件在内存中的布局。由于ELF文件的节可以以任意顺序排列，因此Linker在加载前需要使用Program Header来释放并映射虚拟内存，创建进程虚拟内存段布局。Program Header也包含了动态链接器所需的信息，例如动态库的位置、依赖关系和符号表位置等。
+3. `Program Header`，段头部分，描述了可执行文件在内存中的布局。由于ELF文件的节可以以任意顺序排列，因此`Linker`在加载前需要使用`Program Header`来释放并映射虚拟内存，创建进程虚拟内存段布局。`Program Header`也包含了动态链接器所需的信息，例如动态库的位置、依赖关系和符号表位置等。
 
-​	ELF文件结构的设计使得其具有较好的可扩展性和可移植性。在Android开发中，通过编译生成ELF格式的so文件，使用动态链接器将so文件链接到运行的可执行程序中，提高了代码的重用性和可维护性。
+​	使用`Android Studio`创建一个`Native C++`的项目，成功编译后来到`output`目录中，解压`app-debug.apk`文件，然后进入`app-debug\lib\arm64-v8a\`目录，找到`so`文件将其拖入`010 Editor`编辑器工具中。
 
-​	使用`Android Studio`创建一个Native C++的项目，成功编译后来到output目录中，解压app-debug.apk文件，然后进入`app-debug\lib\arm64-v8a\`目录，找到so文件将其拖入`010 Editor`编辑器工具中。
-
-​	接着给`010 Editor`编辑器安装一个ELF格式解析的模板，在工具栏找到模板->模板存储库。接着在右上角输入ELF，最后点击安装，操作见下图。
+​	接着给`010 Editor`编辑器安装一个`ELF`格式解析的模板，在工具栏找到模板->模板存储库。搜索`ELF`，点击安装，操作见下图。
 
 ![image-20230304135859598](.\images\image-20230304135859598.png)
 
-​	模板安装后，关闭文件，重新使用010 Editor打开后，将编辑方式切换为模板后，就能成功看到使用ELF格式解析so文件的结果了，如下图。
+​	模板安装后，关闭文件，重新使用`010 Editor`打开后，将编辑方式切换为模板后，就能成功看到使用ELF格式解析so文件的结果了，如下图。
 
 ![image-20230304140328010](.\images\image-20230304140328010.png)
 
-​	ELF 头部（elf_header）结构包含以下成员：
+​		`ELF`头部定义了`ELF`文件的基本属性和结构，也为后续的段表和节表等信息提供了重要的指导作用。加载`ELF`文件的第一步就是解析`ELF`头部后，再根据头部信息去解析其他部分的数据，`ELF`头部（`elf_header`）结构包含以下成员：
 
-1. e_ident：一个长度为 16 字节的数组，用于标识文件类型和文件版本等信息。
-2. e_type：表示 ELF 文件类型，如可执行文件、共享库、目标文件等等。
-3. e_machine：表示 ELF 文件的目标硬件架构。
-4. e_version：表示 ELF 文件的版本，其一般为 EV_CURRENT。
-5. e_entry：表示该文件的程序入口点的虚拟地址。
-6. e_phoff：表示程序头表（program header table）的偏移量（以字节为单位）。
-7. e_shoff：表示节头表（section header table）的偏移量（以字节为单位）。
-8. e_flags：表示一些标志，比如针对硬件进行微调的标志。
-9. e_ehsize：表示 ELF 头部的长度（以字节为单位）。
-10. e_phentsize：表示程序头表中一个入口的长度（以字节为单位）。
-11. e_phnum：表示程序头表中入口的数量。
-12. e_shentsize：表示节头表中一个入口的长度（以字节为单位）。
-13. e_shnum：表示节头表中入口的数量。
-14. e_shstrndx：表示节头表中节名称字符串表的索引。
+* `e_ident`：长度为 16 字节的数组，用于标识文件类型和文件版本等信息。
 
-​	ELF 头部定义了 ELF 文件的基本属性和结构，也为后续的段表和节表等信息提供了重要的指导作用。加载ELF文件的第一步就是解析ELF头部后，再根据头部信息去解析其他部分的数据。下图是010 Edtior解析展示的结果图。
+* `e_type：ELF`文件类型，如可执行文件、共享库、目标文件等等。
+
+* `e_machine`：目标硬件架构。
+
+* `e_version`：`ELF文`件的版本，其一般为`EV_CURRENT`。
+
+* `e_entry`：程序入口点的虚拟地址。
+
+* `e_phoff`：程序头表（`program header table`）的偏移量（以字节为单位）。
+
+* `e_shoff`：节头表（`section header table`）的偏移量（以字节为单位）。
+
+* `e_flags`：表示一些标志，比如针对硬件进行微调的标志。
+
+* `e_ehsize`：`ELF`头部的长度（以字节为单位）。
+
+* `e_phentsize`：程序头表中一个入口的长度（以字节为单位）。
+
+* `e_phnum`：程序头表中入口的数量。
+
+* `e_shentsize`：节头表中一个入口的长度（以字节为单位）。
+
+* `e_shnum`：节头表中入口的数量。
+
+* `e_shstrndx`：节头表中节名称字符串表的索引。
+
+​	下图是`010 Edtior`解析展示的结果图。
 
 ![image-20230304141143199](.\images\image-20230304141143199.png)
 
-​	program header table 是一种用于描述可执行文件和共享库的各个段（section）在进程内存中的映射关系的结构，也称为段表。每个程序头表入口表示一个段。在 Linux 系统中，它是被操作系统用于将 ELF 文件加载到进程地址空间的重要数据结构之一。
+​	`program header table`是一种用于描述可执行文件和共享库的各个段（`section`）在进程内存中的映射关系的结构，也称为段表。每个程序头表入口表示一个段。在`Linux`系统中，它是被操作系统用于将`ELF`文件加载到进程地址空间的重要数据结构之一。每个`program header table`具有相同的固定结构，相关字段如下：
 
-每个 program header table 具有相同的固定结构，包含如下字段：
+* `p_type`：指定该段的类型，如可执行代码、只读数据、可读写数据、动态链接表、注释等等。
 
-1. p_type：指定该段的类型，如可执行代码、只读数据、可读写数据、动态链接表、注释等等。
-2. p_offset：该段在 ELF 文件中的偏移量（以字节为单位）。
-3. p_vaddr：该段在进程虚拟地址空间中的起始地址。
-4. p_paddr：该项通常与 p_vaddr 相等。用于操作系统在将 ELF 文件的一个段映射到进程地址空间前，进行虚拟地址和物理地址的转换等操作。
-5. p_filesz：该段在文件中的长度（以字节为单位）。
-6. p_memsz：该段在加到进程地址空间后的长度（以字节为单位）。
-7. p_flags：用于描述该段的标志，如可读、可写、可执行、不可缓存等等。
-8. p_align：对于某些类型的段，该字段用于指定段在地址空间中的对齐方式。
+* `p_offset`：该段在`ELF`文件中的偏移量（以字节为单位）。
+
+* `p_vaddr`：该段在进程虚拟地址空间中的起始地址。
+
+* `p_paddr`：该项通常与`p_vaddr`相等。用于操作系统在将`ELF`文件的一个段映射到进程地址空间前，进行虚拟地址和物理地址的转换等操作。
+
+* `p_filesz`：该段在文件中的长度（以字节为单位）。
+
+* `p_memsz`：该段在加到进程地址空间后的长度（以字节为单位）。
+
+* `p_flags`：用于描述该段的标志，如可读、可写、可执行、不可缓存等等。
+
+* `p_align`：对于某些类型的段，该字段用于指定段在地址空间中的对齐方式。
 
 ​	下图是编辑器中解析so看到的值
 
 ![image-20230304142500744](.\images\image-20230304142500744.png)
 
-​	section header table（节头表）是用于描述 ELF 文件中所有节（section）的元信息列表，也称为节表。它包含了每个节在文件中的位置、大小、类型、属性等信息。section header table 通常位于文件的末尾，并且包含 fixed-length 的 section header table entries，每个 entry 对应一个 section。它是诸如链接器和动态加载器等程序所必需的基本信息之一。
+​	`section header table`（节头表）是用于描述`ELF`文件中所有节（`section`）的元信息列表，也称为节表。它包含了每个节在文件中的位置、大小、类型、属性等信息。节头表的中相关字段如下：
 
-每个 section header table entry，包含以下字段：
+* `sh_name`: 节的名字在`.shstrtab`节中的向偏移量。这个偏移量可以用于获取该节的名字。
 
-​	1、sh_name: 表示该节的名字在 .shstrtab 节中的向偏移量。这个偏移量可以用于获取该节的名字。
+* `sh_type`：节的类型（`type`），如代码段、数据段、符号表等。
 
-​	2、sh_type：表示该节的类型（type），如代码段、数据段、符号表等。
+* `sh_flags`：节的属性标志，如是否可读、可写、可执行等。
 
-​	3、sh_flags：表示该节的属性标志，如是否可读、可写、可执行等。
+* `sh_addr`：节的内存地址（`virtual address`），当这个地址为零时，表示这个节没有被加载到内存中。
 
-​	4、sh_addr：表示节的内存地址（virtual address），当这个地址为零时，表示这个节没有被加载到内存中。
+* `sh_offset`：节在`ELF`文件中的偏移量（`offset`）。
 
-​	5、sh_offset：表示该节在 ELF 文件中的偏移量（offset）。
+* `sh_size`：节的长度（`size`）属性。
 
-​	6、sh_size：表示该节的长度（size）属性。
+* `sh_link`：节的连接节（`linking section`），可以帮助定位一些节，如符号表。
 
-​	7、sh_link：在节头表中，表示该节的连接节（linking section），可以帮助定位一些节，如符号表。
+* `sh_info`：与`sh_link`一起使用，具体含义与`sh_link`的值有关。
 
-​	8、sh_info：与 sh_link 一起使用，具体含义与 sh_link 的值有关。
+* `sh_addralign`：节的对齐方式（`alignment`）。
 
-​	9、sh_addralign：表示该节的对齐方式（alignment）。
+* `sh_entsize`：节的`entry`的大小。
 
-​	10、sh_entsize：表示该节的 entry 的大小（entry size），通常只有表格节会有 entry。
-
-​	通过这些信息，section header table 可以为执行链接和动态加载提供必要的元数据信息。样例数据看下图
+​	通过这些信息，`section header table`可以为执行链接和动态加载提供必要的元数据信息。样例数据看下图
 
 ![image-20230304143100841](.\images\image-20230304143100841.png)
 
-​	ELF文件中有各种节点用于存放对应的数据信息，几个常见的节点存放数据的描述如下。
+​	`ELF`文件中有各种节用于存放对应的信息，几个常见的节点存放数据的描述如下。
 
-​	1、`.dynsym` 节：该节包含动态链接符号表（dynamic symbol table），用于描述 .so 文件所包含的动态链接库中的符号。符号是程序中一些命名实体的名称，例如函数、变量、常量等等，描述了这些实体在程序中的地址和大小等信息。`.dynsym` 节可以协助动态加载器（Dynamic Linker）在程序运行时逐个查找符号。
+* `.dynsym` 节：该节包含动态链接符号表（`dynamic symbol table`），用于描述`.so`文件所包含的动态链接库中的符号。符号是程序中一些命名实体的名称，例如函数、变量、常量等等，描述了这些实体在程序中的地址和大小等信息。`.dynsym` 节可以协助动态加载器（`Dynamic Linker`）在程序运行时逐个查找符号。
 
-​	2、`.dynstr` 节：该节包含字符串表，用于存放符号表中的字符串，包括函数名、变量名、库名等等。
+* `.dynstr` 节：用于存放符号表中的字符串，包括函数名、变量名、库名等等。
 
-​	3、`.rela.dyn` 节：该节包含重定位入口表，是 LD（动态链接器）用于执行重定位操作的数据之一。`.rel.dyn` 节中每个入口包含需要进行重定位的位置及其要执行的重定位类型等信息。
+* `.plt` 节：保存了远程函数调用实现的跳转代码。
 
-​	4、`.rela.plt` 节：该节也是重定位入口表，但是它只包含用于实现远程函数调用 JUMP SLOT 的入口并跳转过去时需要使用的数据。这些数据是符号的信息，包括符号表中该引用的符号的编号以及重定位类型等等。动态链接器在对 `.rel.plt` 节进行重定位时，会在 GDB stub 中实现远程调用。
+* `.rodata` 节：包含程序中只读数据的代码段，如字符串常量、全局常量等等。
 
-​	5、`.plt` 节：保存了远程函数调用实现的跳转代码。
+* `.text` 节：程序的主要代码存放在该节中。该节包含可执行代码的机器语言指令，例如函数代码、条件语句、循环语句等等。
 
-​	6、`.rodata` 节：包含程序中只读数据的代码段，如字符串常量、全局常量等等。
+* `.bss` 节点（`Block Started by Symbol`）存储未初始化的全局变量和静态变量，其大小在编译时无法确定。因此，`.bss`节点在`ELF`文件中只占据一些空间，该空间称为`bss`段。而在运行时，操作系统会分配实际的内存空间给这些变量。`.bss`节点的大小在 `ELF`文件头的`e_shsize`字段中给出。
 
-​	7、`.text` 节：程序的主要代码存放在该节中。该节包含可执行代码的机器语言指令，例如函数代码、条件语句、循环语句等等。
-
-​	8、`.bss` 节点（Block Started by Symbol）存储未初始化的全局变量和静态变量，其大小在编译时无法确定。因此，.bss 节点在 ELF 文件中只占据一些空间，该空间称为 bss 段。而在运行时，操作系统会分配实际的内存空间给这些变量。.bss 节点的大小在 ELF 文件头的 e_shsize 字段中给出。
-
-​	9、`.shstrtab` 节点（Section Header STRing TABle）存储节名称字符串，即每个节的名称和节头表中的节名称偏移量。它包含了 ELF 文件中每个节的字符串名称，方便读取程序在加载时快速访问。在运行时，操作系统负责维护这张表. 在 Android 中，.shstrtab 节点是一个特殊的节，它位于节头表的末尾，可以通过 ELF 文件头的 e_shstrndx 字段找到。
+* `.shstrtab` 节点（`Section Header String Table`）存储节名称字符串，即每个节的名称和节头表中的节名称偏移量。它包含了`ELF`文件中每个节的字符串名称，方便读取程序在加载时快速访问。在`Android`中，`.shstrtab`节点是一个特殊的节，它位于节头表的末尾，可以通过`ELF`文件头的`e_shstrndx`字段找到。
 
 ![image-20230304143003972](.\images\image-20230304143003972.png)
 
-​	动态符号表（Dyanmic Symbol Table）用于动态链接，其中记录了与共享库中的符号相关的信息，包括符号的名称、符号的值、符号的类型等。当一个程序在运行时需要链接共享库时，动态链接器会使用该表将程序中的符号解析为共享库中的符号。
-
-​	通常情况下，每个共享库都拥有一个关联的动态符号表，因此在 ELF 二进制文件中也会有多个动态符号表存在。这些动态符号表可以通过 .dynsym 节节点进行访问。在动态符号表中，每个符号具有一个唯一的名称和一个类型（如函数、变量等），以及一个对应的符号表地址（符号的值）。为了提高链接速度，动态符号表中的符号通常存储为哈希表的形式。这样，在进行符号查找的时候，可以更快速和高效地找到符号。
-
-​	下图是编辑器解析ELF结构看到样本so中的`stringFromJni`的符号信息。
-
-![image-20230304145047084](.\images\image-20230304145047084.png)
-
-​	上图中年可以看到，每个符号在动态符号表中对应一个 symbol entry。
-
-在 dynamic_symbol_table 中，每个 symbol entry 包含以下信息:
-
-- `st_name`：符号的名称在字符串表节中的偏移量。通过这个偏移量，可以获得符号的名称。
-- `st_value`：符号的值，表示符号的地址或偏移量，其含义取决于符号类型。
-- `st_size`：符号的大小，即占用的字节数。
-- `st_info`：符号的相关信息，包括符号的类型（在最高位），以及局部或全局符号等其他信息（低位）。
-- `st_other`：符号的其他信息，通常为 0。
-- `st_shndx`: 指向存放符号的Section Header的索引。可以通过该索引找到存储符号的节
-
-​	其中，`st_info` 字段包括符号的类型和其他属性信息。类型的值可以是以下之一：
-
-- `STT_NOTYPE`：未知类型。
-- `STT_OBJECT`: 对象符号，表示一个数据对象。
-- `STT_FUNC`: 函数符号，表示相关联的符号是一个函数或可执行指令。
-- `STT_SECTION`：表示该符号是一个节。
-- `STT_FILE`：表示该符号是源文件名的符号。
-
-​	其他属性信息的值为以下之一：
-
-- `STB_LOCAL`：局部符号，只在共享库内部可用。
-- `STB_GLOBAL`：全局符号，可以在其他共享库和可执行文件中使用。
-- `STB_WEAK`：弱符号，在多个地方定义时，优先级较低。
-
-​	在动态链接时，动态链接器会根据 ELF 文件中的 dynamic_symbol_table 来确定链接的目标信息，包括符号的名字、位置等。其中 symbol entry 也就是动态链接器解析符号的基本单元。
-
 ### 3.12.2 动态加载流程
 
-​	Linker动态加载是把代码（函数、变量、数据结构等）从动态链接库（so文件）中加载到内存中，并建立起代码之间的相互引用关系的过程。在Android等操作系统中，Linker动态加载主要用于模块化开发，将程序分为多个独立的模块，以便于代码的管理和维护。下面是Linker动态加载的主要步骤：
+​	`Linker`动态加载是把代码（函数、变量、数据结构等）从动态链接库（`so`文件）中加载到内存中，并建立起代码之间的相互引用关系的过程。在`Android`等操作系统中，`Linker`动态加载主要用于模块化开发，将程序分为多个独立的模块，以便于代码的管理和维护。下面是`Linker`动态加载的主要步骤：
 
-1. 根据系统的运行时需求，将需要的库文件加载进内存中，实现代码重用和共享。此时，Linker会执行一些特定的逻辑，如依赖优化、so文件版本检查等。
-2. 在进行动态链接的过程中，Linker会为每个库和每个函数生成全局唯一的标识符，以确定代码所在的地址。这个标识符会在编译过程中嵌入到库文件的头部，并且保存到动态链接库的符号表中。
-3. 解析符号表。Linker会读取库文件的符号表，并把符号名和符号地址配对起来，以便于在程序运行期间在内存中动态地连接他们。
-4. 检查符号表中的函数的其他库依赖项。如果当前库依赖于其他库，Linker就会递归地对这些依赖库进行加载、解析和链接。
-5. 调整符号地址。Linker会修改符号表中的函数地址，将函数重定向到动态库中正确的位置，以确保函数调用能够正确地传递和接收数据。
-6. 执行初始化和清理代码。在所有库和函数都被解析、链接和装载之后，Linker会执行全局构造函数来初始化代码，以及执行全局析构函数来清理代码。
-7. Linker动态加载过程中还会涉及到如动态追加、卸载等操作。
+1. 根据系统的运行时需求，将需要的库文件加载进内存中，实现代码重用和共享。此时，`Linker`会执行一些特定的逻辑，如依赖优化、`so`文件版本检查等。
+2. 在进行动态链接的过程中，`Linker`会为每个库和每个函数生成全局唯一的标识符，以确定代码所在的地址。这个标识符会在编译过程中嵌入到库文件的头部，并且保存到动态链接库的符号表中。
+3. 解析符号表。`Linker`会读取库文件的符号表，并把符号名和符号地址配对起来，以便于在程序运行期间在内存中动态地连接他们。
+4. 检查符号表中的函数的其他库依赖项。如果当前库依赖于其他库，`Linker`就会递归地对这些依赖库进行加载、解析和链接。
+5. 调整符号地址。`Linker`会修改符号表中的函数地址，将函数重定向到动态库中正确的位置，以确保函数调用能够正确地传递和接收数据。
+6. 执行初始化和清理代码。在所有库和函数都被解析、链接和装载之后，`Linker`会执行全局构造函数来初始化代码，以及执行全局析构函数来清理代码。
+7. `Linker`动态加载过程中还会涉及到如动态追加、卸载等操作。
 
-​	以上是Linker动态加载的主要步骤及涉及到的主要逻辑。Linker动态加载是Android操作系统的底层技术之一，对于Android应用开发具有重要作用。接着从源码层面跟踪动态加载的具体过程。打开前面创建的样例app。
+​	以上是`Linker`动态加载的主要步骤及涉及到的主要逻辑。接着从源码层面跟踪动态加载的具体过程。打开前面创建的样例`app`。
 
 ```java
 public class MainActivity extends AppCompatActivity {
@@ -3186,60 +3171,60 @@ public class MainActivity extends AppCompatActivity {
 }
 ```
 
-​	在应用层直接通过调用loadLibrary就可以完成一系列的加载动态库的操作了，看看内部是如何实现的。这里发现是System下的loadLibrary函数，前文有介绍过libcore中存放着openjdk的核心库的实现，而java.lang.System就是其中，找到文件`libcore/ojluni/src/main/java/java/lang/System.java`查看函数实现如下。
+​	在应用层直接通过调用`loadLibrary`就可以完成一系列的加载动态库的操作了，看看内部是如何实现的。首先是`System`下的`loadLibrary`函数，前文有介绍过`libcore`中存放着`openjdk`的核心库的实现，而`java.lang.System`就是其中，找到文件`libcore/ojluni/src/main/java/java/lang/System.java`查看函数实现如下。
 
 ```java
 public static void loadLibrary(String libname) {
-        Runtime.getRuntime().loadLibrary0(Reflection.getCallerClass(), libname);
-    }
+    Runtime.getRuntime().loadLibrary0(Reflection.getCallerClass(), libname);
+}
 ```
 
-​	继续在ojluni的目录中搜索loadLibrary0的函数实现
+​	继续在`ojluni`的目录中搜索`loadLibrary0`的函数实现
 
 ```java
 void loadLibrary0(Class<?> fromClass, String libname) {
-        ClassLoader classLoader = ClassLoader.getClassLoader(fromClass);
-        loadLibrary0(classLoader, fromClass, libname);
-    }
+    ClassLoader classLoader = ClassLoader.getClassLoader(fromClass);
+    loadLibrary0(classLoader, fromClass, libname);
+}
 
 private synchronized void loadLibrary0(ClassLoader loader, Class<?> callerClass, String libname) {
-        ...
-        String libraryName = libname;
-    	// 如果classloader不是BootClassLoader
-        if (loader != null && !(loader instanceof BootClassLoader)) {
-            String filename = loader.findLibrary(libraryName);
-            if (filename == null &&
-                    (loader.getClass() == PathClassLoader.class ||
-                     loader.getClass() == DelegateLastClassLoader.class)) {
+    ...
+    String libraryName = libname;
+    // 如果classloader不是BootClassLoader
+    if (loader != null && !(loader instanceof BootClassLoader)) {
+        String filename = loader.findLibrary(libraryName);
+        if (filename == null &&
+            (loader.getClass() == PathClassLoader.class ||
+             loader.getClass() == DelegateLastClassLoader.class)) {
 
-                filename = System.mapLibraryName(libraryName);
-            }
-            ...
-            String error = nativeLoad(filename, loader);
-            if (error != null) {
-                throw new UnsatisfiedLinkError(error);
-            }
-            return;
+            filename = System.mapLibraryName(libraryName);
         }
-        getLibPaths();
-        String filename = System.mapLibraryName(libraryName);
-        String error = nativeLoad(filename, loader, callerClass);
+        ...
+        String error = nativeLoad(filename, loader);
         if (error != null) {
             throw new UnsatisfiedLinkError(error);
         }
+        return;
     }
+    getLibPaths();
+    String filename = System.mapLibraryName(libraryName);
+    String error = nativeLoad(filename, loader, callerClass);
+    if (error != null) {
+        throw new UnsatisfiedLinkError(error);
+    }
+}
 
 // 看到不管是哪个Classloader都是调用的nativeLoad，只是重载不一样。但是两个参数的实际也是调用了三个参数重载的实现。
 private static String nativeLoad(String filename, ClassLoader loader) {
-        return nativeLoad(filename, loader, null);
-    }
+    return nativeLoad(filename, loader, null);
+}
 
 // 三个参数重载的是一个native函数
 private static native String nativeLoad(String filename, ClassLoader loader, Class<?> caller);
 
 ```
 
-​	搜索nativeLoad的相关实现如下
+​	继续搜索`nativeLoad`的相关实现如下
 
 ```c++
 // 调用了JVM_NativeLoad
@@ -3251,7 +3236,7 @@ Runtime_nativeLoad(JNIEnv* env, jclass ignored, jstring javaFilename,
 }
 ```
 
-​	JVM_NativeLoad的代码在art目录中，继续查看相关实现
+​	`JVM_NativeLoad`的代码在art目录中，继续查看相关实现
 
 ```cpp
 
@@ -3360,7 +3345,7 @@ bool JavaVMExt::LoadNativeLibrary(JNIEnv* env,
 
 ```
 
-​	在这个函数中，看到使用`OpenNativeLibrary`来加载一个动态库，然后将加载动态库的信息包装成SharedLibrary对象，存入`libraries_`中，下次再加载时，会在`libraries_`查看是否存在，存在则直接返回。接着又通过函数FindSymbol查找JNI_OnLoad的符号地址，然后进行调用。继续跟踪加载动态库的具体实现，然后再回头看查找符号的实现。
+​	在这个函数中，看到使用`OpenNativeLibrary`来加载一个动态库，然后将加载动态库的信息包装成`SharedLibrary`对象，存入`libraries_`中，下次再加载时，会在`libraries_`查看是否存在，存在则直接返回。接着又通过函数`FindSymbol`查找`JNI_OnLoad`的符号地址，然后进行调用。继续跟踪加载动态库的具体实现，最后再回头看查找符号的实现。
 
 ```cpp
 
@@ -3420,15 +3405,13 @@ void* OpenNativeLibrary(JNIEnv* env, int32_t target_sdk_version, const char* pat
 }
 ```
 
-​	在这里函数看到，使用多种方式尝试进行动态加载，分别是android_dlopen_ext、TryLoadNativeloaderExtraLib、OpenSystemLibrary。它们都是在 Android 平台上用来加载动态库的方法，但是它们各自的使用场景略有不同：
+​	在这里函数看到，使用多种方式尝试进行动态加载，分别是`android_dlopen_ext`、`TryLoadNativeloaderExtraLib`、`OpenSystemLibrary`。它们都是在`Android`平台上用来加载动态库的方法，但是它们各自的使用场景略有不同：
 
-1. android_dlopen_ext：是一个供开发者使用的公开函数，在 Android 应用程序中可以使用它来动态加载本地库。它支持指定库的绝对路径和不同的标志（如 RTLD_NOW、RTLD_LAZY 等），并返回一个指向已加载库的指针，供后续调用函数的时候使用。
-2. TryLoadNativeloaderExtraLib：是 Android 系统中的内部方法，用于加载额外的本地库。它被用于支持动态加载共享库的应用程序，例如使用反射实现的动态库加载方式。系统在应用程序启动时调用它，用于加载应用程序所需的额外本地库。使用该方法可以加载特定的本地库，并支持跨架构的执行。
-3. OpenSystemLibrary：也是 Android 系统中的内部方法，用于加载 Android 系统的本地库。它不需要指定库的路径，而是使用系统库路径中的路径名来加载相应的库文件。该方法主要用于加载 Android 操作系统核心中的一些固定的系统库，例如 libz.so、liblog.so 等。
+1. `android_dlopen_ext`：是一个供开发者使用的公开函数，它支持指定库的绝对路径和不同的标志（如`RTLD_NOW`、`RTLD_LAZY`等），并返回一个指向已加载库的指针，供后续调用函数的时候使用。
+2. `TryLoadNativeloaderExtraLib`：是`Android`系统中的内部方法，用于加载额外的本地库。它被用于支持动态加载共享库的应用程序，例如使用反射实现的动态库加载方式。系统在应用程序启动时调用它，用于加载应用程序所需的额外本地库。使用该方法可以加载特定的本地库，并支持跨架构的执行。
+3. `OpenSystemLibrary`：也是`Android`系统中的内部方法，用于加载`Android`系统的本地库。它不需要指定库的路径，而是使用系统库路径中的路径名来加载相应的库文件。该方法主要用于加载`Android`操作系统核心中的一些固定的系统库，例如 `libz.so、liblog.so`等。
 
-​	总的来说，这三个方法都是用于加载动态库的方法，不同的是它们的使用场景略有不同：android_dlopen_ext 适合一般需要动态加载本地库的应用程序；TryLoadNativeloaderExtraLib 适用于需要在 Android 平台上进行动态库加载的应用程序；OpenSystemLibrary 则主要用于加载 Android 操作系统核心中的一些固定的系统库。
-
-​	选一条路线分析即可，这里继续从`android_dlopen_ext`深入分析，该函数的相关代码在libdl.cpp中实现。
+​	总的来说，这三个方法都是用于加载动态库的方法，不同的是它们的使用场景略有不同。选一条路线分析即可，这里继续从`android_dlopen_ext`深入分析，该函数的相关代码在`libdl.cpp`中实现。
 
 ```cpp
 void* android_dlopen_ext(const char* filename, int flag, const android_dlextinfo* extinfo) {
@@ -3463,7 +3446,7 @@ static void* dlopen_ext(const char* filename,
 }
 ```
 
-​	到这里do_dlopen则执行到了Linker部分的实现了，找到linker.cpp文件查看
+​	到这里`do_dlopen`则执行到了`Linker`部分的实现了，找到`linker.cpp`文件查看
 
 ```cpp
 
@@ -3644,30 +3627,14 @@ bool read(const char* realpath, off64_t file_size) {
   }
 ```
 
-​	ElfReader是Android源文件中的工具，位于系统核心库libcore中，代码主要由 C++ 编写。它可以读取ELF文件的所有信息，并将其解析为指定格式，以便于在Android系统中使用。
+​	`ElfReader`是`Android`源文件中的工具，位于系统核心库`libcore`中，代码主要由`C++`编写。它可以读取`ELF`文件的所有信息，并将其解析为指定格式。
 
-ElfReader具备以下特点：
+`ElfReader`具备以下特点：
 
-- 能够读取ELF文件的头信息，包括ELF版本、目标体系结构、程序入口地址、节表偏移量等。
-- 能够读取ELF文件的节表信息，包括节表名称、大小、偏移量、属性等。
+- 读取`ELF`文件的头信息，包括`ELF`版本、目标体系结构、程序入口地址、节表偏移量等。
+- 读取`ELF`文件的节表信息，包括节表名称、大小、偏移量、属性等。
 - 通过节表信息可以获取符号表、重定位表、动态链接表等关键信息，如函数、变量、链接库、导出函数等。
-- 支持通过指定节表名称获取某个节表的信息，如根据".rodata"获取只读数据节表的信息等。
-
-在Android开发过程中，ElfReader被广泛地使用于Android应用开发、安全检测以及对Android系统的二次开发中。它能够方便地读取ELF文件相关信息，为后续的开发工作提供了便捷的数据支持。
-
-​	也可以直接使用`linker`提供的一些函数来操作动态库，相关函数如下。
-
-​	1. dlopen()：打开一个动态链接库并返回句柄。
-
-​	2. dlsym()：查找动态链接库中符号的地址。
-
-​	3. dlclose()：关闭先前打开的动态链接库。
-
-​	4. dlerror()：返回最近的动态链接库错误。
-
-​	5. dladdr()：根据一个内存地址，返回映射到该地址的函数或变量的信息。
-
-​	6. dl_iterate_phdr()：遍历进程的动态链接库模块，可以获取模块地址、同名模块列表等信息。
+- 支持通过指定节表名称获取某个节表的信息，如根据"`.rodata`"获取只读数据节表的信息等。
 
 ## 小结
 
