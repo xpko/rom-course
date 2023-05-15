@@ -1,48 +1,53 @@
 # 第六章 功能定制
 
-​	上一章中系统内置的过程和`Android`系统的编译流程息息相关，而本章功能的定制就是和安卓源码的执行紧密相连，通过对源码运行的理解，可以在执行过程的源码中添加需求功能，插入自己的业务逻辑，例如对其插桩输出，可以帮助我们更好的理解源码的执行过程。在本章中，将头开始分析功能，应该如何分析其原理，然后逐步进行实现。
+​	上一章中系统内置的过程和`Android`系统的编译流程息息相关，而本章功能的定制就是和安卓源码的执行紧密相连，通过对源码运行的理解，在执行过程的源码中添加需求功能，插入自己的业务逻辑，例如对其插桩输出，可以帮助我们更好的理解源码的执行过程。在本章中，将头开始分析功能，分析其原理，然后逐步实现。
 
 ## 6.1 如何进行功能定制
 
-​	在开始动手前，必须要明确目标需求，规划要实现功能的具体表现。根据预定好的目标方向，将能抽取的业务部分隔离开来，通过开发一个普通的App先对业务实现流程，避免直接在AOSP中修改源码，发现问题后，反复编译排查这些逻辑的细节，导致耗费大量的时间成本在简单问题上。
+​	在开始动手前，必须要明确需求，规划要实现功能的具体表现。根据预定好的目标方向，将能抽取的业务部分隔离开来，通过开发普通的`App`先将业务逻辑实现，如果直接在`AOSP`中修改源码，发现问题后，反复编译排查这些逻辑的细节，将导致耗费大量的时间成本在简单问题上。
 
-​	除此之外，尽量使用源码版本管理工具来维护代码，避免长期迭代后，无法找到自己修改的相关代码，导致维护非常困难，以及迁移代码的不便利，如果不想搭建源码版本管理AOSP，则尽量保持代码开发时的风格，将自己修改处的代码统一打上标识，并且到一定阶段进行备份，避免因为自己的修改导致系统异常，却又无法回退代码解决问题。
+​	除此之外，尽量使用源码版本管理工具来维护代码，避免长期迭代后，无法找到自己修改的相关代码，导致维护非常困难，以及迁移代码的不便利，如果不想搭建源码版本管理AOSP，则尽量保持代码开发的风格，将自己修改处的代码统一打上标识，功能完成到一定阶段进行备份，避免因为修改导致系统异常，却又无法回退代码解决问题。
 
-​	在进行功能定制时，需要先对目标的执行流程和实现过程有一定的了解，然后找到合适的切入点，在实现过程中分析源码时，需要多多关注AOSP中提供的各种功能函数，有些常见的功能函数不要自己重新写一套实现，如果要定制的功能在AOSP源码中有类似的实现，则直接参考官方的实现。
+​	在进行功能定制时，需要先对目标的执行流程和实现过程有一定的了解，然后找到合适的切入点，在实现过程中分析源码时，需要留意`AOSP`中提供的各种功能函数，有些常见的功能函数不要自己重新写一套实现，如果要定制的功能在AOSP源码中有类似的实现，则直接参考官方的实现。
 
-​	功能开发的过程实际就是不断熟悉源码的过程，可以通过插桩输出日志来加深对执行流程的认知，以及对源码的理解。所以接下来这一章中将围绕着通过插桩来加深印象，通过模仿AOSP自身的系统服务，来添加一个自己的系统服务，接着是通过做一个全局的注入器，来了解如何在AOSP中添加自己的源码文件。最后通过修改默认权限，来熟悉AOSP中APP执行过程的解析环节。
+​	功能开发的过程实际就是不断熟悉源码的过程，以及对源码的理解。接下来这一章中将完成下列几个目标。
+
+* 学习插桩，加深源码执行的印象。
+* 模仿`AOSP`自身的系统服务，来添加一个自己的系统服务。
+* 在应用启动过程中注入`Java`代码。
+* 修改默认权限，了解`Android`是如何加载解析`AndroidManifest.xml`。
 
 ## 6.2 插桩
 
-​	在Android逆向中，插桩是一项非常常见的手段，它可以帮助开发人员检测和诊断代码问题。插桩是指在程序运行时向代码中插入额外的指令或代码段来收集有关程序执行的信息。这些信息可以用于分析程序执行流程、性能瓶颈等问题。常见的插桩方式分为静态插桩和动态插桩。
+​	在`Android`逆向中，插桩是非常常见的手段，它可以帮助开发人员检测和诊断代码问题。插桩是指在程序运行时向代码中插入额外的指令或代码段来收集有关程序执行的信息。这些信息可以用于分析程序执行流程、性能瓶颈等问题。常见的插桩方式分为静态插桩和动态插桩。
 
 ### 6.2.1 静态插桩
 
-​	静态插桩是指将插入的代码直接嵌入到源代码中，并在编译期间将其转换为二进制形式。静态插桩通常用于收集静态信息，例如函数调用图、代码覆盖率等。比如将一个APP反编译后，找到要分析的目标函数，在smali指令中插入日志输出的指令，并且将函数的参数或返回值，或全局变量、局部变量等需要观测的相关信息进行输出，最后将代码回编成apk后，重新签名。
+​	静态插桩是指将插入的代码直接嵌入到源代码中，并在编译期间将其转换为二进制形式。静态插桩通常用于收集静态信息，例如函数调用图、代码覆盖率等。比如将一个`APP`反编译后，找到要分析的目标函数，在`smali`指令中插入日志输出的指令，并且将函数的参数或返回值，或全局变量、局部变量等需要观测的相关信息进行输出，最后将代码回编成`apk`后，重新签名。
 
 ### 6.2.2 动态插桩
 
-​	动态插桩是指在程序运行时动态地将插入的代码加载到内存中并执行。动态插桩通常用于收集动态信息，例如内存使用情况、线程状态等。对函数进行Hook就是一种动态插桩技术，在Hook中，通过修改函数入口地址，将自己的代码"钩"入到目标函数中，在函数调用前或调用后执行一些额外的操作，例如记录日志、篡改数据、窃听函数调用等。Hook通常用于调试、性能分析和安全审计等方面。它可以帮助开发人员诊断代码问题，提高程序的稳定性和性能，并增强程序的安全性。同时，Hook还可以被黑客用于攻击应用程序，因此需要谨慎使用。
+​	动态插桩是指在程序运行时动态地将插入的代码加载到内存中并执行。动态插桩通常用于收集动态信息，例如内存使用情况、线程状态等。对函数进行`Hook`就是一种动态插桩技术，在`Hook`中，通过修改函数入口地址，将自己的代码"钩"入到目标函数中，在函数调用前或调用后执行一些额外的操作，例如记录日志、篡改数据、窃听函数调用等。`Hook`通常用于调试、性能分析和安全审计等方面。它可以帮助开发人员诊断代码问题，提高程序的稳定性和性能，并增强程序的安全性。同时，`Hook`还可以被黑客用于攻击应用程序。
 
 ### 6.2.3 ROM插桩
 
-​	ROM插桩是指在预置的ROM固件中进行插桩，和前面的两种方式不同，直接通过修改系统代码，对想要关注的信息进行输出即可，过程等于是在开发的APP中添加LOG日志一般，虽然插桩非常方便，但是这并不是一个小型的APP项目，其中的调用流程相当复杂，需要具有更高的技术要求和谨慎性，所以前提是我们必须熟悉AOSP的源码，才能更加优雅的输出日志。
+​	`ROM`插桩是指在预置的`ROM`固件中进行插桩，和前面的两种方式不同，直接通过修改系统代码，对想要关注的信息进行输出即可，过程等于是在开发的`APP`中添加`LOG`日志，虽然插桩非常方便，但是这并不是一个小型的`APP`项目，其中的调用流程相当复杂，所以前提是我们必须熟悉`AOSP`的源码，才能更加优雅的输出日志。
 
 ## 6.3 RegisterNative插桩
 
-​	Native函数是指在Android开发中，Java代码调用的由C、C++编写的函数。Native函数通常用来访问底层系统资源，或进行高性能的计算操作。和普通Java函数不一样，Native函数需要通过JNI（Java Native Interface）进行调用。而Native函数能被调用到的前提是需要先进行注册，有两种方式进行注册，分别是静态注册和动态注册。
+​	`Native`函数是指在`Android`开发中，`Java`代码调用的由`C、C++`编写的函数。`Native`函数通常用来访问底层系统资源，或进行高性能的计算操作。和普通`Java`函数不一样，`Native`函数需要通过`JNI（Java Native Interface）`进行调用。而`Native`函数能被调用到的前提是需要先进行注册，有两种方式进行注册，分别是静态注册和动态注册。
 
-​	静态注册是指在编译时就将Native函数与Java方法进行绑定。这种方式需要手动编写C/C++代码，并在编译时生成一个共享库文件，然后在Java程序中加载该库文件并通过JNI接口调用其中的函数。
+​	静态注册是指在编译时就将`Native`函数与`Java`方法进行绑定。这种方式需要手动编写`C/C++`代码，并在编译时生成一个共享库文件，然后在`Java`程序中加载该库文件并通过`JNI`接口调用其中的函数。
 
-​	动态注册是指在程序运行时将Native函数与Java方法进行绑定。这种方式可以在Java程序中动态地加载Native函数，避免了在编译时生成共享库文件的过程。通过JNI接口提供的相关函数，可以在Java程序中实现动态注册的功能。
+​	动态注册是指在程序运行时将`Native`函数与`Java`方法进行绑定。这种方式可以在`Java`程序中动态地加载`Native`函数，避免了在编译时生成共享库文件的过程。通过`JNI`接口提供的相关函数，可以在`Java`程序中实现动态注册的功能。
 
-​	下面开始了解两种注册方式的实现原理，最终在系统执行过程中找到一个共同调用处进行插桩，将所有App的静态注册和动态注册进行输出，打印出进行注册的目标函数名，以及注册对应的C++函数的偏移地址。
+​	下面开始了解两种注册方式的实现原理，最终在系统执行过程中找到一个共同调用处进行插桩，将所有`App`的静态注册和动态注册进行输出，打印出进行注册的目标函数名，以及注册对应的`C++`函数的偏移地址。
 
 ### 6.3.1 静态注册
 
-​	通过前文的介绍，了解到Native函数必须要进行注册才能被找到并调用，接下来看两个例子，展示了如何对Native函数进行静态注册和动态注册的。
+​	通过前文的介绍，了解到`Native`函数必须要进行注册才能被找到并调用，接下来看两个例子，展示了如何对`Native`函数进行静态注册和动态注册的。
 
-​	当使用Android Studio创建一个Native C++的项目，其中默认使用的就是静态注册，在这个例子中，Java 函数与 C++ 函数的绑定是通过 Java 和 C++ 函数名的约定来实现的。具体地说，在 Java 代码中声明的 native 方法的命名规则为：Java_ + 全限定类名 + _ + 方法名，并且将所有的点分隔符替换为下划线。例如，在这个例子中，Java 类的全限定名为 com.mik.nativecppdemo.MainActivity，方法名为 stringFromJNI，因此对应的 C++ 函数名为 Java_com_mik_nativecppdemo_MainActivity_stringFromJNI，静态注册例子如下。
+​	当使用`Android Studio`创建一个`Native C++`的项目，其中默认使用的就是静态注册，在这个例子中，`Java`函数与`C++`函数的绑定是通过`Java`和`C++`函数名的约定来实现的。具体地说，在`Java`代码中声明的`native`方法的命名规则为：`Java_`+全限定类名+_+方法名，将所有的点分隔符替换为下划线。例如，在这个例子中，`Java`类的全限定名为`com.mik.nativecppdemo.MainActivity`，方法名为`stringFromJNI`，因此对应的`C++`函数名为`Java_com_mik_nativecppdemo_MainActivity_stringFromJNI`，静态注册例子如下。
 
 ```java
 // java文件
@@ -63,13 +68,13 @@ Java_com_mik_nativecppdemo_MainActivity_stringFromJNI(
 }
 ```
 
-​	静态注册函数必须使用`JNIEXPORT`和`JNICALL`来修饰，这两个修饰符是 JNI 中的预处理器宏。其中`JNIEXPORT`会将函数名称保存到动态符号表，当Linker在注册时就能通过dlsym找到该函数。
+​	静态注册函数必须使用`JNIEXPORT`和`JNICALL`来修饰，这两个修饰符是`JNI`中的预处理器宏。其中`JNIEXPORT`会将函数名称保存到动态符号表，当`Linker`在注册时就能通过`dlsym`找到该函数。
 
-​	`JNICALL` 宏主要用于消除不同编译器和操作系统之间的调用规则的差异。在不同的平台上，本地方法的参数传递、调用约定和名称修饰等方面可能存在一些差异。这些差异可能会导致在一个平台上编译的共享库无法在另一个平台上运行。为了解决这个问题，JNI 规范定义了一种标准的本地方法命名方式，即 `Java_包名_类名_方法名` 的格式。使用 `JNICALL` 宏，我们可以让编译器自动根据规范来生成符合要求的本地方法名，从而保证在不同平台上都能正确调用本地方法。
+​	`JNICALL` 宏主要用于消除不同编译器和操作系统之间的调用规则的差异。在不同的平台上，本地方法的参数传递、调用约定和名称修饰等方面可能存在一些差异。这些差异可能会导致在一个平台上编译的共享库无法在另一个平台上运行。为了解决这个问题，`JNI`规范定义了一种标准的本地方法命名方式，即 `Java_包名_类名_方法名` 的格式。使用 `JNICALL` 宏，我们可以让编译器自动根据规范来生成符合要求的本地方法名，从而保证在不同平台上都能正确调用本地方法。
 
-​	需要注意的是，虽然 `JNICALL` 可以帮助我们消除平台差异，但在某些情况下，我们仍然需要手动指定本地方法的名称，例如当我们需要使用 JNI 的反射机制来动态调用本地方法时。此时，我们需要在注册本地方法时显式地指定方法名，并将其与 Java 代码中的方法名相对应。
+​	需要注意的是，虽然 `JNICALL` 可以帮助我们消除平台差异，但在某些情况下，我们仍然需要手动指定本地方法的名称，例如当我们需要使用`JNI`的反射机制来动态调用本地方法时。此时，我们需要在注册本地方法时显式地指定方法名，并将其与`Java`代码中的方法名相对应。
 
-​	对于静态注册而言，尽管没有看到使用RegisterNative进行注册，但是在内部有进行隐式注册的，当java类被加载时会调用LoadMethod将方法加载到虚拟机中，随后调用LinkCode将Native函数与Java函数进行链接。下面看LoadClass的相关代码。
+​	对于静态注册而言，尽管没有看到使用`RegisterNative`进行注册，但是在内部有进行隐式注册的，当`java`类被加载时会调用`LoadMethod`将方法加载到虚拟机中，随后调用`LinkCode`将`Native`函数与`Java`函数进行链接。下面看`LoadClass`的相关代码。
 
 ```c++
 void ClassLinker::LoadClass(Thread* self,
@@ -98,7 +103,7 @@ void ClassLinker::LoadClass(Thread* self,
 }
 ```
 
-​	下面继续看看LinkCode的实现，如果已经被编译就会有Oat文件，就可以获取到`quick_code`，直接从二进制中调用来快速执行，否则走解释执行。
+​	下面继续看看`LinkCode`的实现，如果已经被编译就会有`Oat`文件，就可以获取到`quick_code`，直接从二进制中调用来快速执行，否则走解释执行。
 
 ```c++
 static void LinkCode(ClassLinker* class_linker,
@@ -137,7 +142,7 @@ static void LinkCode(ClassLinker* class_linker,
 }
 ```
 
-​	上面可以看到JNI设置入口点有两种情况，Critical Native 方法通常用于需要高性能、低延迟和可预测行为的场景，例如音频处理、图像处理、网络协议栈等。一般情况开发者使用的都是普通Native函数，所以会调用后者`GetJniDlsymLookupStub`，接着继续看看实现代码。
+​	上面可以看到`JNI`设置入口点有两种情况，`Critical Native`方法通常用于需要高性能、低延迟和可预测行为的场景，例如音频处理、图像处理、网络协议栈等。一般情况开发者使用的都是普通`Native`函数，所以会调用后者`GetJniDlsymLookupStub`，接着继续看看实现代码。
 
 ```c++
 static inline const void* GetJniDlsymLookupStub() {
@@ -204,7 +209,7 @@ extern "C" const void* artFindNativeMethodRunnable(Thread* self)
 
 ### 6.3.2 动态注册
 
-​	动态注册一般是写代码手动注册，将指定的符号名与对应的函数地址进行关联，在AOSP源码中Native函数大部分都是使用动态注册方式的，动态注册例子如下。
+​	动态注册一般是写代码手动注册，将指定的符号名与对应的函数地址进行关联，在`AOSP`源码中`Native`函数大部分都是使用动态注册方式的，动态注册例子如下。
 
 ```java
 // java文件
@@ -249,7 +254,7 @@ JNI_OnLoad(JavaVM* vm, void* reserved) {
 }
 ```
 
-​	动态注册中是直接调用JniEnv的`RegisterNatives`进行注册的，找到对应的实现代码如下。
+​	动态注册中是直接调用`JniEnv`的`RegisterNatives`进行注册的，找到对应的实现代码如下。
 
 ```c++
   static jint RegisterNatives(JNIEnv* env,
@@ -287,6 +292,7 @@ JNI_OnLoad(JavaVM* vm, void* reserved) {
         return JNI_ERR;
       }
       ...
+      // 内部也是调用了Linker的RegisterNative
       const void* final_function_ptr = class_linker->RegisterNative(soa.Self(), m, fnPtr);
       UNUSED(final_function_ptr);
     }
@@ -294,7 +300,7 @@ JNI_OnLoad(JavaVM* vm, void* reserved) {
   }
 ```
 
-​	在动态注册中，同样看到内部是调用了Linker的`RegisterNative`进行注册的，最后我们看看Linker中的实现。
+​	在动态注册中，同样看到内部是调用了`Linker`的`RegisterNative`进行注册的，最后我们看看`Linker`中的实现。
 
 ```c++
 const void* ClassLinker::RegisterNative(
@@ -316,11 +322,11 @@ const void* ClassLinker::RegisterNative(
 }
 ```
 
-​	分析到这里，就已经看到了两个目标需求：` ClassLinker::RegisterNative`是静态注册和动态注册执行流程中的共同点、该函数的返回值就是Native函数的入口地址。接下来可以开始进行插桩输出了。
+​	分析到这里，就已经明白两个目标需求如何实现了：` ClassLinker::RegisterNative`是静态注册和动态注册执行流程中的共同点，该函数的返回值就是`Native`函数的入口地址。接下来可以开始进行插桩输出了。
 
 ### 6.3.3 RegisterNative实现插桩
 
-​	前文简单介绍ROM插桩其实就是输出日志，找到了合适的时机，以及要输出的内容，最后就是输出日志即可。在函数`ClassLinker::RegisterNative`调用结束时插入日志输出如下
+​	前文简单介绍`ROM`插桩其实就是输出日志，找到了合适的时机，以及要输出的内容，最后就是输出日志即可。在函数`ClassLinker::RegisterNative`调用结束时插入日志输出如下
 
 ```c++
 #inclue
@@ -332,7 +338,7 @@ const void* ClassLinker::RegisterNative(
 }
 ```
 
-​	刷机编译后，安装测试demo，输出结果如下，成功打印出静态注册和动态注册的对应函数以及其函数地址。
+​	刷机编译后，安装测试`demo`，输出结果如下，成功打印出静态注册和动态注册的对应函数以及其函数地址。
 
 ```
 mik.nativedem: mikrom ClassLinker::RegisterNative java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI2() native_ptr:0x7983a918c8 method_idx:632
@@ -407,14 +413,14 @@ mik.nativedem: mikrom ClassLinker::RegisterNative java.lang.String cn.mik.native
 
 ## 6.4 自定义系统服务
 
-​	自定义系统服务是指在操作系统中创建自己的服务，以便在需要时可以使用它。系统服务可以在启动时自动运行且没有UI界面，并在后台执行某些特定任务或提供某些功能。由于系统服务有着system身份的权限，所以自定义系统服务可以用于各种用途。例如如下：
+​	自定义系统服务是指在操作系统中创建自己的服务，以便在需要时可以使用它。系统服务可以在系统启动时自动运行且没有`UI`界面，在后台执行某些特定任务或提供某些功能。由于系统服务有着`system`身份的权限，所以自定义系统服务可以用于各种用途。例如如下：
 
 1. 系统监控与管理：通过定期收集和分析系统数据，自动化报警和管理，保证系统稳定性和安全性；
 2. 自动化部署和升级：通过编写脚本和程序实现自动化部署和升级软件，简化人工干预过程；
 3. 数据备份与恢复：通过编写脚本和程序实现数据备份和恢复，保证数据安全性和连续性；
 4. 后台任务处理：例如定时清理缓存、定时更新索引等任务，减轻人工干预压力，提高系统效率。
 
-​	在第三章简单介绍过系统服务的启动，添加一个自定义的系统服务可以参考AOSP源码中的添加方式来逐步完成。接下来参考源码来添加一个最简单的系统服务`MIK_SERVICE`。
+​	在第三章简单介绍过系统服务的启动，添加一个自定义的系统服务可以参考`AOSP`源码中的添加方式来逐步完成。接下来参考源码来添加一个最简单的系统服务`MIK_SERVICE`。
 
 ​	首先在文件`frameworks/base/core/java/android/content/Context.java`看到了定义了各种系统服务的名称，在这里参考`POWER_SERVICE`服务的添加，在这个服务的下面添加自定义的服务，同时找到该文件中，其他对`POWER_SERVICE`进行处理的地方，将自定义的服务做同样的处理，相关代码如下
 
@@ -438,6 +444,7 @@ public final class SystemServiceRegistry {
 	...
 	static {
 		...
+        //POWER_SERVICE服务注册
 		registerService(Context.POWER_SERVICE, PowerManager.class,
                 new CachedServiceFetcher<PowerManager>() {
             @Override
@@ -449,7 +456,7 @@ public final class SystemServiceRegistry {
                 return new PowerManager(ctx.getOuterContext(), powerService, thermalService,
                         ctx.mMainThread.getHandler());
             }});
-
+		//新增的自定义服务注册
         registerService(Context.MIKROM_SERVICE, MikRomManager.class,
                         new CachedServiceFetcher<MikRomManager>() {
                     @Override
@@ -475,11 +482,9 @@ interface IMikRomManager
 }
 ```
 
-​	AIDL（Android 接口定义语言）是一种 Android 平台上的 IPC 机制，用于不同应用程序组件之间进行进程通信。要使用 AIDL 实现进程间通信，需要定义一个接口文件并实现它，在服务端和客户端之间传递 Parcelable 类型的数据。
+​	`AIDL`（`Android`接口定义语言）是一种`Android`平台上的`IPC`机制，用于不同应用程序组件之间进行进程通信。要使用`AIDL`实现进程间通信，首先需要创建一个`.aidl`文件来定义接口。将`.aidl`文件编译成`Java`接口，并在服务端和客户端中分别实现该接口。最后，在服务端通过`bindService` 方法绑定服务并向客户端返回`IBinder`对象。使用`AIDL`可以轻松地实现跨进程通信。
 
-​	在 Android 中使用 AIDL 首先需要创建一个 .aidl 文件来定义接口。接下来，将 .aidl 文件编译成 Java 接口，并在服务端和客户端中分别实现该接口。最后，在服务端通过 bindService() 方法绑定服务并向客户端返回 IBinder 对象。使用 AIDL 可以轻松地实现跨进程通信，但需要考虑线程安全性和数据完整性等问题。
-
-​	添加完毕后还需要找到在哪里将这个文件添加到编译中的，搜索`IPowerManager.aidl`后，找到文件`frameworks/base/core/java/Android.bp`中进行处理的。所以跟着添加上刚刚定义的aidl文件。修改如下。
+​	添加完毕后还需要找到在哪里将这个文件添加到编译中的，搜索`IPowerManager.aidl`后，找到文件`frameworks/base/core/java/Android.bp`中进行处理的。所以跟着加上刚刚定义的`aidl`文件。修改如下。
 
 ```
 filegroup {
@@ -492,7 +497,7 @@ filegroup {
 }
 ```
 
-​	然后继续寻找`IPowerManager.aidl`在哪里进行实现的，搜索`IPowerManager.Stub`，找到文件`frameworks/base/services/core/java/com/android/server/power/PowerManagerService.java`实现的具体的逻辑。该服务的路径是在power目录下，并不适合存放自定义的服务，所以选择在更上级目录创建一个对应的新文件`frameworks/base/services/core/java/com/android/server/MikRomManagerService.java`，代码如下。
+​	然后继续寻找`IPowerManager.aidl`在哪里进行实现的，搜索`IPowerManager.Stub`，找到文件`frameworks/base/services/core/java/com/android/server/power/PowerManagerService.java`实现的具体的逻辑。该服务的路径是在`power`目录下，并不适合存放自定义的服务，所以选择在更上级目录创建一个对应的新文件`frameworks/base/services/core/java/com/android/server/MikRomManagerService.java`，代码如下。
 
 ```java
 public class MikRomManagerService extends IMikRomManager.Stub {
@@ -509,7 +514,7 @@ public class MikRomManagerService extends IMikRomManager.Stub {
 }
 ```
 
-​	接着找到`PowerManager`在文件` frameworks/base/core/java/android/os/PowerManager.java`中实现，所以在这个目录中创建文件`MikRomManager.java`，代码实现如下。
+​	继续找到`PowerManager`的实现，在文件` frameworks/base/core/java/android/os/PowerManager.java`中，所以在这个目录中创建文件`MikRomManager.java`，代码实现如下。
 
 ```java
 package android.os;
@@ -540,6 +545,7 @@ public final class MikRomManager {
 private void startOtherServices(@NonNull TimingsTraceAndSlog t) {
 
     ...
+    // 参考其他服务是如何拉起的
     t.traceBegin("StartNetworkStatsService");
     try {
         networkStats = NetworkStatsService.create(context, networkManagement);
@@ -549,7 +555,7 @@ private void startOtherServices(@NonNull TimingsTraceAndSlog t) {
     }
     t.traceEnd();
 
-
+	// 启动自定义的服务
     t.traceBegin("StartMikRomManagerService");
     try {
         MikRomManagerService mikromService = new MikRomManagerService(context);
@@ -563,7 +569,7 @@ private void startOtherServices(@NonNull TimingsTraceAndSlog t) {
 
 ```
 
-​	到这里基本准备就绪了，可以开始尝试编译，由于添加了aidl文件，所以需要先调用`make update-api`进行编译，编译过程如下，最后出现编译报错。
+​	到这里基本准备就绪了，可以开始尝试编译，由于添加了`aidl`文件，所以需要先调用`make update-api`进行编译，编译过程如下，最后出现编译报错。
 
 ```
 source ./build/envsetup.sh
@@ -583,7 +589,7 @@ frameworks/base/core/java/android/os/MikRomManager.java:16: error: Missing nulla
 ability]
 ```
 
-​	这是由于Android 11 以后谷歌强制开启lint检查来提高应用程序的质量和稳定性。Lint检查是Android Studio中的一个静态分析工具，用于检测代码中可能存在的潜在问题和错误。它可以帮助开发人员找到并修复代码中的bug、性能问题、安全漏洞等。可以设置让其忽略掉对这个`android.os`目录的检查，修改文件`framewoks/base/Android.bp`文件如下。
+​	这是由于`Android 11`以后谷歌强制开启`lint`检查来提高应用程序的质量和稳定性。`Lint`检查是`Android Studio`中的一个静态分析工具，用于检测代码中可能存在的潜在问题和错误。它可以帮助开发人员找到并修复代码中的`bug`、性能问题、安全漏洞等。可以设置让其忽略掉对这个`android.os`目录的检查，修改文件`framewoks/base/Android.bp`文件如下。
 
 ```
 metalava_framework_docs_args = "--manifest $(location core/res/AndroidManifest.xml) " +
@@ -591,7 +597,7 @@ metalava_framework_docs_args = "--manifest $(location core/res/AndroidManifest.x
     "--api-lint-ignore-prefix android.os."
 ```
 
-​	提示需要将Managers必须是单例模式，并且String是允许为null值的，参数或返回值需要携带`@Nullable`注解，调用service函数时，需要捕获异常。针对以上的提示对`MikRomManager`进行调整如下。
+​	根据上面另一个错误提示知道`Managers`必须是单例模式，并且`String`的参数火返回值需要允许为`null`值的，也就是要携带`@Nullable`注解，调用`service`函数时，需要捕获异常。针对以上的提示对`MikRomManager`进行调整如下。
 
 ```java
 package android.os;
@@ -660,7 +666,7 @@ public final class SystemServiceRegistry {
 }
 ```
 
-​	经过修改后，再重新编译就能正常编译完成了，最后还需要对selinux进行修改，对新增的服务开放权限。找到文件`system/sepolicy/public/service.te`，参考其他的服务定义，在最后添加一条类型定义如下。
+​	经过修改后，再重新编译就能正常编译完成了，最后还需要对`selinux`进行修改，对新增的服务设置权限。找到文件`system/sepolicy/public/service.te`，参考其他的服务定义，在最后添加一条类型定义如下。
 
 ```
 type mikrom_service, system_api_service, system_server_service, service_manager_type;
@@ -672,7 +678,7 @@ type mikrom_service, system_api_service, system_server_service, service_manager_
 mikrom                                    u:object_r:mikrom_service:s0
 ```
 
-​	为自定义的系统服务添加了selinux权限后，还需要给应用开启权限访问这个系统服务，找到`system/sepolicy/public/untrusted_app.te`文件，添加如下策略开放让其能查找该系统服务。
+​	为自定义的系统服务设置了`selinux`权限后，还需要给应用开启权限访问这个系统服务，找到`system/sepolicy/public/untrusted_app.te`文件，添加如下策略开放让其能查找该系统服务。
 
 ```
 allow untrusted_app mikrom_service:service_manager find;
@@ -680,7 +686,7 @@ allow untrusted_app_27 mikrom_service:service_manager find;
 allow untrusted_app_25 mikrom_service:service_manager find;
 ```
 
-​	这时如果直接编译会出现下面的错误。
+​	这时直接编译会出现下面的错误。
 
 ```
 FAILED: ~/android_src/mikrom_out/target/product/blueline/obj/FAKE/sepolicy_freeze_test_intermediates/sepolicy_freeze_test
@@ -689,14 +695,14 @@ lts/api/31.0/private system/sepolicy/private ) && (touch ~/android_src/mikrom_ou
 ermediates/sepolicy_freeze_test )"
 ```
 
-​	在前文介绍selinux时有说到系统会使用 prebuilts 中的策略进行对比，这是因为 prebuilts 中包含了在 Android 设备上预置的 sepolicy 策略和规则。所以当改动策略时，要将prebuilts 下对应的文件做出相同的修改。因为对应要调整`system/sepolicy/prebuilts/api/31.0/public/service.te`和`system/sepolicy/prebuilts/api/31.0/private/service_contexts`进行和上面相同的调整。这里需要注意的是`untrusted_app.te`文件只需要修改`prebuilts/api/31.0`的即可，而`service.te`和`service_contexts`，需要将`prebuilts/api/`目录下所有版本都添加定义，否则会出现如下错误。
+​	在前文介绍`selinux`时有说到系统会使用`prebuilts`中的策略进行对比，这是因为`prebuilts`中包含了在`Android`设备上预置的 `sepolicy`策略和规则。所以当改动策略时，要将`prebuilts`下对应的文件做出相同的修改。因为对应要调整`system/sepolicy/prebuilts/api/31.0/public/service.te`和`system/sepolicy/prebuilts/api/31.0/private/service_contexts`进行和上面相同的调整。这里需要注意的是`untrusted_app.te`文件只需要修改`prebuilts/api/31.0`的即可，而`service.te`和`service_contexts`，需要将`prebuilts/api/`目录下所有版本都添加定义，否则会出现如下错误。
 
 ```
 SELinux: The following public types were found added to the policy without an entry into the compatibility mapping file(s) found in private/compat/V
 .v/V.v[.ignore].cil, where V.v is the latest API level.
 ```
 
-​	到这里selinux策略就基本修改完毕，成功编译后，刷入手机，检查服务是否成功开启。
+​	`selinux`策略修改完毕，成功编译后，刷入手机，检查服务是否成功开启。
 
 ```
 adb shell
@@ -707,7 +713,7 @@ service list|grep mikrom
 120	mikrom: [android.os.IMikRomManager]
 ```
 
-​	最后开发一个测试的app对这个系统服务调用hello函数。创建一个Android项目，在java目录下创建一个package路径`android.os`，然后再这个package下创建一个文件`IMikRomManager.aidl`，内容和前文添加系统服务时一至，内容如下。
+​	最后开发测试的`app`对这个系统服务调用`hello`函数。创建一个`Android`项目，在`java`目录下创建`package`路径`android.os`，然后在该路径下创建一个文件`IMikRomManager.aidl`，内容和前文添加系统服务时一至，内容如下。
 
 ```java
 package android.os;
@@ -719,7 +725,7 @@ interface IMikRomManager
 
 ```
 
-​	可以通过反射获取`ServiceManager`类，调用该类的`getService`函数得到mikrom的系统服务，将返回的结果转换为刚刚定义的接口对象，最后调用目标函数拿到结果。实现代码如下。
+​	通过反射获取`ServiceManager`类，调用该类的`getService`函数得到`mikrom`的系统服务，将返回的结果转换为刚刚定义的接口对象，最后调用目标函数拿到结果。实现代码如下。
 
 ```java
 
@@ -732,13 +738,16 @@ public class MainActivity extends AppCompatActivity {
 
         Class localClass = null;
         try {
+            // 使用反射拿到系统服务
             localClass = Class.forName("android.os.ServiceManager");
             Method getServiceMethod = localClass.getMethod("getService", new Class[] {String.class});
             if(getServiceMethod != null) {
+                // 获取自定义的服务
                 Object objResult = getServiceMethod.invoke(localClass, new Object[]{"mikrom"});
                 if (objResult != null) {
                     IBinder binder = (IBinder) objResult;
                     IMikRomManager iMikRom = IMikRomManager.Stub.asInterface(binder);
+                    // 调用服务中的实现
                     String msg= iMikRom.hello();
                     Log.i("MainActivity", "msg: " + msg);
                 }
@@ -766,14 +775,14 @@ cn.mik.myservicedemo I/MainActivity: msg: hello mikrom service
 
 ## 6.5 APP权限
 
-​	Android中的权限是指应用程序访问设备功能和用户数据所需的授权。在Android系统中，所有的应用程序都必须声明其需要的权限，以便在安装时就向用户展示，并且在运行时需要获取相应的授权才能使用。
+​	`Android`中的权限是指应用程序访问设备功能和用户数据所需的授权。在`Android`系统中，所有的应用程序都必须声明其需要的权限，以便在安装时就向用户展示，并且在运行时需要获取相应的授权才能使用。
 
-​	这一节将介绍APP的权限，以及在源码中是如何加载`AndroidManifest.xml`文件获取到权限，并进行控制的，最后尝试在加载流程中进行修改，让APP默认具有一些权限，无需APP进行申请。
+​	这一节将介绍`APP`的权限，以及在源码中是如何加载`AndroidManifest.xml`文件获取到权限，最后尝试在加载流程中进行修改，让`App`默认具有一些权限，无需`APP`进行申请。
 
 ### 6.5.1 APP权限介绍
 
-​		Android系统将权限分为普通权限和危险权限两类，其中危险权限需要用户明确授权才能使用，而普通权限则不需要。普通权限通常不涉及到用户隐私和设备安全问题，例如访问网络、读取手机状态等。而危险权限则可能会涉及到用户隐私和设备安全问题，例如读取联系人信息、访问摄像头等。
-​	在AndroidManifest.xml文件中声明权限，可以使用`<uses-permission>`标签来声明需要的权限，例如：
+​	`Android`系统将权限分为普通权限和危险权限两类，其中危险权限需要用户明确授权才能使用，而普通权限则不需要。普通权限通常不涉及到用户隐私和设备安全问题，例如访问网络、读取手机状态等。而危险权限则可能会涉及到用户隐私和设备安全问题，例如读取联系人信息、访问摄像头等。
+​	在`AndroidManifest.xml`文件中声明权限，可以使用`<uses-permission>`标签来声明需要的权限，例如：
 
 ```
 <manifest package="com.example.app">
@@ -783,7 +792,7 @@ cn.mik.myservicedemo I/MainActivity: msg: hello mikrom service
 </manifest>
 ```
 
-​	Android中的常见权限列表如下。
+​	`Android`中的常见权限列表如下。
 
 1. 日历权限：`android.permission.READ_CALENDAR、android.permission.WRITE_CALENDAR`
 2. 相机权限：`android.permission.CAMERA`
@@ -796,11 +805,11 @@ cn.mik.myservicedemo I/MainActivity: msg: hello mikrom service
 9. 存储权限：`android.permission.READ_EXTERNAL_STORAGE、android.permission.WRITE_EXTERNAL_STORAGE`
 10. 联网权限：`android.permission.INTERNET`
 
-​	androidManifest.xml文件是Android应用程序的清单文件，它在应用程序安装和运行过程中都会被解析。Android系统启动时也会解析每个已安装应用程序的清单文件（即androidManifest.xml），以了解应用程序所需的权限、组件等信息，并将这些信息记录在系统中。而这项解析工作是由`PackageManagerService`系统服务来完成的。因此开始分析的入手点可以从该系统服务的启动开始。
+​	`androidManifest.xml`文件是`Android`应用程序的清单文件，它在应用程序安装和运行过程中都会被解析。`Android`系统启动时也会解析每个已安装应用程序的清单文件，以了解应用程序所需的权限、组件等信息，并将这些信息记录在系统中。而这项解析工作是由`PackageManagerService`系统服务来完成的。开始分析的入手点可以从该系统服务的启动开始。
 
 ### 6.5.2 权限解析源码跟踪
 
-​	`PackageManagerService`系统服务的启动是再`SystemServer`进程中，在`SystemServer.java`中搜索就能该进程启动的入口，相关代码如下。
+​	`PackageManagerService`系统服务的启动也是在`SystemServer`进程中，所以在`SystemServer.java`中搜索就能该进程启动的入口，相关代码如下。
 
 ```java
 private void startBootstrapServices() {
@@ -818,7 +827,7 @@ private void startBootstrapServices() {
 }
 ```
 
-​	继续跟进看该服务的main函数
+​	继续跟进看该服务的`PackageManagerService.main`函数
 
 ```java
 public static PackageManagerService main(Context context, Installer installer,
@@ -872,7 +881,7 @@ public PackageManagerService(Injector injector, boolean onlyCore, boolean factor
 
 ​	`mDirsToScanAsSystem`是`PackageManagerService`类中的一个成员变量，用于存储系统应用程序目录列表。
 
-​	系统应用程序存储在多个目录中，例如`/system/app、/system/priv-app`等。当系统启动时，`PackageManagerService`类会扫描这些目录以查找系统应用程序，并将其添加到应用程序列表中。这个列表中的每个元素都是一个File对象，表示一个系统应用程序目录。
+​	系统应用程序存储在多个目录中，例如`/system/app、/system/priv-app`等。当系统启动时，`PackageManagerService`类会扫描这些目录以查找系统应用程序，并将其添加到应用程序列表中。这个列表中的每个元素都是一个`File`对象，表示一个系统应用程序目录。
 
 ​	当系统启动时，`PackageManagerService`会遍历`mDirsToScanAsSystem`列表并扫描其中的所有目录以查找系统应用程序。如果发现新的应用程序，则将其添加到应用程序列表中；如果发现已删除或升级的应用程序，则将其添加到`possiblyDeletedUpdatedSystemApps`列表中进行后续处理。下面看看`scanDirTracedLI`方法的实现。
 
@@ -921,7 +930,7 @@ private void scanDirLI(File scanDir, int parseFlags, int scanFlags, long current
     }
 ```
 
-​	以上代码可以看到`scanDirLI`方法主要是遍历所有文件筛选是Apk文件，或者是一个目录，`isStageName`方法是判断当前文件是否为分阶段安装的数据，`parallelPackageParser.submit()`方法异步地将其提交给`PackageParser`类来解析。跟踪查看`submit`。
+​	以上代码可以看到`scanDirLI`方法主要是遍历所有文件筛选是`Apk`文件，或者是一个目录，`isStageName`方法是判断当前文件是否为分阶段安装的数据，`parallelPackageParser.submit()`方法异步地将其提交给`PackageParser`类来解析。跟踪查看`submit`。
 
 ```java
 public void submit(File scanFile, int parseFlags) {
@@ -960,7 +969,7 @@ protected ParsedPackage parsePackage(File scanFile, int parseFlags)
     }
 ```
 
-​	这里需要留意`mPackageParser`的类型是`PackageParser2`，而在AOSP10中，它的类型是`PackageParser`。继续查看`parsePackage`方法的实现。
+​	这里需要留意`mPackageParser`的类型是`PackageParser2`，而在`AOSP10`中，它的类型是`PackageParser`。继续查看`parsePackage`方法的实现。
 
 ```java
 public ParsedPackage parsePackage(File packageFile, int flags, boolean useCaches)
@@ -1008,7 +1017,7 @@ public ParseResult<ParsingPackage> parsePackage(ParseInput input, File packageFi
 
 ​	`parseMonolithicPackage`方法会读取应用程序包的内容，并解析其中的`AndroidManifest.xml`文件和资源文件等信息，然后创建一个`PackageParser.Package`对象来表示整个应用程序，并返回该对象作为解析结果。
 
-​	所以我们跟踪一条路线即可，接下来查看`parseMonolithicPackage`的实现代码。
+​	跟踪一条路线即可，接下来查看`parseMonolithicPackage`的实现代码。
 
 ```java
 private ParseResult<ParsingPackage> parseMonolithicPackage(ParseInput input, File apkFile,
@@ -1072,7 +1081,7 @@ private ParseResult<ParsingPackage> parseBaseApk(ParseInput input, String apkPat
                     parser.getAttributeBooleanValue(null, "coreApp", false);
             final ParsingPackage pkg = mCallback.startParsingPackage(
                     pkgName, apkPath, codePath, manifestArray, isCoreApp);
-            // 解析Apk文件中xml的各种标记
+            // 解析Apk文件中xml的各种标签
             final ParseResult<ParsingPackage> result =
                     parseBaseApkTags(input, pkg, manifestArray, res, parser, flags);
             if (result.isError()) {
@@ -1233,7 +1242,7 @@ private ParseResult<ParsingPackage> parseBaseApplication(ParseInput input,
     }
 ```
 
-​	基本大多数的解析都在这里实现了，最后看看基本APK标志是如何解析处理的。`parseBaseAppBasicFlags`的实现如下。
+​	基本大多数的解析都在这里实现了，最后看看基本`APK`标志是如何解析处理的。`parseBaseAppBasicFlags`的实现如下。
 
 ```java
 private void parseBaseAppBasicFlags(ParsingPackage pkg, TypedArray sa) {
@@ -1304,11 +1313,11 @@ private void parseBaseAppBasicFlags(ParsingPackage pkg, TypedArray sa) {
     }
 ```
 
-​	相信你坚持跟踪到这里后，对于权限处理已经豁然开朗了，实际上总结就是，读取并解析xml文件，然后根据xml中配置的节点进行相应的处理，最终这些处理都是将值对应的设置给了`ParsingPackage`类型的对象`pkg`中。最终外层就通过拿到pkg对象，知道应该如何控制它的权限了。
+​	相信你坚持跟踪到这里后，对于权限处理已经豁然开朗了，实际上总结就是，读取并解析`xml`文件，然后根据`xml`中配置的节点进行相应的处理，最终这些处理都是将值对应的设置给了`ParsingPackage`类型的对象`pkg`中。最终外层就通过拿到`pkg`对象，知道应该如何控制它的权限了。
 
 ### 6.5.3 修改APP默认权限
 
-​	经过对源码的阅读，熟悉了APK对xml文件的解析流程后，想要为APP添加一个默认的权限就非常简单了。下面将为ROM添加一个联网权限：android.permission.INTERNET作为例子。只需要在`parseBaseApplication`函数中为`pkg`对象添加权限即可。
+​	经过对源码的阅读，熟悉了`APK`对`xml`文件的解析流程后，想要为`APP`添加一个默认的权限就非常简单了。下面将为`ROM`添加一个联网权限：`android.permission.INTERNET`作为例子。只需要在`parseBaseApplication`函数中为`pkg`对象添加权限即可。
 
 ```java
 private ParseResult<ParsingPackage> parseBaseApplication(ParseInput input,
@@ -1340,11 +1349,11 @@ private ParseResult<ParsingPackage> parseBaseApplication(ParseInput input,
     }
 ```
 
-​	理解源码中的实现原理后，有各种方式都能完成修改APP权限，由此可见，阅读跟踪源码观察实现原理是非常重要的手段。
+​	理解源码中的实现原理后，使用各种方式都能完成修改`APP`权限，由此可见，阅读跟踪源码观察实现原理是非常重要的手段。
 
 ## 6.6 进程注入
 
-​	在上一小节中，通过对加载解析xml文件的流程进行分析，最终找到了合适的时机对默认权限进行修改，而在第三章的学习中，详细介绍了一个APP运行起来的流程，当对源码的运行流程有了足够的了解后，同样可以在其中找到合适的时机对普通用户的APP进行一些定制化的处理，例如对该进程进行注入，这一小节将介绍如何为用户进程注入jar包。
+​	在上一小节中，通过对加载解析`xml`文件的流程进行分析，最终找到了合适的时机对默认权限进行修改，而在第三章的学习中，详细介绍了一个`APP`运行起来的流程，当对源码的运行流程有了足够的了解后，同样可以在其中找到合适的时机对普通用户的`APP`进行一些定制化的处理，例如对该进程进行注入，这一小节将介绍如何为用户进程注入`jar`包。
 
 ### 6.6.1 注入时机的选择
 
@@ -1356,13 +1365,13 @@ private ParseResult<ParsingPackage> parseBaseApplication(ParseInput input,
 
 ​	注入时机尽量在一个仅调用一次的函数中，避免多次注入出现不可预料的异常情况。
 
-​	注入时机分为早期和晚期，早期表示在一个调用链尽量靠前时机，这时进程的业务代码还没开始执行，就完成注入代码了，但是过早的时机会导致有些需要用到的数据还未准备就绪，例如`Application`未完成创建。如果你注入的代码无需涉及这些数据，那么可以选择尽量早的时机。例如在Zygote进程孵化的时机也是可以的。
+​	注入时机分为早期和晚期，早期表示在一个调用链尽量靠前时机，这时进程的业务代码还没开始执行，就完成注入代码了，但是过早的时机会导致有些需要用到的数据还未准备就绪，例如`Application`未完成创建。如果你注入的代码无需涉及这些数据，那么可以选择尽量早的时机。例如在`Zygote`进程孵化的时机也是可以的。
 
-​	第三章中介绍到的`handleBindApplication`就是比较合适的注入时机，主线程中通过调用这个方法来绑定应用程序，在该方法中创建了`Application`对象，并且调用了`attachBaseContext`方法和`onCreate`方法进行初始化。可以选择在创建`Application`对象后，就注入自己的jar包和so动态库。
+​	第三章中介绍到的`handleBindApplication`就是比较合适的注入时机，主线程中通过调用这个方法来绑定应用程序，在该方法中创建了`Application`对象，并且调用了`attachBaseContext`方法和`onCreate`方法进行初始化。可以选择在创建`Application`对象后，就注入自己的`jar`包和`so`动态库。
 
 ### 6.6.2 注入jar包
 
-​	在`handleBindApplication`方法中加一段注入jar包的方式和正常开发的APP中注入jar包并没有什么区别。在这个时机中是调用的onCreate方法，所以完成可以想象成是在onCreate中写一段注入代码。而onCreate中注入jar包在第五章，内置jar包中有详细介绍过。下面贴上当时的注入代码。
+​	在`handleBindApplication`方法中加一段注入`jar`包的方式和正常开发的`App`中注入`jar`包并没有什么区别。在这个时机中是调用的`onCreate`方法，所以可以想象成是在`onCreate`中写一段注入代码。而`onCreate`中注入`jar`包在第五章，内置jar包中有详细介绍过。下面贴上当时的注入代码。
 
 ```java
 protected void onCreate(Bundle savedInstanceState) {
@@ -1410,7 +1419,7 @@ public class MyCommon {
 
 ```
 
-​	重新将测试的jar包编译后，解压并使用dx将classes.dex文件转换为jar包后内置到系统中。
+​	重新将测试的jar包编译后，解压并使用`dx`将`classes.dex`文件转换为`jar`包后内置到系统中。
 
 ```
 unzip app-debug.apk -d app-debug
@@ -1465,6 +1474,6 @@ private void handleBindApplication(AppBindData data) {
 }
 ```
 
-​	准备就绪，编译并刷入手机中，安装任意app后，都会注入该jar包并打印日志。
+​	编译并刷入手机中，安装任意`app`后，都会注入该`jar`包并打印日志。
 
-​	注入so动态库同样和内置jar的步骤没有任何区别，直接通过在jar包中加载动态库即可，无需另外添加代码。
+​	注入`so`动态库同样和内置`jar`的步骤没有任何区别，直接通过在`jar`包中加载动态库即可，无需另外添加代码。这里不再展开讲诉。
