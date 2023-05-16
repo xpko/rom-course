@@ -1,25 +1,25 @@
 # 第七章 类加载和函数调用
 
-​	在上一章学习到，在安卓源码某些功能的执行过程中，插入需求的业务代码，来实现某些特定的功能，例如第五章中，通过应用的启动流程，可以实现在合适的时机注入`DEX`文件或动态库文件。在第六章中，通过`native`函数的注册流程，可以对静态注册和动态注册信息进行打桩输出。通过`AndroidManifest.xml`的解析流程，可以额外添加默认的权限。在这一章中，将详细介绍`Android`源码中是如何加载类的。
+​	在上一章学习到，分析`Android`运行的执行流程，找到合适的时机插入业务逻辑代码，来实现某些特定的功能，例如通过应用的启动流程，实现注入`DEX`文件或动态库文件。通过`native`函数的注册流程，对静态注册和动态注册信息进行打桩输出。通过`AndroidManifest.xml`的解析流程，额外添加默认的权限。在这一章中，将详细介绍`Android`源码中加载类的执行流程。了解`Android`中类的加载机制，以及函数执行的调用流程是非常重要的基础，学习这些执行流程的原理，在定制功能时能为我们提供更多的方向和思路。
 
 ## 7.1 双亲委派机制
 
-​	了解`Android`中类的加载机制和函数执行的调用流程是理解如何脱壳的基础。在`Android`系统中，应用程序是在`Dalvik`或者`ART`虚拟机上运行的。当应用启动时，`Android`系统会根据应用程序包中的`AndroidManifest.xml`文件来确定应用程序中哪些组件需要被启动，并且在启动过程中加载应用程序所需的类。
+​	在`Android`系统中，应用程序是在`Dalvik`或者`ART`虚拟机上运行的。当应用启动时，`Android`系统会根据应用程序包中的`AndroidManifest.xml`文件来确定应用程序中哪些组件需要被启动，并且在启动过程中加载应用程序所需的类。
 
 ​	`Android`中的类加载器遵循双亲委派模型，即每个类加载器在尝试加载一个类之前，都会先委托其父类加载器去加载该类。如果父类加载器无法完成加载任务，则子类加载器才会尝试自行加载。这个模型保证了不同的类只会被加载一次，同时也保护了核心`Java API`不被恶意代码篡改。
 
-​	在`Android`应用程序中，每个类都会被分配到一个特定的`DEX`文件（即`Dalvik Executable`）中。`DEX`文件中包含了所有该类的方法和属性的字节码。当一个应用程序启动时，它的`DEX`文件会被加载到内存中，并由虚拟机负责解释执行其中的代码。
+​	在`Android`应用程序中，每个类都会被分配到一个特定的`DEX`文件（即`Dalvik Executable`）中。`DEX`文件中包含了所有该类的方法和属性的字节码。当一个应用程序启动时，它的`DEX`文件会被加载到内存中，并由虚拟机负责执行其中的代码。
 
-​	在函数执行的调用流程中，当一个函数被调用时，虚拟机会将当前线程的状态保存下来，并跳转到被调用函数的入口地址开始执行该函数。在函数执行期间，虚拟机会对函数中的指令进行解释执行，并维护函数执行过程中所需的各种数据结构，例如栈帧等。在函数执行完毕后，虚拟机会将结果返回给调用方，并恢复之前保存的线程状态。
+​	在函数执行的调用流程中，当一个函数被调用时，虚拟机会将当前线程的状态保存下来，并跳转到被调用函数的入口地址开始执行该函数。在函数执行期间，虚拟机会对函数中的指令进行执行，并维护函数执行过程中所需的各种数据结构，例如栈帧等。在函数执行完毕后，虚拟机会将结果返回给调用方，并恢复之前保存的线程状态。
 
-​	深入学习`Android`的类加载机制和函数执行的调用流程，可以更好地理解应用程序的运行机制和寻找脱壳点。
+​	深入学习`Android`的类加载机制和函数执行的调用流程，可以更好地理解应用程序的运行机制。
 
-​	`Android`中的类通常是在`DEX`文件中保存的，而`ClassLoader`则是用来加载这些`DEX`文件的。在Android中，每个应用程序包`（APK）`都包含一个或多个`DEX`文件，这些`DEX`文件中包含了应用程序的所有类信息。当一个类需要被使用时，`ClassLoader`就会从相应的`DEX`文件中加载该类，并将其转换成可执行的`Java`类。因此，`ClassLoader`和`DEX`密切相关，`ClassLoader`是`DEX`文件的载体和管理者。下面是在`AOSP12`中各类的`ClassLoader`。
+​	`Android`中的类通常是在`DEX`文件中保存的，而`ClassLoader`则是用来加载`DEX`文件的。在`Android`中，每个应用程序包`（APK）`都包含一个或多个`DEX`文件，这些`DEX`文件中包含了应用程序的所有类信息。当一个类需要被使用时，`ClassLoader`就会从相应的`DEX`文件中加载该类，并将其转换成可执行的`Java`类。因此，`ClassLoader`和`DEX`密切相关，`ClassLoader`是`DEX`文件的载体和管理者。下面是在`AOSP12`中的各种`ClassLoader`。
 
 1. `BootClassLoader`：位于 `ClassLoader `层次结构中的最顶层。负责加载系统级别的类，如` Java` 核心库和一些基础库。
-2. `PathClassLoader`：从应用程序的` APK` 文件中加载类和资源。`PathClassLoader `继承自` BaseDexClassLoader `类，它能够加载已经被优化的 `Dex` 文件和未经过优化的 `Dex` 文件。`PathClassLoader` 主要用于加载已经打包在 `APK `文件中的代码和资源。
-3. `DexClassLoader`：从` .dex` 或` .odex` 文件中加载类。`DexClassLoader `继承自` BaseDexClassLoader `类，它支持动态加载 `Dex `文件，并且可以在运行时进行优化操作。`DexClassLoader `主要用于加载未安装的 `APK` 文件中的代码。
-4. `InMemoryDexClassLoader`：用于从内存中加载已经存在于内存中的` dex `文件。它继承自 `BaseDexClassLoader`，并且可以处理多个` dex `文件。`InMemoryDexClassLoader `可以在运行时动态加载 `dex` 文件，并且不需要将文件保存到磁盘上，从而提高应用程序的性能。`InMemoryDexClassLoader` 主要可以用于自定义类加载器场景下。
+2. `PathClassLoader`：从应用程序的` APK` 文件中加载类和资源。继承自` BaseDexClassLoader `类，它能够加载已经被优化的 `Dex` 文件和未经过优化的 `Dex` 文件。`PathClassLoader` 主要用于加载已经打包在 `APK `文件中的代码和资源。
+3. `DexClassLoader`：从` .dex` 或` .odex` 文件中加载类。继承自` BaseDexClassLoader `类，它支持动态加载 `Dex `文件，并且可以在运行时进行优化操作。`DexClassLoader `主要用于加载未安装的 `APK` 文件中的代码。
+4. `InMemoryDexClassLoader`：用于从内存中加载已经存在于内存中的` dex `文件。继承自 `BaseDexClassLoader`，并且可以处理多个` dex `文件。`InMemoryDexClassLoader `可以在运行时动态加载 `dex` 文件，并且不需要将文件保存到磁盘上，从而提高应用程序的性能。
 5. `BaseDexClassLoader`：`DexClassLoader`、`InMemoryDexClassLoader` 和 `PathClassLoader` 的基类，封装了加载 `dex` 文件的基本逻辑，包括创建` DexPathList` 对象、打开 `dex `文件、查找类等操作。`BaseDexClassLoader `实现了双亲委派模型，即在自身无法加载类时，会委派给父类加载器进行查找。`BaseDexClassLoader` 还支持多个 `dex `文件的加载，并且可以在运行时进行优化操作。
 
 ​	类加载器采用了双亲委派机制`（Parent Delegation Model）`，这是一种经典的`Java`类加载机制。
@@ -32,8 +32,6 @@
 - 如果没有在缓存中找到该类，则将加载任务委派给父类加载器去完成；
 - 父类加载器如果也没有找到该类，则将会递归向上委派，直到`BootClassLoader`；
 - `BootClassLoader`无法代理加载的类，则会让子类加载器自行加载。
-
-​	明白了双亲委派机制后，了解到继承关系对于ClassLoader是非常重要的，下图是它们之间的继承关系。
 
 ​	TODO 帮我补一个继承关系的图
 
@@ -89,9 +87,9 @@ protected Class<?> loadClass( final String class_name, final boolean resolve ) t
 protected abstract Class<?> findClass(String name) throws ClassNotFoundException;
 ```
 
-​	与` loadClass` 不同，`findClass` 方法并不会先委派给父类加载器进行处理，而是直接在当前 `ClassLoader `中进行查找。如果能够找到指定的类，则通过 `defineClass `方法将其转换成 Class 对象，并返回该对象；否则，抛出 `ClassNotFoundException `异常。
+​	与` loadClass` 不同，`findClass` 方法并不会先委派给父类加载器进行处理，而是直接在当前 `ClassLoader `中进行查找。如果能够找到指定的类，则通过 `defineClass `方法将其转换成`Class`对象，并返回该对象；否则，抛出 `ClassNotFoundException `异常。
 
-​	明白了两者的区别后，接下来开始跟踪源码，了解在AOSP具体是如何加载类的。首先找到`DexClassLoader`中`loadClass`的实现代码。
+​	明白了两者的区别后，接下来开始跟踪源码，了解在`AOSP`具体是如何加载类的。首先找到`DexClassLoader`中`loadClass`的实现代码。
 
 ```java
 public class DexClassLoader extends BaseDexClassLoader {
@@ -215,7 +213,7 @@ public class BaseDexClassLoader extends ClassLoader {
 
 ```
 
-​	`pathList`是一个`DexPathList`对象，表示当前`ClassLoader`所操作的一组`dex`文件的路径列表。`findClass()`方法通过调用`DexPathList.findClass()`方法来查找指定名称的类。继续跟进查看。
+​	`pathList`是一个`DexPathList`对象，表示当前`ClassLoader`所管理的一组`dex`文件的路径列表。`findClass()`方法通过调用`DexPathList.findClass()`方法来查找指定名称的类。继续跟进查看。
 
 ```java
 public final class DexPathList {
@@ -312,7 +310,7 @@ public final class DexFile {
 }
 ```
 
-​	这里看到经过几层调用后，进入了`native`实现了，根据`AOSP`中`native`注册的原理，直接搜索`DexFile_defineClassNative`找到对应的实现代码如下。
+​	这里看到经过几层调用后，进入了`native`实现了，根据`AOSP`中`native`注册的命名规则，直接搜索`DexFile_defineClassNative`找到对应的实现代码如下。
 
 ```java
 static jclass DexFile_defineClassNative(JNIEnv* env,
@@ -364,7 +362,7 @@ static jclass DexFile_defineClassNative(JNIEnv* env,
 }
 ```
 
-​	代码中看到`cookie`中能拿到所有`DexFile`，最终的`Class`对象是有`DefineClass`方法定义后返回的。继续看其实现过程。
+​	代码中看到`cookie`中能拿到所有`DexFile`，最终的`Class`对象是由`DefineClass`方法定义后返回的。继续看其实现过程。
 
 ```java
 
@@ -463,18 +461,25 @@ ObjPtr<mirror::Class> ClassLinker::DefineClass(Thread* self,
 
 ​	`LoadClass` 函数用于加载并初始化类。并将其插入到类表中进行管理。主要作用：
 
-1. 根据类描述符查找类表中是否已经存在相同的类对象，如存在则直接返回其指针。
-2. 如果类表中不存在相同的类对象，则先使用 `SetupClass()` 函数创建新的类对象，并将其插入到类表中。此处调用了 `InsertClass()` 函数。
-3. 加载并初始化类的超类及接口信息，以确保类的继承关系正确。
-4. 执行与类加载生命周期有关的回调函数。
+* 根据类描述符查找类表中是否已经存在相同的类对象，如存在则直接返回其指针。
+
+* 如果类表中不存在相同的类对象，则先使用 `SetupClass()` 函数创建新的类对象，并将其插入到类表中。此处调用了 `InsertClass()` 函数。
+
+* 加载并初始化类的超类及接口信息，以确保类的继承关系正确。
+
+* 执行与类加载生命周期有关的回调函数。
 
 ​	`	LinkClass` 函数是在用于链接类，该函数会返回一个新的类对象指针，以供调用者使用。主要作用：
 
-1. 链接类的超类，并执行与超类有关的初始化工作。
-2. 链接类实现的接口，并执行与接口有关的初始化工作。
-3. 链接类的字段，并执行与字段有关的初始化工作。
-4. 链接类的方法，并执行与方法有关的初始化工作。
-5. 在必要时创建新的类对象，并将其返回给调用者。
+* 链接类的超类，并执行与超类有关的初始化工作。
+
+* 链接类实现的接口，并执行与接口有关的初始化工作。
+
+* 链接类的字段，并执行与字段有关的初始化工作。
+
+* 链接类的方法，并执行与方法有关的初始化工作。
+
+* 在必要时创建新的类对象，并将其返回给调用者。
 
 ​	将加载类的过程中几个关键的步骤搞清楚后，继续深入查看`LoadClass`是如何实现的，重点关注最后一个参数`kclass`做了些什么。
 
@@ -727,7 +732,7 @@ static inline const void* GetQuickToInterpreterBridge() {
 }
 ```
 
-​	这里和native动态注册分析时看到入口设置非常类似，`GetQuickToInterpreterBridge`是一个静态内联函数，它将全局变量`art_quick_to_interpreter_bridge`的地址强制转换为`const void*`类型，然后返回该地址。`art_quick_to_interpreter_bridge`是一个指向解释器入口点的函数指针，它在链接器启动时被初始化，是由汇编进行实现。
+​	这里和`native`动态注册分析时看到入口设置非常类似，`GetQuickToInterpreterBridge`是一个静态内联函数，它将全局变量`art_quick_to_interpreter_bridge`的地址强制转换为`const void*`类型，然后返回该地址。`art_quick_to_interpreter_bridge`是一个指向解释器入口点的函数指针，它在链接器启动时被初始化，是由汇编进行实现。
 
 ```assembly
 ENTRY art_quick_to_interpreter_bridge
@@ -752,11 +757,11 @@ END art_quick_to_interpreter_bridge
 
 ​	查看汇编代码能够看到关键是使用`bl`指令调用`artQuickToInterpreterBridge`函数，这个函数就是解释器的入口函数了。
 
-​	解释器`（Interpreter）`是一种`Java`字节码执行引擎，它能够直接解释和执行`Java`字节码指令。与预编译的本地机器代码不同，解释器以`Java`字节码为基础，通过逐条解释执行来完成函数的调用和计算过程。
+​	解释器`（Interpreter）`是一种`Java`字节码执行引擎，它能够直接解释和执行`Java`字节码指令。与预编译的本地机器代码不同，解释器以`Java`字节码为基础，通过逐条解释执行来完成函数的执行过程。
 
-​	当应用程序需要执行一个`Java`方法时，链接器会将该方法的字节码读入内存，并利用解释器逐条指令执行。解释器会根据`Java`字节码类型进行相应的操作，包括创建对象、读取/写入局部变量和操作数栈、跳转操作等。同时，解释器还会处理异常、垃圾回收、线程同步等方面的操作，从而保证Java程序的正确性和稳定性。
+​	当应用程序需要执行一个`Java`方法时，链接器会将该方法的字节码读入内存，并利用解释器逐条指令执行。解释器会根据`Java`字节码类型进行相应的操作，包括创建对象、读取/写入局部变量和操作数栈、跳转操作等。同时，解释器还会处理异常、垃圾回收、线程同步等方面的操作，从而保证`Java`程序的正确性和稳定性。
 
-​	尽管解释器的执行速度比本地机器代码要慢一些，但它具有许多优点。例如，解释器可以实现更快的程序启动时间、更小的内存占用和更好的灵活性；同时，它还可以避免因硬件平台差异、编译器优化等问题导致的代码执行异常和安全隐患。
+​	尽管解释器的执行速度比本地机器代码执行要慢一些，但它具有许多优点。例如，解释器可以实现更快的程序启动时间、更小的内存占用和更好的灵活性；同时，它还可以避免因硬件平台差异、编译器优化等问题导致的代码执行异常和安全隐患。
 
 ​	当一个方法第一次被调用时，解释器会对其进行初步解释和执行，并生成相应的`Profile`数据；后续调用则会根据`Profile`数据决定是否使用`JIT`编译器或`AOT`编译器进行优化。这种混合的执行方式可以有效地平衡运行效率和内存开销之间的关系，提高`Java`程序的整体性能和响应速度。
 
@@ -862,7 +867,7 @@ class DexFile {
 };
 ```
 
-​	接着了解以下`DexFile`的构造函数实现。
+​	接着查看`DexFile`的构造函数实现。
 
 ```c++
 DexFile::DexFile(const uint8_t* base,
@@ -907,7 +912,7 @@ DexFile::DexFile(const uint8_t* base,
 }
 ```
 
-​	可以看出`header_`这个`dex`文件头的结构体中存储着最重要的信息，初始化时先是填充了`header_`中的数据，然后再根据`header_`文件头，将其他重要信息初始化。当需要对这个`Dex`进行访问时，只需要通过文件头信息，就可以为我们索引找到任何一段信息了。它提供了整个文件的框架和结构。
+​	可以看出`header_`这个`dex`文件头的结构体中存储着最重要的信息，初始化时先是填充了`header_`中的数据，然后再根据`header_`文件头，将其他重要信息初始化。当需要对这个`Dex`进行访问时，只需要通过文件头信息，就可以为我们索引找到任何一段信息了。它提供了整个文件的索引。
 
 ​	使用`010 Editor`工具，通过模板库在线安装`DEX.bt`模板，然后打开之前的样例文件，查看在例子中`header_`的真实数据。
 
@@ -917,7 +922,7 @@ DexFile::DexFile(const uint8_t* base,
 
 ​	在`Android`中，`Java`函数和`native`函数的调用方式略有不同。对于`Java`函数，它们的执行是由`Android Runtime`虚拟机完成的。具体来说，当应用程序需要调用一个`Java`函数时，`Android Runtime`会根据该函数的状态和类型进行相应的处理，包括解释器执行、`JIT`编译器动态生成机器码等；当函数执行完毕后，结果会被传递回应用程序。
 
-​	对于`native`函数，它们是由操作系统内核直接执行的。应用程序需要通过`JNI（Java Native Interface）`来调用`native`函数，即先将`Java`数据结构转换为`C/C++`类型，然后将参数传递给`native`函数，最后将结果转换为`Java`数据结构并返回给应用程序。在这个过程中，`JNI`提供了一系列的函数和接口来实现`Java`与本地代码之间的交互和转换。
+​	对于`native`函数，它们是由操作系统内核直接执行的。应用程序需要通过`JNI（Java Native Interface）`来调用`native`函数，先将`Java`数据结构转换为`C/C++`类型，然后将参数传递给`native`函数，最后将结果转换为`Java`数据结构并返回给应用程序。在这个过程中，`JNI`提供了一系列的函数和接口来实现`Java`与本地代码之间的交互和转换。
 
 ​	下面使用`jadx`工具打开前文中的样例程序，样例程序的代码如下。
 
@@ -928,9 +933,6 @@ public class MyCommon {
     }
     public static int add(int a, int b) {
         return a + b;
-    }
-    public static void injectJar(Application app) {
-        Toast.makeText(app, "Hello, inject jar!", 0);
     }
 }
 ```
@@ -1126,7 +1128,7 @@ void InvokeWithArgArray(const ScopedObjectAccessAlreadyRunnable& soa,
 }
 ```
 
-​	到这时就调用到了`ArtMethod`的`Invoke`函数，这里将参数的数组指针，参数数组大小，返回值指针，调用函数的描述符号传递了过去。在开始进入关键函数前，先对返回值指针`JValue* result`进行简单介绍。
+​	调用到了`ArtMethod`的`Invoke`函数，这里将参数的数组指针，参数数组大小，返回值指针，调用函数的描述符号传递了过去。在开始进入关键函数前，先对返回值指针`JValue* result`进行简单介绍。
 
 ​	`JValue`是用于存储和传递`Java`方法返回值的联合体。包含了各种基本类型和引用类型的成员变量。下面是该联合体的定义。
 
@@ -1254,7 +1256,7 @@ void ArtMethod::Invoke(Thread* self, uint32_t* args, uint32_t args_size, JValue*
 
 ​	根据以上代码得到的结论是，函数执行的路线有两条，`EnterInterpreterFromInvoke`由解释器执行和`art_quick_invoke_stub`快速执行通道。
 
-​	`art_quick_invoke_stub`是由一段汇编完成对函数的执行，该函数充分利用寄存器并尽可能地减少堆栈访问次数，以提高`Java`方法的执行效率。，虽然快速执行通道的效率会更加高，但是可读性差，但是对于学习执行过程和修改执行流程来说，解释器执行会更加简单易改。所以接下来跟进解释器执行来了解执行的细节。继续跟踪`EnterInterpreterFromInvoke`函数。
+​	`art_quick_invoke_stub`是由一段汇编完成对函数的执行，该函数充分利用寄存器并尽可能地减少堆栈访问次数，以提高`Java`方法的执行效率。虽然快速执行通道的效率会更加高，但是可读性差，但是对于学习执行过程和修改执行流程来说，解释器执行会更加简单易改。所以接下来跟进解释器执行，了解执行的细节。继续跟踪`EnterInterpreterFromInvoke`函数。
 
 ```c++
 void EnterInterpreterFromInvoke(Thread* self,
@@ -1764,6 +1766,6 @@ class InstructionHandler {
 }
 ```
 
-​	能够看到，所有操作码对应的实现都是在`InstructionHandler`中进行实现，`switch`解释器的做法非常简单粗暴，尽量性能较差，但是可读性高，当需求是对调用流程进行打桩，或者定制修改时，可以选择强制其走`switch`解释器来执行该函数。
+​	所有操作码对应的实现都是在`InstructionHandler`中进行实现，`switch`解释器的做法非常简单粗暴，尽量性能较差，但是可读性高，当需求是对调用流程进行打桩，或者定制修改时，可以选择强制其走`switch`解释器来执行该函数。
 
 ​	需要注意的是，在执行的优化中，当强制走解释器流程调用后，它会交给` JIT `编译器进行编译，生成本地机器码。在生成机器码的同时，`JIT` 编译器会将该函数的入口地址设置为生成的机器码的地址。在下一次调用该函数时，虚拟机就会跳过解释器阶段，直接执行机器码，从而提高程序的执行效率。
