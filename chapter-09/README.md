@@ -4,17 +4,15 @@
 
 ## 9.1 Xposed
 
-​	`Xposed`是一个`Android Hook`框架，它可以实现在不修改`APK`文件的情况下更改系统行为和应用程序的行为，通过开发模块，就能对目标进程的`Java`函数调用进行`Hook`拦截，但是需要安装在`Root`的`Android`设备上，才能使用该框架中的模块生效。根据该框架的原理衍生出了很多类似的框架，例如`Edxposed`、`Lsposed`、`VirtualXposed`等等。
+​	`Xposed`是一个`Android Hook`框架，它可以实现在不修改`APK`文件的情况下更改系统行为和应用程序的行为，通过开发模块，就能对目标进程的`Java`函数调用进行`Hook`拦截，但是需要安装在`Root`的`Android`设备上，才能使用该框架中的模块生效。根据该框架的原理衍生出了很多类似的框架，例如`Edxposed`、`Lsposed`等等。
 
 ​	在`Xposed`的架构中，主要包含了三个部分：`Xposed Installer`、`Xposed Bridge`和`Xposed Module`。其中，`Xposed Installer`是用户安装和管理`Xposed`模块的应用程序；`Xposed Bridge`是实现系统和模块之间相互通信的核心组件；`Xposed Module`则是开发者使用`Xposed API`编写的模块，用于实现对目标进程的函数调用的拦截和修改。
 
 ​	在运行时，`Xposed Installer`会通过`Android`的`PackageManager`查询已安装的应用程序，并将相关信息传递给`Xposed Bridge`。`Xposed Bridge`会在运行过程中监听应用程序的启动事件，当目标应用程序启动时，`Xposed Bridge`会将`Xposed Module`加载到目标进程中，并且与`Xposed Module`建立通信管道，以便进行后续的函数调用拦截和修改操作。
 
-​	`	Xposed Module`通过实现`IXposedHookLoadPackage`接口，来完成对应用程序的启动事件的监听和模块的加载。一旦模块加载成功，在`IXposedHookLoadPackage`回调函数中，我们就可以使用`Xposed API`提供的函数来实现对目标进程的函数调用的拦截和修改。这些函数包括`XposedHelpers.findAndHookMethod()`和`XposedHelpers.callMethod()`等，它们能够帮助我们定位到目标进程中的函数，并对其进行拦截和修改。
+​	`	Xposed Module`通过实现`IXposedHookLoadPackage`接口，来完成对应用程序的启动事件的监听和模块的加载。一旦模块加载成功，在`IXposedHookLoadPackage`回调函数中，我们就可以使用`Xposed API`提供的函数来实现对目标进程的函数调用的拦截和修改。这些函数包括`XposedHelpers.findAndHookMethod`和`XposedHelpers.callMethod`等，它们能够帮助我们定位到目标进程中的函数，并对其进行拦截和修改。
 
-​	需要注意的是，`Xposed`框架只能在`Root`的`Android`设备上使用，因为它需要对系统进行修改才能实现函数调用的拦截和修改。在使用`Xposed`框架时，需要特别小心，不要随意地修改系统行为和应用程序行为，以免引起意外的后果。
-
-​	这一章将详细解析`Xposed`的原理，学习`Xposed`是如何利用`Android`的运行机制来实现对函数的`Hook`机制。
+​	这一章将详细解析`Xposed`的原理，学习`Xposed`是如何利用`Android`的运行机制来实现注入的。
 
 ## 9.2 Xposed实现原理
 
@@ -40,7 +38,7 @@ else
 endif
 ```
 
-​	可以看到这里是用来编译一个`Xposed`专用的`app_process`。当`Android`版本大于21（Android 5）时，使用`app_main2.cpp`来编译。接下来查看入口函数的实现。
+​	可以看到这里是用来编译一个`Xposed`专用的`app_process`。当`Android`版本大于21（`Android 5`）时，使用`app_main2.cpp`来编译。接下来查看入口函数的实现。
 
 ```cpp
 #define XPOSED_CLASS_DOTS_TOOLS  "de.robv.android.xposed.XposedBridge$ToolEntryPoint"
@@ -130,7 +128,7 @@ bool initialize(bool zygote, bool startSystemServer, const char* className, int 
 
 ​	在启用`SELinux`的情况下，`Xposed`需要使用 `membased` 服务来实现`hooking`功能。但是，为了确保安全性，`Xposed`需要限制将`Xposed`服务复制到其他进程中的能力。通过调用 `restrictMemoryInheritance` 函数，`Xposed`会防止任何进程继承`Zygote`进程的内存，这将确保`Xposed`服务只能被当前进程和其子进程使用。
 
-​	初始化完成时，将一个`JAR`文件添加到了`CLASSPATH`环境变量中，查看`addJarToClasspath`的实现。
+​	初始化完成时，将`XposedBridge.jar`文件添加到了`CLASSPATH`环境变量中，查看`addJarToClasspath`的实现。
 
 ```java
 #define XPOSED_JAR               "/system/framework/XposedBridge.jar"
@@ -208,138 +206,138 @@ private static final String INSTANT_RUN_CLASS = "com.android.tools.fd.runtime.Bo
 // 加载模块列表
 static void loadModules() throws IOException {
 
-		final String filename = BASE_DIR + "conf/modules.list";
-		BaseService service = SELinuxHelper.getAppDataFileService();
-		if (!service.checkFileExists(filename)) {
-			Log.e(TAG, "Cannot load any modules because " + filename + " was not found");
-			return;
-		}
-		// 拿到顶端的ClassLoader
-		ClassLoader topClassLoader = XposedBridge.BOOTCLASSLOADER;
-		ClassLoader parent;
-		while ((parent = topClassLoader.getParent()) != null) {
-			topClassLoader = parent;
-		}
-		// 读取模块列表
-		InputStream stream = service.getFileInputStream(filename);
-		BufferedReader apks = new BufferedReader(new InputStreamReader(stream));
-		String apk;
-    	// 使用顶端ClassLoader加载每个模块
-		while ((apk = apks.readLine()) != null) {
-			loadModule(apk, topClassLoader);
-		}
-		apks.close();
-	}
+    final String filename = BASE_DIR + "conf/modules.list";
+    BaseService service = SELinuxHelper.getAppDataFileService();
+    if (!service.checkFileExists(filename)) {
+        Log.e(TAG, "Cannot load any modules because " + filename + " was not found");
+        return;
+    }
+    // 拿到顶端的ClassLoader
+    ClassLoader topClassLoader = XposedBridge.BOOTCLASSLOADER;
+    ClassLoader parent;
+    while ((parent = topClassLoader.getParent()) != null) {
+        topClassLoader = parent;
+    }
+    // 读取模块列表
+    InputStream stream = service.getFileInputStream(filename);
+    BufferedReader apks = new BufferedReader(new InputStreamReader(stream));
+    String apk;
+    // 使用顶端ClassLoader加载每个模块
+    while ((apk = apks.readLine()) != null) {
+        loadModule(apk, topClassLoader);
+    }
+    apks.close();
+}
 
 
 private static void loadModule(String apk, ClassLoader topClassLoader) {
-		Log.i(TAG, "Loading modules from " + apk);
+    Log.i(TAG, "Loading modules from " + apk);
 
-		if (!new File(apk).exists()) {
-			Log.e(TAG, "  File does not exist");
-			return;
-		}
+    if (!new File(apk).exists()) {
+        Log.e(TAG, "  File does not exist");
+        return;
+    }
 
-		DexFile dexFile;
-		try {
-			dexFile = new DexFile(apk);
-		} catch (IOException e) {
-			Log.e(TAG, "  Cannot load module", e);
-			return;
-		}
-		// 如果加载成功，说明该应用启用了 Instant Run
-		if (dexFile.loadClass(INSTANT_RUN_CLASS, topClassLoader) != null) {
-			Log.e(TAG, "  Cannot load module, please disable \"Instant Run\" in Android Studio.");
-			closeSilently(dexFile);
-			return;
-		}
-		// 尝试在目标模块中加载XposedBridge类，可以获取到说明已经成功注入XposedBridge
-		if (dexFile.loadClass(XposedBridge.class.getName(), topClassLoader) != null) {
-			Log.e(TAG, "  Cannot load module:");
-			Log.e(TAG, "  The Xposed API classes are compiled into the module's APK.");
-			Log.e(TAG, "  This may cause strange issues and must be fixed by the module developer.");
-			Log.e(TAG, "  For details, see: http://api.xposed.info/using.html");
-			closeSilently(dexFile);
-			return;
-		}
+    DexFile dexFile;
+    try {
+        dexFile = new DexFile(apk);
+    } catch (IOException e) {
+        Log.e(TAG, "  Cannot load module", e);
+        return;
+    }
+    // 如果加载成功，说明该应用启用了 Instant Run
+    if (dexFile.loadClass(INSTANT_RUN_CLASS, topClassLoader) != null) {
+        Log.e(TAG, "  Cannot load module, please disable \"Instant Run\" in Android Studio.");
+        closeSilently(dexFile);
+        return;
+    }
+    // 尝试在目标模块中加载XposedBridge类，可以获取到说明已经成功注入XposedBridge
+    if (dexFile.loadClass(XposedBridge.class.getName(), topClassLoader) != null) {
+        Log.e(TAG, "  Cannot load module:");
+        Log.e(TAG, "  The Xposed API classes are compiled into the module's APK.");
+        Log.e(TAG, "  This may cause strange issues and must be fixed by the module developer.");
+        Log.e(TAG, "  For details, see: http://api.xposed.info/using.html");
+        closeSilently(dexFile);
+        return;
+    }
 
-		closeSilently(dexFile);
-		// 由于模块实际都是apk，而apk本质是压缩包，所以使用Zip来处理文件
-		ZipFile zipFile = null;
-		InputStream is;
-		try {
-			zipFile = new ZipFile(apk);
-            // 解压出xposed_init文件，这里存放着模块启动的入口
-			ZipEntry zipEntry = zipFile.getEntry("assets/xposed_init");
-			if (zipEntry == null) {
-				Log.e(TAG, "  assets/xposed_init not found in the APK");
-				closeSilently(zipFile);
-				return;
-			}
-			is = zipFile.getInputStream(zipEntry);
-		} catch (IOException e) {
-			Log.e(TAG, "  Cannot read assets/xposed_init in the APK", e);
-			closeSilently(zipFile);
-			return;
-		}
-		// 动态加载模块
-		ClassLoader mcl = new PathClassLoader(apk, XposedBridge.BOOTCLASSLOADER);
-		BufferedReader moduleClassesReader = new BufferedReader(new InputStreamReader(is));
-		try {
-			String moduleClassName;
-			while ((moduleClassName = moduleClassesReader.readLine()) != null) {
-				moduleClassName = moduleClassName.trim();
-				if (moduleClassName.isEmpty() || moduleClassName.startsWith("#"))
-					continue;
+    closeSilently(dexFile);
+    // 由于模块实际都是apk，而apk本质是压缩包，所以使用Zip来处理文件
+    ZipFile zipFile = null;
+    InputStream is;
+    try {
+        zipFile = new ZipFile(apk);
+        // 解压出xposed_init文件，这里存放着模块启动的入口
+        ZipEntry zipEntry = zipFile.getEntry("assets/xposed_init");
+        if (zipEntry == null) {
+            Log.e(TAG, "  assets/xposed_init not found in the APK");
+            closeSilently(zipFile);
+            return;
+        }
+        is = zipFile.getInputStream(zipEntry);
+    } catch (IOException e) {
+        Log.e(TAG, "  Cannot read assets/xposed_init in the APK", e);
+        closeSilently(zipFile);
+        return;
+    }
+    // 动态加载模块
+    ClassLoader mcl = new PathClassLoader(apk, XposedBridge.BOOTCLASSLOADER);
+    BufferedReader moduleClassesReader = new BufferedReader(new InputStreamReader(is));
+    try {
+        String moduleClassName;
+        while ((moduleClassName = moduleClassesReader.readLine()) != null) {
+            moduleClassName = moduleClassName.trim();
+            if (moduleClassName.isEmpty() || moduleClassName.startsWith("#"))
+                continue;
 
-				try {
-                    // 加载模块的入口类
-					Log.i(TAG, "  Loading class " + moduleClassName);
-					Class<?> moduleClass = mcl.loadClass(moduleClassName);
-					// 检查该类是否有实现接口
-					if (!IXposedMod.class.isAssignableFrom(moduleClass)) {
-						Log.e(TAG, "    This class doesn't implement any sub-interface of IXposedMod, skipping it");
-						continue;
-					} else if (disableResources && IXposedHookInitPackageResources.class.isAssignableFrom(moduleClass)) {
-						Log.e(TAG, "    This class requires resource-related hooks (which are disabled), skipping it.");
-						continue;
-					}
-					// 使用该类初始化一个对象
-					final Object moduleInstance = moduleClass.newInstance();
-					if (XposedBridge.isZygote) {
-                        // 不同的实现接口有各自对应的处理，这里是Zygote模块初始化时使用的模块
-						if (moduleInstance instanceof IXposedHookZygoteInit) {
-							IXposedHookZygoteInit.StartupParam param = new IXposedHookZygoteInit.StartupParam();
-							param.modulePath = apk;
-							param.startsSystemServer = startsSystemServer;
-							((IXposedHookZygoteInit) moduleInstance).initZygote(param);
-						}
-						// 普通应用的模块接口
-						if (moduleInstance instanceof IXposedHookLoadPackage)
-                            // 调用了模块中的实现。
-							XposedBridge.hookLoadPackage(new IXposedHookLoadPackage.Wrapper((IXposedHookLoadPackage) moduleInstance));
+            try {
+                // 加载模块的入口类
+                Log.i(TAG, "  Loading class " + moduleClassName);
+                Class<?> moduleClass = mcl.loadClass(moduleClassName);
+                // 检查该类是否有实现接口
+                if (!IXposedMod.class.isAssignableFrom(moduleClass)) {
+                    Log.e(TAG, "    This class doesn't implement any sub-interface of IXposedMod, skipping it");
+                    continue;
+                } else if (disableResources && IXposedHookInitPackageResources.class.isAssignableFrom(moduleClass)) {
+                    Log.e(TAG, "    This class requires resource-related hooks (which are disabled), skipping it.");
+                    continue;
+                }
+                // 使用该类初始化一个对象
+                final Object moduleInstance = moduleClass.newInstance();
+                if (XposedBridge.isZygote) {
+                    // 不同的实现接口有各自对应的处理，这里是Zygote模块初始化时使用的模块
+                    if (moduleInstance instanceof IXposedHookZygoteInit) {
+                        IXposedHookZygoteInit.StartupParam param = new IXposedHookZygoteInit.StartupParam();
+                        param.modulePath = apk;
+                        param.startsSystemServer = startsSystemServer;
+                        ((IXposedHookZygoteInit) moduleInstance).initZygote(param);
+                    }
+                    // 普通应用的模块接口
+                    if (moduleInstance instanceof IXposedHookLoadPackage)
+                        // 调用了模块中的实现。
+                        XposedBridge.hookLoadPackage(new IXposedHookLoadPackage.Wrapper((IXposedHookLoadPackage) moduleInstance));
 
-						if (moduleInstance instanceof IXposedHookInitPackageResources)
-							XposedBridge.hookInitPackageResources(new IXposedHookInitPackageResources.Wrapper((IXposedHookInitPackageResources) moduleInstance));
-					} else {
-						if (moduleInstance instanceof IXposedHookCmdInit) {
-							IXposedHookCmdInit.StartupParam param = new IXposedHookCmdInit.StartupParam();
-							param.modulePath = apk;
-							param.startClassName = startClassName;
-							((IXposedHookCmdInit) moduleInstance).initCmdApp(param);
-						}
-					}
-				} catch (Throwable t) {
-					Log.e(TAG, "    Failed to load class " + moduleClassName, t);
-				}
-			}
-		} catch (IOException e) {
-			Log.e(TAG, "  Failed to load module from " + apk, e);
-		} finally {
-			closeSilently(is);
-			closeSilently(zipFile);
-		}
-	}
+                    if (moduleInstance instanceof IXposedHookInitPackageResources)
+                        XposedBridge.hookInitPackageResources(new IXposedHookInitPackageResources.Wrapper((IXposedHookInitPackageResources) moduleInstance));
+                } else {
+                    if (moduleInstance instanceof IXposedHookCmdInit) {
+                        IXposedHookCmdInit.StartupParam param = new IXposedHookCmdInit.StartupParam();
+                        param.modulePath = apk;
+                        param.startClassName = startClassName;
+                        ((IXposedHookCmdInit) moduleInstance).initCmdApp(param);
+                    }
+                }
+            } catch (Throwable t) {
+                Log.e(TAG, "    Failed to load class " + moduleClassName, t);
+            }
+        }
+    } catch (IOException e) {
+        Log.e(TAG, "  Failed to load module from " + apk, e);
+    } finally {
+        closeSilently(is);
+        closeSilently(zipFile);
+    }
+}
 ```
 
 ​	分析完加载模块的实现后，这时就明白模块开发时定义的入口是如何被调用的，以及被调用的时机在哪里。理解其中的原理后，同样可以自己进行修改，在其他的时机来选择注入。用自己的方式来定义模块。
@@ -358,7 +356,7 @@ private static void loadModule(String apk, ClassLoader topClassLoader) {
 
 ​	`Pine`支持两种方案，一种是替换入口，即修改`ArtMethod`的`entrypoint`；另一种类似于`native`的`inline hook`，即覆盖掉目标方法的代码开始处的一段代码，用于弥补`Android 8.0`以下版本入口替换很有可能不生效的问题。
 
-​	`Dobby`是一个基于`Android NDK`开发的`Native Hook`框架。它可以在`Android`应用程序中注入自定义代码段，从而实现函数替换、跳转、插桩等操作。`Dobby`主要使用了动态链接库和指令重写技术，通过Hook目标进程中的函数来达到修改目的。
+​	`Dobby`是一个基于`Android NDK`开发的`Native Hook`框架。它可以在`Android`应用程序中注入自定义代码段，从而实现函数替换、跳转、插桩等操作。`Dobby`主要使用了动态链接库和指令重写技术，通过`Hook`目标进程中的函数来达到修改目的。
 
 ​	相比`Java`层的`Hook`框架，`Native Hook`有一些优势。首先，`Native Hook`可以直接操作目标进程的内存空间，更加灵活；其次，`Native Hook`可以通过指令重写技术来控制执行流程，效果更加精准；最后，`Native Hook`避免了`Java`层`Hook`可能引起的兼容性问题，适用范围更广。
 
@@ -416,7 +414,7 @@ public class Demo {
     }
 ```
 
-​	可以看到`hook`代码执行后，再触发函数的调用，运行该应用后，能看到在本进程内成功`hook`。说明该模块正常运行，将这个测试模块编译出来的`apk`文件解压，查看`lib`目录，发现`hook`框架添加后，新增了动态库`libpine.so`。接下来需要将该动态库内置到系统中。
+​	可以看到`hook`代码执行后，再触发函数的调用，运行该应用后，能看到在本进程内成功`hook`。说明该模块正常运行，将这个测试模块编译出来的`apk`文件解压，查看`lib`目录，发现`hook`框架的依赖，新增了动态库`libpine.so`。接下来需要将该动态库内置到系统中。
 
 ​	在目录`frameworks/base/packages/apps`下新建一个目录`mypine`，然后在该目录中新建文件`Android.mk`，将`pine`的依赖动态库`libpine.so`的，`armv7`以及`arm64`两个版本拷贝到该目录，并加入配置，配置具体内容如下。
 
@@ -507,7 +505,7 @@ public class Module implements IHook {
 }
 ```
 
-​	在该模块中依然是对前面的例子进行`Hook`，而前文是直接在本进程中进行`Hook`操作，现在则是将前面例子中，`onCreate`的`hook`代码删除，并且去掉`pine`框架的相关引用。在该进程启动时，在`AOSP`源码中将其注入。这里的注入时机选择`handleBindApplication`中，创建`Application`后进行处理。下面是`AOSP`的相关修改。
+​	在该模块中依然是对前面的例子进行`Hook`，而前文是直接在本进程中进行`Hook`操作，现在则是将前面例子中，`onCreate`的`hook`代码删除，并且去掉`pine`框架的相关引用。在该进程启动时，在`AOSP`源码中将其注入。这里的注入时机选择`handleBindApplication`中，创建`Application`后进行处理。为了简化过程，模块路径以及模块实现接口的类名固定写在代码中，所以在刷入手机测试时，需要手动将该模块上传到指定路径，并且保证在该目录有权限，才能进行动态加载。下面是`AOSP`的相关修改。
 
 ```java
 private void loadModule(Application app){
@@ -550,8 +548,6 @@ private void handleBindApplication(AppBindData data) {
 ```
 
 ​	注入代码添加完成后，需要在`AOSP`中相同包名目录下也添加`IHook.java`的接口文件。该例子中接口文件存放在`openjdk`，也可以选择直接放`android.app`包名或任意包名下，只需要和模块中的一致即可。
-
-​	在该例子中，为了简化过程，模块路径以及模块实现接口的类名固定写在代码中，所以在刷入手机测试时，需要手动将该模块上传到指定路径，并且保证在该目录有权限，才能进行动态加载。
 
 ​	在实际运用常见，可以选择参考`Xposed`的做法，写在某个资源文件中，然后解压出单个文件读取内容获取到。而`apk` 的路径，可以选择从配置文件获取，如果配置路径下的没有权限，可以由代码实现将模块拷贝到当前进程的私有目录下进行动态加载。也可以选择调整`selinux`规则，为指定目录添加普通进程的访问权限。
 
@@ -614,9 +610,7 @@ elseif(${CMAKE_ANDROID_ARCH_ABI} STREQUAL "armeabi-v7a")
 endif()
 ```
 
-​	将`dobby`的源码引入后，就可以在项目中使用`dobby`进行`hook`处理了。修改`native-lib.cpp`
-
-文件，添加测试的`hook`代码，内容如下。
+​	将`dobby`的源码引入后，就可以在项目中使用`dobby`进行`hook`处理了。修改`native-lib.cpp`文件，添加测试的`hook`代码，内容如下。
 
 ```c++
 #include <jni.h>
