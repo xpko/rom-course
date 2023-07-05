@@ -1641,7 +1641,6 @@ public final class SystemServiceRegistry {
          * {@code context}.
          */
         @NonNull
-        //TODO Do we need to pass the "base context" too?
         TServiceClass createService(@NonNull Context context);
     }
 
@@ -1662,7 +1661,6 @@ public final class SystemServiceRegistry {
          * service binder object that's tied to a given {@code context}.
          */
         @NonNull
-        //TODO Do we need to pass the "base context" too?
         TServiceClass createService(@NonNull Context context, @NonNull IBinder serviceBinder);
     }
 
@@ -1927,7 +1925,6 @@ public final class SystemServiceRegistry {
      * creating the service for the first time, passes it the application context of the creating
      * application.
      *
-     * TODO: Delete this once its only user (ConnectivityManager) is known to work well in the
      * case where multiple application components each have their own ConnectivityManager object.
      */
     static abstract class StaticApplicationContextServiceFetcher<T> implements ServiceFetcher<T> {

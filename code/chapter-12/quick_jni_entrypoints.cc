@@ -107,7 +107,6 @@ extern uint32_t JniMethodStartSynchronized(jobject to_lock, Thread* self) {
   return JniMethodStart(self);
 }
 
-// TODO: NO_THREAD_SAFETY_ANALYSIS due to different control paths depending on fast JNI.
 static void GoToRunnable(Thread* self) NO_THREAD_SAFETY_ANALYSIS {
   if (kIsDebugBuild) {
     ArtMethod* native_method = *self->GetManagedStack()->GetTopQuickFrame();
@@ -144,7 +143,6 @@ static void PopLocalReferences(uint32_t saved_local_ref_cookie, Thread* self)
   env->SetLocalRefCookie(bit_cast<IRTSegmentState>(saved_local_ref_cookie));
 }
 
-// TODO: annotalysis disabled as monitor semantics are maintained in Java code.
 static inline void UnlockJniSynchronizedMethod(jobject locked, Thread* self)
     NO_THREAD_SAFETY_ANALYSIS REQUIRES(!Roles::uninterruptible_) {
   // Save any pending exception over monitor exit call.
@@ -167,7 +165,6 @@ static inline void UnlockJniSynchronizedMethod(jobject locked, Thread* self)
   }
 }
 
-// TODO: These should probably be templatized or macro-ized.
 // Otherwise there's just too much repetitive boilerplate.
 
 extern void JniMethodEnd(uint32_t saved_local_ref_cookie, Thread* self) {
@@ -284,7 +281,6 @@ extern uint64_t GenericJniMethodEnd(Thread* self,
                                     jvalue result,
                                     uint64_t result_f,
                                     ArtMethod* called)
-    // TODO: NO_THREAD_SAFETY_ANALYSIS as GoToRunnable() is NO_THREAD_SAFETY_ANALYSIS
     NO_THREAD_SAFETY_ANALYSIS {
 //    ALOGD("mikrom GenericJniMethodEnd ");
   bool critical_native = called->IsCriticalNative();

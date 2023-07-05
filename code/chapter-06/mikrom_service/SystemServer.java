@@ -235,10 +235,6 @@ public final class SystemServer implements Dumpable {
     private static final long SLOW_DISPATCH_THRESHOLD_MS = 100;
     private static final long SLOW_DELIVERY_THRESHOLD_MS = 200;
 
-    /*
-     * Implementation class names. TODO: Move them to a codegen class or load
-     * them from the build system somehow.
-     */
     private static final String BACKUP_MANAGER_SERVICE_CLASS =
             "com.android.server.backup.BackupManagerService$Lifecycle";
     private static final String APPWIDGET_SERVICE_CLASS =
@@ -407,7 +403,6 @@ public final class SystemServer implements Dumpable {
     private Context mSystemContext;
     private SystemServiceManager mSystemServiceManager;
 
-    // TODO: remove all of these references by improving dependency resolution and boot phases
     private PowerManagerService mPowerManagerService;
     private ActivityManagerService mActivityManagerService;
     private WindowManagerGlobalLock mWindowManagerGlobalLock;
@@ -624,7 +619,6 @@ public final class SystemServer implements Dumpable {
 
         // Remember if it's runtime restart(when sys.boot_completed is already set) or reboot
         // We don't use "mStartCount > 1" here because it'll be wrong on a FDE device.
-        // TODO: mRuntimeRestart will *not* be set to true if the proccess crashes before
         // sys.boot_completed is set. Fix it.
         mRuntimeRestart = "1".equals(SystemProperties.get("sys.boot_completed"));
     }
@@ -1056,7 +1050,6 @@ public final class SystemServer implements Dumpable {
 
         // Activity manager runs the show.
         t.traceBegin("StartActivityManager");
-        // TODO: Might need to move after migration to WM.
         ActivityTaskManagerService atm = mSystemServiceManager.startService(
                 ActivityTaskManagerService.Lifecycle.class).getService();
         mActivityManagerService = ActivityManagerService.Lifecycle.startService(
@@ -1522,7 +1515,6 @@ public final class SystemServer implements Dumpable {
             inputManager.start();
             t.traceEnd();
 
-            // TODO: Use service dependencies instead.
             t.traceBegin("DisplayManagerWindowManagerAndInputReady");
             mDisplayManagerService.windowManagerAndInputReady();
             t.traceEnd();
@@ -1766,13 +1758,11 @@ public final class SystemServer implements Dumpable {
             }
 
             // Search UI manager service
-            // TODO: add deviceHasConfigString(context, R.string.config_defaultSearchUiService)
             t.traceBegin("StartSearchUiService");
             mSystemServiceManager.startService(SEARCH_UI_MANAGER_SERVICE_CLASS);
             t.traceEnd();
 
             // Smartspace manager service
-            // TODO: add deviceHasConfigString(context, R.string.config_defaultSmartspaceService)
             t.traceBegin("StartSmartspaceService");
             mSystemServiceManager.startService(SMARTSPACE_MANAGER_SERVICE_CLASS);
             t.traceEnd();
@@ -2150,7 +2140,6 @@ public final class SystemServer implements Dumpable {
             mSystemServiceManager.startService(ColorDisplayService.class);
             t.traceEnd();
 
-            // TODO(aml-jobscheduler): Think about how to do it properly.
             t.traceBegin("StartJobScheduler");
             mSystemServiceManager.startService(JOB_SCHEDULER_SERVICE_CLASS);
             t.traceEnd();
@@ -2594,7 +2583,6 @@ public final class SystemServer implements Dumpable {
 
         t.traceBegin("MakePowerManagerServiceReady");
         try {
-            // TODO: use boot phase
             mPowerManagerService.systemReady(mActivityManagerService.getAppOpsService());
         } catch (Throwable e) {
             reportWtf("making Power Manager Service ready", e);
@@ -2612,7 +2600,6 @@ public final class SystemServer implements Dumpable {
 
         t.traceBegin("MakeDisplayManagerServiceReady");
         try {
-            // TODO: use boot phase and communicate these flags some other way
             mDisplayManagerService.systemReady(safeMode, mOnlyCore);
         } catch (Throwable e) {
             reportWtf("making Display Manager Service ready", e);
@@ -2735,7 +2722,6 @@ public final class SystemServer implements Dumpable {
 
             // Enable airplane mode in safe mode. setAirplaneMode() cannot be called
             // earlier as it sends broadcasts to other services.
-            // TODO: This may actually be too late if radio firmware already started leaking
             // RF before the respective services start. However, fixing this requires changes
             // to radio firmware and interfaces.
             if (safeMode) {
@@ -2844,7 +2830,6 @@ public final class SystemServer implements Dumpable {
 
             t.traceBegin("StartTethering");
             try {
-                // TODO: hide implementation details, b/146312721.
                 ConnectivityModuleConnector.getInstance().startModuleService(
                         TETHERING_CONNECTOR_CLASS,
                         PERMISSION_MAINLINE_NETWORK_STACK, service -> {
@@ -2877,7 +2862,6 @@ public final class SystemServer implements Dumpable {
             t.traceEnd();
             t.traceBegin("MakeInputManagerServiceReady");
             try {
-                // TODO(BT) Pass parameter to input manager
                 if (inputManagerF != null) {
                     inputManagerF.systemRunning();
                 }
@@ -2915,7 +2899,6 @@ public final class SystemServer implements Dumpable {
 
             t.traceBegin("IncidentDaemonReady");
             try {
-                // TODO: Switch from checkService to getService once it's always
                 // in the build and should reliably be there.
                 final IIncidentManager incident = IIncidentManager.Stub.asInterface(
                         ServiceManager.getService(Context.INCIDENT_SERVICE));

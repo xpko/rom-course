@@ -593,7 +593,6 @@ void ClassLinker::ThrowEarlierClassFailure(ObjPtr<mirror::Class> c,
       // Rethrow stored error.
       HandleEarlierVerifyError(self, this, c);
     }
-    // TODO This might be wrong if we hit an OOME while allocating the ClassExt. In that case we
     // might have meant to go down the earlier if statement with the original error but it got
     // swallowed by the OOM so we end up here.
     if (verify_error == nullptr || wrap_in_no_class_def) {
@@ -1648,7 +1647,6 @@ void AppImageLoadingHelper::HandleAppImageStrings(gc::space::ImageSpace* space) 
 
   // Add the intern table, removing any conflicts. For conflicts, store the new address in a map
   // for faster lookup.
-  // TODO: Optimize with a bitmap or bloom filter
   SafeMap<mirror::String*, mirror::String*> intern_remap;
   auto func = [&](InternTable::UnorderedSet& interns)
       REQUIRES_SHARED(Locks::mutator_lock_)
@@ -2314,7 +2312,6 @@ class GetClassInToObjectArray : public ClassVisitor {
 };
 
 void ClassLinker::VisitClassesWithoutClassesLock(ClassVisitor* visitor) {
-  // TODO: it may be possible to avoid secondary storage if we iterate over dex caches. The problem
   // is avoiding duplicates.
   if (!kMovingClasses) {
     ScopedAssertNoThreadSuspension nts(__FUNCTION__);
@@ -2782,7 +2779,6 @@ ALWAYS_INLINE bool MatchesDexFileCaughtExceptions(ObjPtr<mirror::Throwable> thro
       throwable->InstanceOf(GetClassRoot(ClassRoot::kJavaLangClassNotFoundException,
                                          class_linker))
       ||
-      // NoClassDefFoundError. TODO: Reconsider this. b/130746382.
       throwable->InstanceOf(Runtime::Current()->GetPreAllocatedNoClassDefFoundError()->GetClass());
 }
 
@@ -3200,7 +3196,6 @@ ObjPtr<mirror::Class> ClassLinker::DefineClass(Thread* self,
   // nothing.
   DexFile const* new_dex_file = nullptr;
   dex::ClassDef const* new_class_def = nullptr;
-  // TODO We should ideally figure out some way to move this after we get a lock on the klass so it
   // will only be called once.
   Runtime::Current()->GetRuntimeCallbacks()->ClassPreDefine(descriptor,
                                                             klass,
@@ -3273,7 +3268,6 @@ ObjPtr<mirror::Class> ClassLinker::DefineClass(Thread* self,
 
   // Link the class (if necessary)
   CHECK(!klass->IsResolved());
-  // TODO: Use fast jobjects?
   auto interfaces = hs.NewHandle<mirror::ObjectArray<mirror::Class>>(nullptr);
 
   MutableHandle<mirror::Class> h_new_class = hs.NewHandle<mirror::Class>(nullptr);
@@ -3620,7 +3614,6 @@ static void LinkCode(ClassLinker* class_linker,
     if (enter_interpreter || quick_code == nullptr) {
       // We have a native method here without code. Then it should have the generic JNI
       // trampoline as entrypoint.
-      // TODO: this doesn't handle all the cases where trampolines may be installed.
       DCHECK(class_linker->IsQuickGenericJniStub(method->GetEntryPointFromQuickCompiledCode()));
     }
   }
@@ -4084,7 +4077,6 @@ ObjPtr<mirror::DexCache> ClassLinker::RegisterDexFile(const DexFile& dex_file,
       if (IsSameClassLoader(old_dex_cache, old_data, class_loader)) {
         return old_dex_cache;
       } else {
-        // TODO This is not very clean looking. Should maybe try to make a way to request exceptions
         // be thrown when it's safe to do so to simplify this.
         registered_with_another_class_loader = true;
       }
@@ -4447,7 +4439,6 @@ void ClassLinker::WriteBarrierForBootOatFileBssRoots(const OatFile* oat_file) {
   }
 }
 
-// TODO This should really be in mirror::Class.
 void ClassLinker::UpdateClassMethods(ObjPtr<mirror::Class> klass,
                                      LengthPrefixedArray<ArtMethod>* new_methods) {
   klass->SetMethodsPtrUnchecked(new_methods,
@@ -4591,7 +4582,6 @@ verifier::FailureKind ClassLinker::VerifyClass(Thread* self,
                                                Handle<mirror::Class> klass,
                                                verifier::HardFailLogMode log_level) {
   {
-    // TODO: assert that the monitor on the Class is held
     ObjectLock<mirror::Class> lock(self, klass);
 
     // Is somebody verifying this now?
@@ -4899,7 +4889,6 @@ bool ClassLinker::VerifyClassUsingOatFile(Thread* self,
   if (oat_file_class_status == ClassStatus::kNotReady) {
     // Status is uninitialized if we couldn't determine the status at compile time, for example,
     // not loading the class.
-    // TODO: when the verifier doesn't rely on Class-es failing to resolve/load the type hierarchy
     // isn't a problem and this case shouldn't occur
     return false;
   }
@@ -5081,7 +5070,6 @@ ObjPtr<mirror::Class> ClassLinker::CreateProxyClass(ScopedObjectAccessAlreadyRun
   CreateProxyConstructor(temp_klass, temp_klass->GetDirectMethodUnchecked(0, image_pointer_size_));
 
   // Create virtual method using specified prototypes.
-  // TODO These should really use the iterators.
   for (size_t i = 0; i < num_virtual_methods; ++i) {
     auto* virtual_method = temp_klass->GetVirtualMethodUnchecked(i, image_pointer_size_);
     auto* prototype = proxied_methods[i];
@@ -5134,7 +5122,6 @@ ObjPtr<mirror::Class> ClassLinker::CreateProxyClass(ScopedObjectAccessAlreadyRun
   if (kBitstringSubtypeCheckEnabled) {
     MutexLock subtype_check_lock(Thread::Current(), *Locks::subtype_check_lock_);
     SubtypeCheck<ObjPtr<mirror::Class>>::EnsureInitialized(klass.Get());
-    // TODO: Avoid taking subtype_check_lock_ if SubtypeCheck for j.l.r.Proxy is already assigned.
   }
 
   VisiblyInitializedCallback* callback = nullptr;
@@ -5642,7 +5629,6 @@ bool ClassLinker::InitializeDefaultInterfaceRecursive(Thread* self,
   // can skip it on any later class initializations. We do this even if we are not a default
   // interface since we can still avoid the traversal. This is purely a performance optimization.
   if (result) {
-    // TODO This should be done in a better way
     // Note: Use a try-lock to avoid blocking when someone else is holding the lock on this
     //       interface. It is bad (Java) style, but not impossible. Marking the recursive
     //       initialization is a performance optimization (to avoid another idempotent visit
@@ -5927,7 +5913,6 @@ bool ClassLinker::EnsureInitialized(Thread* self,
   if (kBitstringSubtypeCheckEnabled) {
     MutexLock subtype_check_lock(Thread::Current(), *Locks::subtype_check_lock_);
     SubtypeCheck<ObjPtr<mirror::Class>>::EnsureInitialized(c.Get());
-    // TODO: Avoid taking subtype_check_lock_ if SubtypeCheck is already initialized.
   }
   const bool success = InitializeClass(self, c, can_init_fields, can_init_parents);
   if (!success) {
@@ -6165,7 +6150,6 @@ bool ClassLinker::LoadSuperAndInterfaces(Handle<mirror::Class> klass, const DexF
   if (super_class_idx.IsValid()) {
     // Check that a class does not inherit from itself directly.
     //
-    // TODO: This is a cheap check to detect the straightforward case
     // of a class extending itself (b/28685551), but we should do a
     // proper cycle detection on loaded classes, to detect all cases
     // of class circularity errors (b/28830038).
@@ -6202,7 +6186,6 @@ bool ClassLinker::LoadSuperAndInterfaces(Handle<mirror::Class> klass, const DexF
       }
       // Verify
       if (!klass->CanAccess(interface)) {
-        // TODO: the RI seemed to ignore this in my testing.
         ThrowIllegalAccessError(klass.Get(),
                                 "Interface %s implemented by class %s is inaccessible",
                                 interface->PrettyDescriptor().c_str(),
@@ -6598,8 +6581,7 @@ bool ClassLinker::LinkVirtualMethods(
     // method which has not been matched to a vtable method, and j if the virtual method at the
     // index overrode the super virtual method at index j.
     // 2. Loop through super virtual methods, if they overwrite, update hash table to j
-    // (j < super_vtable_length) to avoid redundant checks. (TODO maybe use this info for reducing
-    // the need for the initial vtable which we later shrink back down).
+    // (j < super_vtable_length) to avoid redundant checks.
     // 3. Add non overridden methods to the end of the vtable.
     static constexpr size_t kMaxStackHash = 250;
     // + 1 so that even if we only have new default methods we will still be able to use this hash
@@ -6683,7 +6665,6 @@ bool ClassLinker::LinkVirtualMethods(
             if (UNLIKELY(super_method->IsDefaultConflicting() ||
                         default_method->GetDeclaringClass() != super_method->GetDeclaringClass())) {
               // Found a default method implementation that is new.
-              // TODO Refactor this add default methods to virtuals here and not in
               //      LinkInterfaceMethods maybe.
               //      The problem is default methods might override previously present
               //      default-method or miranda-method vtable entries from the superclass.
@@ -7885,7 +7866,6 @@ ArtMethod* ClassLinker::LinkInterfaceMethodsHelper::FindMethod(
       } else if (LIKELY(FillTables())) {
         // Interfaces don't need to copy default methods since they don't have vtables.
         // Only record this default method if it is new to save space.
-        // TODO It might be worthwhile to copy default methods on interfaces anyway since it
         //      would make lookup for interface super much faster. (We would only need to scan
         //      the iftable to find if there is a NSME or AME.)
         ArtMethod* old = FindSameNameAndSignature(interface_name_comparator,
@@ -7953,7 +7933,6 @@ void ClassLinker::LinkInterfaceMethodsHelper::ReallocMethods() {
   // realloced memory with out->CopyFrom, we are guaranteed to have objects in the to space since
   // CopyFrom has internal read barriers.
   //
-  // TODO We should maybe move some of this into mirror::Class or at least into another method.
   const size_t old_size = LengthPrefixedArray<ArtMethod>::ComputeSize(old_method_count,
                                                                       method_size_,
                                                                       method_alignment_);
@@ -8013,7 +7992,6 @@ void ClassLinker::LinkInterfaceMethodsHelper::ReallocMethods() {
       new_method.CopyFrom(def_method, pointer_size);
       // Clear the kAccSkipAccessChecks flag if it is present. Since this class hasn't been
       // verified yet it shouldn't have methods that are skipping access checks.
-      // TODO This is rather arbitrary. We should maybe support classes where only some of its
       // methods are skip_access_checks.
       DCHECK_EQ(new_method.GetAccessFlags() & kAccNative, 0u);
       constexpr uint32_t kSetFlags = kAccDefault | kAccCopied;
@@ -8188,7 +8166,6 @@ void ClassLinker::LinkInterfaceMethodsHelper::UpdateIMT(ArtMethod** out_imt) {
   }
 }
 
-// TODO This method needs to be split up into several smaller methods.
 bool ClassLinker::LinkInterfaceMethods(
     Thread* self,
     Handle<mirror::Class> klass,
@@ -8254,7 +8231,6 @@ bool ClassLinker::LinkInterfaceMethods(
       Handle<mirror::PointerArray> input_vtable_array(null_handle);
       int32_t input_array_length = 0;
 
-      // TODO Cleanup Needed: In the presence of default methods this optimization is rather dirty
       //      and confusing. Default methods should always look through all the superclasses
       //      because they are the last choice of an implementation. We get around this by looking
       //      at the super-classes iftable methods (copied into method_array previously) when we are
@@ -8317,7 +8293,6 @@ bool ClassLinker::LinkInterfaceMethods(
               // are still using this we will select it again when scanning for default methods. To
               // obviate the need to copy the method again we will make a note that we already found
               // a default here.
-              // TODO This should be much cleaner.
               vtable_impl = vtable_method;
               break;
             } else {
@@ -8351,7 +8326,6 @@ bool ClassLinker::LinkInterfaceMethods(
           // safe since we know that the super_iftable is filled in so we can simply pull it from
           // there. We don't bother if this is not a super-classes interface since in that case we
           // have scanned the entire vtable anyway and would have found it.
-          // TODO This is rather dirty but it is faster than searching through the entire vtable
           //      every time.
           ArtMethod* supers_method =
               method_array->GetElementPtrSize<ArtMethod*>(j, image_pointer_size_);
@@ -8402,7 +8376,6 @@ bool ClassLinker::LinkInterfaceMethods(
       }  // For each method in interface end.
     }  // if (num_methods > 0)
   }  // For each interface.
-  // TODO don't extend virtuals of interface unless necessary (when is it?).
   if (helper.HasNewVirtuals()) {
     LengthPrefixedArray<ArtMethod>* old_methods = kIsDebugBuild ? klass->GetMethodsPtr() : nullptr;
     helper.ReallocMethods();  // No return value to check. Native allocation failure aborts.
@@ -9056,7 +9029,6 @@ ObjPtr<mirror::Class> ClassLinker::DoResolveType(dex::TypeIndex type_idx,
   const char* descriptor = dex_cache->GetDexFile()->StringByTypeIdx(type_idx);
   ObjPtr<mirror::Class> resolved = FindClass(self, descriptor, class_loader);
   if (resolved != nullptr) {
-    // TODO: we used to throw here if resolved's class loader was not the
     //       boot class loader. This was to permit different classes with the
     //       same name to be loaded simultaneously by different loaders
     dex_cache->SetResolvedType(type_idx, resolved);
@@ -9458,7 +9430,6 @@ ObjPtr<mirror::MethodType> ClassLinker::ResolveMethodType(
 
   // Then resolve the argument types.
   //
-  // TODO: Is there a better way to figure out the number of method arguments
   // other than by looking at the shorty ?
   const size_t num_method_args = strlen(dex_file.StringDataByIdx(proto_id.shorty_idx_)) - 1;
 
@@ -10090,7 +10061,6 @@ ObjPtr<mirror::ClassLoader> ClassLinker::CreateWellKnownClassLoader(
   path_list_field->SetObject<false>(h_class_loader.Get(), h_dex_path_list.Get());
 
   // Make a pretend boot-classpath.
-  // TODO: Should we scan the image?
   ArtField* const parent_field =
       mirror::Class::FindField(self,
                                h_class_loader->GetClass(),

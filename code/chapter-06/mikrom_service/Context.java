@@ -895,7 +895,6 @@ public abstract class Context {
         return null;
     }
 
-    // TODO moltmann: Remove
     /**
      * @removed
      */
@@ -4684,7 +4683,6 @@ public abstract class Context {
     /**
      * Official published name of the (internal) rotation resolver service.
      *
-     * // TODO(b/178151184): change it back to rotation resolver before S release.
      *
      * @see #getSystemService(String)
      * @hide
@@ -4748,7 +4746,7 @@ public abstract class Context {
      * @see #getSystemService(String)
      */
     @TestApi
-    @SuppressLint("ServiceName")  // TODO: This should be renamed to CONTENT_CAPTURE_SERVICE
+    @SuppressLint("ServiceName")
     public static final String CONTENT_CAPTURE_MANAGER_SERVICE = "content_capture";
 
     /**
@@ -4935,7 +4933,7 @@ public abstract class Context {
      * @hide
      */
     @TestApi
-    @SuppressLint("ServiceName")  // TODO: This should be renamed to DEVICE_IDLE_SERVICE
+    @SuppressLint("ServiceName")
     public static final String DEVICE_IDLE_CONTROLLER = "deviceidle";
 
     /**
@@ -6551,7 +6549,6 @@ public abstract class Context {
         throw new RuntimeException("Not implemented. Must override in a subclass.");
     }
 
-    // TODO moltmann: remove
     /**
      * @removed
      */
@@ -6665,7 +6662,6 @@ public abstract class Context {
     /**
      * A version of {@link #getDisplay()} that does not perform a Context misuse check to be used by
      * legacy APIs.
-     * TODO(b/149790106): Fix usages and remove.
      * @hide
      */
     @Nullable

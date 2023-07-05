@@ -77,7 +77,6 @@ static bool ConvertJavaArrayToDexFiles(
     return false;
   }
 
-  // TODO: Optimize. On 32bit we can use an int array.
   jboolean is_long_data_copied;
   jlong* long_data = env->GetLongArrayElements(reinterpret_cast<jlongArray>(array),
                                                &is_long_data_copied);
@@ -138,7 +137,6 @@ static jlongArray ConvertDexFilesToJavaArray(JNIEnv* env,
 //   }
 //   // ... use name.c_str()
 //
-// TODO: rewrite to get rid of this, or change ScopedUtfChars to offer this option.
 class NullableScopedUtfChars {
  public:
   NullableScopedUtfChars(JNIEnv* env, jstring s) : mEnv(env), mString(s) {
@@ -309,7 +307,6 @@ static jobject DexFile_openInMemoryDexFilesNative(JNIEnv* env,
   return CreateCookieFromOatFileManagerResult(env, dex_files, oat_file, error_msgs);
 }
 
-// TODO(calin): clean up the unused parameters (here and in libcore).
 static jobject DexFile_openDexFileNative(JNIEnv* env,
                                          jclass,
                                          jstring javaSourceName,
@@ -553,9 +550,6 @@ static jint GetDexOptNeeded(JNIEnv* env,
                           context_fds,
                           /*only_read_checksums*/ true);
   }
-
-  // TODO: Verify the dex location is well formed, and throw an IOException if
-  // not?
 
   OatFileAssistant oat_file_assistant(filename,
                                       target_instruction_set,

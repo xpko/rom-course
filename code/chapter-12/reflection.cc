@@ -286,7 +286,6 @@ class ArgArray {
       arg.Assign(args->Get(args_offset));
       if (((shorty_[i] == 'L') && (arg != nullptr)) ||
           ((arg == nullptr && shorty_[i] != 'L'))) {
-        // TODO: The method's parameter's type must have been previously resolved, yet
         // we've seen cases where it's not b/34440020.
         ObjPtr<mirror::Class> dst_class(
             m->ResolveClassFromTypeIndex(classes->GetTypeItem(args_offset).type_idx_));
@@ -424,7 +423,6 @@ void CheckMethodArguments(JavaVMExt* vm, ArtMethod* m, uint32_t* args)
   if (!m->IsStatic()) {
     offset = 1;
   }
-  // TODO: If args contain object references, it may cause problems.
   Thread* const self = Thread::Current();
   for (uint32_t i = 0; i < num_params; i++) {
     dex::TypeIndex type_idx = params->GetTypeItem(i).type_idx_;
@@ -437,7 +435,6 @@ void CheckMethodArguments(JavaVMExt* vm, ArtMethod* m, uint32_t* args)
       self->ClearException();
       ++error_count;
     } else if (!param_type->IsPrimitive()) {
-      // TODO: There is a compaction bug here since GetClassFromTypeIdx can cause thread suspension,
       // this is a hard to fix problem since the args can contain Object*, we need to save and
       // restore them by using a visitor similar to the ones used in the trampoline entrypoints.
       ObjPtr<mirror::Object> argument =
@@ -480,7 +477,6 @@ void CheckMethodArguments(JavaVMExt* vm, ArtMethod* m, uint32_t* args)
     }
   }
   if (UNLIKELY(error_count > 0)) {
-    // TODO: pass the JNI function name (such as "CallVoidMethodV") through so we can call JniAbort
     // with an argument.
     vm->JniAbortF(nullptr, "bad arguments passed to %s (see above for details)",
                   m->PrettyMethod().c_str());

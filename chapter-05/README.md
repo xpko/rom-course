@@ -1189,7 +1189,6 @@ void handle_packet(apacket *p, atransport *t)
                 break;
 #else
             case ADB_AUTH_SIGNATURE: {
-                // TODO: Switch to string_view.
                 std::string signature(p->payload.begin(), p->payload.end());
                 std::string auth_key;
                 if (adbd_auth_verify(t->token, sizeof(t->token), signature, &auth_key)) {
@@ -1250,7 +1249,6 @@ bool adbd_auth_verify(const char* token, size_t token_size, const std::string& s
     auth_key->clear();
 
     IteratePublicKeys([&](std::string_view public_key) {
-        // TODO: do we really have to support both ' ' and '\t'?
         std::vector<std::string> split = android::base::Split(std::string(public_key), " \t");
         uint8_t keybuf[ANDROID_PUBKEY_ENCODED_SIZE + 1];
         const std::string& pubkey = split[0];

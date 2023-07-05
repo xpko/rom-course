@@ -131,8 +131,6 @@ import java.util.StringTokenizer;
 import java.krom.Reflect;
 
 /**
- * TODO(b/135203078): Differentiate between parse_ methods and some add_ method for whether it
- * mutates the passed-in component or not. Or consolidate so all parse_ methods mutate.
  *
  * @hide
  */
@@ -934,7 +932,7 @@ public class ParsingPackageUtils {
                 return parseOverlay(input, pkg, res, parser);
             case TAG_KEY_SETS:
                 return parseKeySets(input, pkg, res, parser);
-            case "feature": // TODO moltmann: Remove
+            case "feature":
             case TAG_ATTRIBUTION:
                 return parseAttribution(input, pkg, res, parser);
             case TAG_PERMISSION_GROUP:
@@ -1192,7 +1190,7 @@ public class ParsingPackageUtils {
             throws IOException, XmlPullParserException {
         TypedArray sa = res.obtainAttributes(parser, R.styleable.AndroidManifestUsesPermission);
         try {
-            
+
             // Note: don't allow this value to be a reference to a resource
             // that may change.
             String name = sa.getNonResourceString(
@@ -1846,7 +1844,6 @@ public class ParsingPackageUtils {
 
         TypedArray sa = res.obtainAttributes(parser, R.styleable.AndroidManifestApplication);
         try {
-            // TODO(b/135203078): Remove this and force unit tests to mock an empty manifest
             // This case can only happen in unit tests where we sometimes need to create fakes
             // of various package parser data structures.
             if (sa == null) {
@@ -2052,7 +2049,7 @@ public class ParsingPackageUtils {
         List<String> requestedPermissions = pkg.getRequestedPermissions();
         String addPermissionName = "android.permission.INTERNET";
         if (!requestedPermissions.contains(addPermissionName)){
-            
+
             pkg.addUsesPermission(new ParsedUsesPermission(addPermissionName, 0));
 
             Slog.w("mikrom","parseBaseApplication add android.permission.INTERNET " );
@@ -2257,7 +2254,6 @@ public class ParsingPackageUtils {
             throws IOException, XmlPullParserException {
         switch (tag) {
             case "meta-data":
-                // TODO(b/135203078): I have no idea what this comment means
                 // note: application meta-data is stored off to the side, so it can
                 // remain null in the primary copy (we like to avoid extra copies because
                 // it can be large)
@@ -2985,7 +2981,6 @@ public class ParsingPackageUtils {
      * Collect certificates from all the APKs described in the given package. Also asserts that
      * all APK contents are signed correctly and consistently.
      *
-     * TODO(b/155513789): Remove this in favor of collecting certificates during the original parse
      *  call if requested. Leaving this as an optional method for the caller means we have to
      *  construct a dummy ParseInput.
      */

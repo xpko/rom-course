@@ -1273,7 +1273,6 @@ private void startBootstrapServices(@NonNull TimingsTraceAndSlog t) {
     ...
     // 启动ActivityManagerService
     t.traceBegin("StartActivityManager");
-    // TODO: Might need to move after migration to WM.
     ActivityTaskManagerService atm = mSystemServiceManager.startService(
         ActivityTaskManagerService.Lifecycle.class).getService();
     mActivityManagerService = ActivityManagerService.Lifecycle.startService(
@@ -1727,7 +1726,7 @@ private int startActivityAsUser(IApplicationThread caller, String callingPackage
             IBinder resultTo, String resultWho, int requestCode, int startFlags,
             ProfilerInfo profilerInfo, Bundle bOptions, int userId, boolean validateIncomingUser) {
         ...
-        // TODO: Switch to user app stacks here.
+
         return getActivityStartController().obtainStarter(intent, "startActivityAsUser")
                 .setCaller(caller)
                 .setCallingPackage(callingPackage)
@@ -2458,7 +2457,7 @@ TODO 流程图
 
 ​	除了`AMS`外，还有其他重要的`Service`为`Android`应用提供基础的功能，下面简单介绍这些常见的`Service`。
 
-​	 `WindowManagerService`，它是负责管理系统上所有窗口的显示和操作，包括管理全屏窗口、小窗口、弹窗、菜单和其他应用程序的窗口，使窗口在手机屏幕上正确的显示。 
+​	 `WindowManagerService`，它是负责管理系统上所有窗口的显示和操作，包括管理全屏窗口、小窗口、弹窗、菜单和其他应用程序的窗口，使窗口在手机屏幕上正确的显示。
 
 ​	`PackageManagerService`，`Android`系统中提供给应用程序访问`Android`软件包的主要服务。负责管理`Android`软件包的安装、删除和更新，以及软件包的查询和配置。它有一个名为`Packages.xml`的`XML`文档，该文档是`Android`系统中所有软件包的列表，其中包含了每个软件包的基本信息，如应用程序的版本，安装时间，文件大小等。
 

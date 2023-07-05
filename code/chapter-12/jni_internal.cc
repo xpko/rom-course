@@ -619,7 +619,6 @@ class JNI {
     ScopedObjectAccess soa(env);
     ObjPtr<mirror::Object> obj_field = soa.Decode<mirror::Object>(jlr_field);
     if (obj_field->GetClass() != GetClassRoot<mirror::Field>()) {
-      // Not even a java.lang.reflect.Field, return null. TODO, is this check necessary?
       return nullptr;
     }
     ObjPtr<mirror::Field> field = ObjPtr<mirror::Field>::DownCast(obj_field);
@@ -751,7 +750,6 @@ class JNI {
   }
 
   static jint PushLocalFrame(JNIEnv* env, jint capacity) {
-    // TODO: SOA may not be necessary but I do it to please lock annotations.
     ScopedObjectAccess soa(env);
     if (EnsureLocalCapacityInternal(soa, capacity, "PushLocalFrame") != JNI_OK) {
       return JNI_ERR;
@@ -768,7 +766,6 @@ class JNI {
   }
 
   static jint EnsureLocalCapacity(JNIEnv* env, jint desired_capacity) {
-    // TODO: SOA may not be necessary but I do it to please lock annotations.
     ScopedObjectAccess soa(env);
     return EnsureLocalCapacityInternal(soa, desired_capacity, "EnsureLocalCapacity");
   }
@@ -2127,7 +2124,6 @@ class JNI {
         heap->DecrementDisableThreadFlip(soa.Self());
       }
     }
-    // TODO: For uncompressed strings GetStringCritical() always returns `s->GetValue()`.
     // Should we report an error if the user passes a different `chars`?
     if (s->IsCompressed() || (!s->IsCompressed() && s->GetValue() != chars)) {
       delete[] chars;
@@ -2598,7 +2594,6 @@ class JNI {
         //    since that checks for presence of @FastNative and not for ! in the descriptor.
         LOG(WARNING) << "!bang JNI is deprecated. Switch to @FastNative for " << m->PrettyMethod();
         is_fast = false;
-        // TODO: make this a hard register error in the future.
       }
 
       const void* final_function_ptr = class_linker->RegisterNative(soa.Self(), m, fnPtr);
@@ -2865,7 +2860,6 @@ class JNI {
     size_t bytes = array->GetLength() * component_size;
     if (is_copy) {
       // Integrity check: If elements is not the same as the java array's data, it better not be a
-      // heap address. TODO: This might be slow to check, may be worth keeping track of which
       // copies we make?
       if (heap->IsNonDiscontinuousSpaceHeapAddress(elements)) {
         soa.Vm()->JniAbortF("ReleaseArrayElements",
