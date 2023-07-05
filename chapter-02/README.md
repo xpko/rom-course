@@ -628,7 +628,7 @@ fastboot reboot fastboot
 
 ![image-20230108190631803](.\images\image-20230108190631803.png)
 
-（TODO：这里待补充）
+​	使用命令`adb devices`查看当前状态显示为`sideload`，即可直接通过命令`adb sideload ota.zip`进行刷机。
 
 2. `twrp`
 
