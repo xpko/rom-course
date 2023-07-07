@@ -1,124 +1,149 @@
 # 第十章 系统集成开发eBPF
 
-安卓系统的安全攻防技术日新月异，现如今进入了一个全新的高度。随着eBPF技术的崛起，国内外安全人员人业也在积极发掘eBPF技术在安全领域的应用场景。
+安卓系统的安全攻防技术日新月异，如今正进入一个全新的高度。随着eBPF技术的崛起，国内外的安全专家们也积极探索eBPF技术在安全领域中的应用场景。
 
-本章将为安卓系统开发与定制人员，提供一种代码修改与eBPF可观测性相结合的系统定制细路，旨在为安全行业的发展发挥一点抛砖引玉的作用。
+本章将为安卓系统开发与定制人员提供一种结合代码修改和eBPF可观测性的系统定制细路。这旨在为安全行业的发展提供一点启示和引导作用，希望能够激发更多创意和思考。
+
 
 ## 10.1 eBPF概述
 
-eBPF(extended Berkeley Packet Filter) 是一种现代化的Linux内核技术，它允许开发人员对网络数据包进行更细粒度的过滤和修改。与传统的Berkeley Packet Filter(BPF)相比，eBPF具有更灵活、可扩展性和安全性的优势，因此得到了广泛的应用和认可。在实际应用中，eBPF可以实现网络流量监控、日志记录、流量优化和安全审计等功能，因此具有广泛的应用前景。
+eBPF（扩展伯克利数据包过滤器）是一种现代化的Linux内核技术，它使开发人员能够对网络数据包进行更细粒度的过滤和修改。相较于传统的Berkeley Packet Filter (BPF)，eBPF具有更高的灵活性、可扩展性和安全性，因此在广泛应用中受到了认可。
+
+实际上，通过使用eBPF技术可以实现多项功能，例如网络流量监控、日志记录、流量优化以及安全审计等。这使得它在各个领域都具备广泛的应用前景。
+
 
 ### 10.1.1 eBPF发展背景
 
-在2008年，Linux内核开发者提出了BPF(Berkeley Packet Filter)的概念，它是一种用于过滤和修改网络数据包的内核模块。BPF是一种非常强大的工具，它允许开发人员对网络数据包进行细粒度的过滤和修改，从而实现网络流量监控、日志记录、性能优化等功能。
+在2008年，Linux内核开发者提出了BPF（Berkeley Packet Filter）的概念，它是一种用于过滤和修改网络数据包的内核模块。BPF是一个非常强大的工具，它允许开发人员对网络数据包进行细粒度的过滤和修改，从而实现网络流量监控、日志记录、性能优化等功能。
 
-然而，BPF也有一些限制。首先，BPF模块需要由内核开发人员手动编写和编译，因此对于非专业开发人员来说，编写BPF模块是一项具有挑战性的任务。其次，BPF模块的编写需要一定的技术知识和经验，否则可能会导致内核崩溃或其他问题。最后，BPF模块的访问权限非常高，意味着它们可以访问系统的所有内存和网络资源，因此需要严格的安全控制。
+然而，BPF也存在一些限制。首先，编写和编译BPF模块需要由内核开发人员手动完成，这对非专业开发人员来说可能是具有挑战性的任务。其次，在编写BPF模块时需要一定的技术知识和经验，否则可能会导致内核崩溃或其他问题。最后，并且很重要的是，由于BPF模块拥有高级别的访问权限，意味着它们可以访问系统中所有的内存和网络资源，在安全上需要进行严格控制。
 
-为了解决这些问题，Linux内核开发者在2014年引入了eBPF(extended Berkeley Packet Filter) 技术。eBPF是一种扩展的BPF，它提供了更多的功能和权限控制，同时降低了内核开发人员的编写难度和风险。与传统的BPF相比，eBPF具有更灵活、可扩展性和安全性的优势，因此得到了广泛的应用和认可。
+为了解决这些问题，在2014年Linux内核引入了eBPF（扩展伯克利数据包过滤器）技术。eBPF是BPF的扩展版本，并提供更多功能以及更加灵活可扩展与安全性方面优势。相比传统 BFP技术,eBFP得到广泛应用与认可。
 
-eBPF发展之初是为了用于高效的网络数据包的过滤。在发展过程中，除了对传统的数据包过滤字节码格式进行扩展外，还支持更多类型的eBPF程序，它们可以在整个操作系统的不同模块中运行。最初提倡的可观测性领域也扩展为支持数据的观测与修改（包括用户态数据与内核函数返回值）。这样的发展路径，让eBPF技术看起来更像是一个现代化的Hook技术框架。这也是安全从业人员其对爱不释手的原因。
+eBPF最初的发展目标是实现高效网络数据包过滤。随着发展，除了扩展传统的数据包过滤字节码格式外，eBPF还支持在整个操作系统不同模块中运行多种类型的eBPF程序。最初提倡的可观测性领域也已扩展为支持对数据进行观测与修改（包括用户态数据和内核函数返回值）。这样的进展使得eBPF技术看起来更像一个现代化的 Hook 技术框架，因此受到安全从业人员青睐。
 
-相信，随着内核版本的更新，其内置的eBPF功能支持也会越来越丰富。而作为eBPF的能力核心-eBPF内核方法接口也会越来越多，基于这些接口实现的安全功能势必会影响到整个行业的发展。
+可以预见，在内核版本更新中，eBPF内置功能将会越来越丰富。作为eBPF能力核心部分，eBFP 内核方法接口也会变得更加多样化。基于这些接口所实现的安全功能必定会影响整个行业的发展。
+
 
 ### 10.1.2 eBPF的工作原理
 
-eBPF的工作原理可以概括为三个步骤：解析、执行和卸载。
+eBPF的工作原理可以概括为以下三个步骤：
 
-1. 解析
-在系统启动时，内核会将eBPF符号表(eBPF symbol table) 加载到内存中。eBPF符号表是一个二进制文件，它包含了eBPF模块的所有符号和参数。内核还会将eBPF模块的二进制代码转换为机器码，并将其加载到内存中。
+1. **解析**：在系统启动时，内核会加载eBPF符号表到内存中。这个二进制文件包含了eBPF模块的所有符号和参数。同时，内核还会将eBPF模块的二进制代码转换为机器码，并加载到内存中。
 
-2. 执行
-当网络数据包到达时，内核会首先检查数据包是否被匹配到eBPF模块。如果数据包被匹配到，内核会执行eBPF模块中的代码，对网络数据包进行过滤或修改。在执行期间，内核会使用eBPF的运行时数据结构体(runtime data structure)来存储和传递参数和上下文信息。
+2. **执行**：当网络数据包到达时，内核首先检查是否匹配到了与之关联的eBPF模块。如果匹配成功，内核会执行该模块中的代码来对网络数据包进行过滤或修改。在执行过程中，内核使用eBPF运行时数据结构体来传递参数和上下文信息。
 
-3. 卸载
-当eBPF模块执行完毕后，内核会将其卸载并从内存中清除。卸载时，内核会将所有符号和参数还原成二进制码，并将其从内存中清除。
+3. **卸载**：当eBPF模块执行完毕后，内核会将其从内存中卸载并清除。此时，所有符号和参数都被还原成二进制码，并从内存中清除。
 
 
 ### 10.1.3 eBPF的应用场景
 
-eBPF是一种非常强大的技术，它可以实现许多网络流量监控、日志记录、性能优化等功能。下面列举了一些常见的eBPF应用场景:
+eBPF是一种非常强大的技术，可以实现许多网络流量监控、日志记录和性能优化等功能。下面列举了一些常见的eBPF应用场景：
 
-1. 日志记录
-eBPF可以用于记录网络流量、系统调用、错误事件等信息，从而实现全面的系统监控和日志记录。目前，这方面技术应用于云原生安全较多。如`sysdig`与`falco`这类安全监控工具，新版本就使用了eBPF来实现系统调用的监控。
+1. **日志记录**：eBPF可用于记录网络流量、系统调用和错误事件等信息，实现全面的系统监控和日志记录。在云原生安全领域，安全监控工具如`sysdig`和`falco`使用eBPF来监控系统调用。
 
-2. 流量控制
-eBPF 可以用于实现网络流量控制，例如限制同一主机的网络流量、限制同一端口的网络流量等。这个应用最多的就是防火墙，比如大名鼎鼎的`iptables`就有了基于eBPF的扩展版本。
+2. **流量控制**：通过eBPF可以实现网络流量的控制，例如限制同一主机或端口的网络流量。防火墙工具如著名的基于eBPF扩展版本的`iptables`就是典型应用。
 
-3. 流量优化
-eBPF可以用于优化网络流量，例如过滤重复数据包、压缩数据包、优化TCP/IP协议栈等。在网络应用上，典型的是可以使用eBPF开发透明代理工具、网络数据镜像转发工具、流量优化工具等。
+3. **流量优化**：使用eBPF可以对网络流量进行优化，例如过滤重复数据包、压缩数据包以及优化TCP/IP协议栈等。这方面应用包括开发透明代理工具、网络数据镜像转发工具和流量优化工具等。
 
-4. 安全审计
-eBPF可以用于实现安全审计功能，例如记录系统用户的操作、检查系统资源使用情况等。在这个应用领域，如主机安全类防护产品`HIDS`就有了发展的空间。安全工具`Tracee`就是属于这类应用。
+4. **安全审计**：利用eBPF可以实现安全审计功能，如记录系统用户操作并检查资源使用情况。主机安全类防护产品（如HIDS）在这个领域有着广泛应用空间。一个例子是安全工具`Tracee`。
 
+总的来说，eBPF技术在各个领域都有广泛应用，并且具备强大的灵活性和可扩展性。
 
 
 ## 10.2 eBPF相关的开发工具
 
-eBPF是一种现代化的Linux内核技术，它允许开发者在内核中安全地运行外部程序，用于处理网络数据包、系统调用等场景。eBPF相比传统的内核模块有更高的安全性和可移植性，因此得到了越来越广泛的应用。eBPF虽然运行在内核，但是控制它的程序却是运行在用户态，下面将介绍一下它的开发方法。
+eBPF是一种现代化的Linux内核技术，允许开发者在内核中安全地运行外部程序，用于处理网络数据包、系统调用等场景。相较于传统的内核模块，eBPF具有更高的安全性和可移植性，因此得到了越来越广泛的应用。虽然eBPF运行在内核中，但控制它的程序却是运行在用户态。下面将介绍一些开发eBPF工具时常用的方法和库。
 
-在开发eBPF相关工具时，常用的有bcc、bpftrace和libbpf。下面将对这三个工具/库进行介绍。
+**1. bcc**：bcc（BPF Compiler Collection）是一个基于LLVM编译器框架构建而成的工具集合。它提供了一组功能强大且易于使用的命令行工具和库来开发、测试和分析eBPF程序。通过bcc可以编写高级语言（如C/C++）来生成eBPF代码，并能够以安全方式注入到目标系统中。
+
+**2. bpftrace**：bpftrace是一个动态追踪工具，可以使用类似awk语法的脚本语言对系统进行实时监测与跟踪。它利用libbpf库解析并执行由用户定义的事件处理逻辑，并支持实时查看、过滤和聚合各种类型的跟踪数据。
+
+**3. libbpf**：libbpf是一个用户空间库，提供了与eBPF交互的API。它允许开发者在用户态编写和加载eBPF程序，并提供了一些辅助函数用于操作eBPF映射（maps）和事件处理。
+
+这些工具/库为开发人员提供了丰富的资源来编写、测试和分析eBPF程序，从而更加便捷地利用eBPF技术解决各种问题。
+
 
 ### 10.2.1 bcc
 
-`bcc`是一款开源的eBPF快速开发工具。最初使用python作为eBPF程序的开发语言，随着社区的发展，该工具支持了C语言开发eBPF程序。该项目是一个开源工具，它的仓库地址是：https://github.com/iovisor/bcc。该仓库提供了一组python语言编写的eBPF工具集，位于tools目录下，涉及的功能包含了文件、进程、网络、延时、性能观测等多个应用场景的工具;同时，也提供了一组C语言编写的eBPF工具集，位于libbpf-tools工具下，这下面的工具很多是tools的C语言实现版本，是非常好的eBPF入门学习资料。
+`bcc`是一款开源的eBPF快速开发工具，最初使用Python作为eBPF程序的开发语言。随着社区的发展，该工具支持了C语言开发eBPF程序。你可以在其仓库地址[https://github.com/iovisor/bcc](https://github.com/iovisor/bcc)找到该项目。
 
-该工具的项目README中有列出eBPF可以运行的不同系统位置的分布图。也提供了tools目录下工具用途的介绍。比如监控文件的打开操作，可以执行如下命令：
+该仓库提供了一组用Python编写的eBPF工具集，位于tools目录下。这些工具涉及文件、进程、网络、延时、性能观测等多个应用场景，并且提供了C语言版本的eBPF工具集，位于libbpf-tools目录下。这些C语言实现版本是非常好的学习资料，适合初学者入门。
+
+在项目README中列出了不同系统位置上运行eBPF所需环境的分布图，并介绍了tools目录下各个工具的用途。例如，要监控文件打开操作，可以执行以下命令：
 
 ```
-$ sudo python3 tools/opensnoop
+$ sudo python3 tools/opensnoop.py
 ```
+
+这将启动opensnoop脚本，监控文件的打开操作并输出相关信息。
+
+
 
 ### 10.2.2 bpftrace
 
-`bpftrace`的主要用途是用于记录和追踪系统方法调用。eBPF程序可以用于处理网络数据包、系统调用、文件访问等场景。使用`bpftrace`，开发者可以可以快速验证要观测的函数是否支持eBPF来实现。
+`bpftrace`是一个用于记录和追踪系统方法调用的工具。它使用eBPF程序来处理网络数据包、系统调用、文件访问等场景。通过使用`bpftrace`，开发者可以快速验证要观测的函数是否支持使用eBPF实现。
 
-`bpftrace`是开源的工具，它的仓库地址是：https://github.com/iovisor/bpftrace。按照官方的说明，安装好该工具后，会提供一个`bpftrace`工具。这个主程序接受单选的命令与一个bt格式的脚本程序作为输入。脚本中可以设置观测程序的入口和出口、参数传递等信息，非常方便。需要注意的是，目前`bpftrace`只提供了观测功能，没有提供数据的修改功能。这点上不如`bcc`与`libbpf`。
+`bpftrace`是一个开源工具，你可以在其仓库地址[https://github.com/iovisor/bpftrace](https://github.com/iovisor/bpftrace)找到它。按照官方说明安装好该工具后，会提供一个名为 `bpftrace` 的主程序。这个主程序接受单选命令以及一个bt格式的脚本作为输入。在脚本中，你可以设置观测程序的入口和出口、参数传递等信息，非常方便。
 
-执行下面的命令，可以观测所有的文件打开操作：
+需要注意的是，目前`bpftrace`只提供了观测功能，并没有提供数据修改功能。相比之下，在这一点上不如`bcc`和`libbpf`。
+
+执行以下命令可观测所有文件打开操作：
 
 ```
 $ sudo bpftrace -e 'tracepoint:syscalls:sys_enter_openat { printf("%s %s\n", comm, str(args->filename)); }'
 ```
 
+当运行此命令时，将会监控所有文件打开操作并输出进程名称与文件名。
+
 
 ### 10.2.3 libbpf
 
-libbpf是一个用于编写和运行eBPF程序的开源库。它的仓库地址是：https://github.com/libbpf/libbpf。 它提供了一组C接口的函数，允许开发者使用C/Rust语言编写和运行eBPF程序。libbpf官方还单独提供了一些使用libbpf开发eBPF程序的样例。仓库地址是：https://github.com/libbpf/libbpf-bootstrap。该仓库下的examples/c目录下的演示代码，整体的风格与bcc的libbpf-tools目录下类似，前者代码简洁，后者功能更丰富。
+`libbpf`是一个用于编写和运行eBPF程序的开源库。你可以在其仓库地址[https://github.com/libbpf/libbpf](https://github.com/libbpf/libbpf)找到它。该库提供了一组C接口函数，允许开发者使用C或Rust语言编写和运行eBPF程序。
 
-总的来说，`bcc`、`bpftrace`和`libbpf`都是用于开发eBPF相关工具的重要工具，它们提供了丰富的功能和工具，方便开发者进行eBPF程序的开发、调试和追踪。
+除此之外，`libbpf`官方还单独提供了一些使用该库进行eBPF程序开发的示例代码，这些示例代码位于仓库地址[https://github.com/libbpf/libbpf-bootstrap](https://github.com/libbpf/libbp-bootstrap)下的examples/c目录中。这些示例代码与 `bcc`的`libbpf-tools`目录下的样例类似，前者更注重简洁性而后者则功能更加丰富。
+
+总体来说，`bcc`、`bpftrace`和`libbpf`都是非常重要的工具，用于开发与eBPF相关的工具。它们提供了丰富的功能和工具集合，并为开发人员提供便利，在进行eBPF程序的开发、调试和追踪时都能够起到很大帮助。
+
 
 ## 10.3 安卓系统集成eBPF功能
 
-eBPF的功能实现与完善，是优先对x86_64架构提供支持。arm64与其它的系统架构，则会在后面补充跟上。对于大部分的安卓手机设备来说，系统主流采用的是arm64架构的处理器，因此，它的各方面功能支持会延后支持，其支持的程度与arm64版本的Linux其他发行版本对齐，比如arm64架构同版本内核的Ubuntu系统，与安卓的eBPF功能支持基本是一致的。
+eBPF的功能实现和完善在优先支持x86_64架构上进行。对于其他系统架构如arm64等，会在后续逐步补充支持。大多数安卓手机设备采用的是arm64架构的处理器，因此与arm64版本的Linux发行版相比，eBPF在这些设备上的功能支持可能会稍有延迟，并且其程度也与arm64版本的Linux其他发行版保持一致。例如，在使用相同内核版本的Ubuntu系统和安卓系统中，它们对eBPF功能的支持基本是一致的。
+
+需要注意的是，随着时间推移和开源社区不断努力改进，ARM体系结构上对eBPF功能的支持将不断提高，并逐渐接近x86_64架构所具备的水平。
+
 
 ### 10.3.1 不同版本内核对eBPF的影响
 
-安卓系统的版本更新，通常也伴随着系统内核版本的升级。目前最新的安卓14采用6.1版本的内核。它的默认的内核配置支持与在同版本内核的arm64 Ubuntu系统eBPF功能一致。支持常用的`kprobes`、`uprobes`、`tracepoint`、`raw_tracepoint`。但一些arm64到高版本内核仍然不支持的特性，比如：`fentry`、`fmod_ret`、`kfuncs`、`LSM`、`SYSCALL`、`tp_btf`等，还需要等待主线内核提供更新支持。列出的不支持的部分，从内核如下地址：https://github.com/torvalds/linux/commit/efc9909fdce00a827a37609628223cd45bf95d0b，可以看到已经有了更新的支持，但Ubuntu arm64架构的6.1内核上，仍然测试失败，相信不久，这些功能都可以在arm64上运行良好。
+安卓系统的版本更新通常伴随着系统内核版本的升级。目前最新的安卓14采用了6.1版本的内核。在该版本中，默认的内核配置已经支持了一些常用功能，如`kprobes`、`uprobes`、`tracepoint`和`raw_tracepoint`，并且与同样是arm64架构下使用6.1版本内核的Ubuntu系统上eBPF功能保持一致。
 
-安卓12内核采用5.10，安卓13采用5.10与5.15。这两个版本的Linux内核，支持上面说的`uprobes`、`tracepoint`、`raw_tracepoint`。但它们对`kprobes`的支持有一些欠缺，只能说部分支持。造成这个的原因是安卓GKI2.0的一些变化，让`CONFIG_DYNAMIC_FTRACE`这样的选项无法成功开启，具体会在下面一些需要注意的内核配置的小节进行说明。
+然而，还有一些特性，如TRACING类型的eBPF程序：`fentry`, `fmod_ret`, `kfuncs`, `LSM`, `SYSCALL`, 和`tp_btf`等，在6.1的arm64内核中仍然不被支持。意味着在基于Ubuntu arm64架构上使用6.1内核时仍会遇到测试失败问题。这种问题在内核6.4 RC1版本的一个补丁合并中得到了修正，可以通过以下链接查看这个合并的详情：[https://github.com/torvalds/linux/commit/df45da57cbd35715d590a36a12968a94508ccd1f](https://github.com/torvalds/linux/commit/df45da57cbd35715d590a36a12968a94508ccd1f)。其中，有一个Tracing的名为**Support for "direct calls" in ftrace, which enables BPF tracing for arm64**的更新，并且这个补丁目前合并进入了安卓的主线内核中，这意味着，在不久最新版本的安卓系统中，不需要对内核做任何的补丁，就完美的支持eBPF开发与测试。安卓主线内核的更新日志可以通过链接[https://android.googlesource.com/kernel/common/+log/refs/heads/android-mainline](https://android.googlesource.com/kernel/common/+log/refs/heads/android-mainline)查看。
+
+安卓12使用的内核是5.10，安卓13所采用的Linux内核是5.10与5.15。这两个版本对于上述提到的`uprobes`、`tracepoint`和`raw_tracepoint`功能提供了支持。然而，在对于 `kprobes` 的支持上有一些不足之处，只能说是部分支持。这是由于安卓的GKI 2.0引入了一些变化，导致无法成功启动像`CONFIG_DYNAMIC_FTRACE`这样的选项。具体细节将在下面关于内核配置注意事项的章节进行说明。
+
 
 ### 10.3.2 一些需要注意的内核配置
 
-与安卓eBPF相关的内核配置有如下：
+与安卓的eBPF相关的内核配置有以下几个：
 
-1. `CONFIG_DYNAMIC_FTRACE`。如果内核配置了`CONFIG_DYNAMIC_FTRACE`, Ftrace框架内部的`mcount`会被实现成一个空函数（只有一条`ret`指令）。在系统启动时，`mcount`会被替换成`nop`指令。打开tracer后，所有函数的对应位置会被动态替换成跳转到`ftrace_caller()`的指令。这个选项是`fentry`的内核配置`CONFIG_FPROBE`的依赖，会导致fentry无法生效。
+1. `CONFIG_DYNAMIC_FTRACE`：如果内核开启了该选项，Ftrace框架内部的`mcount`函数会被实现为空函数（只包含一条`ret`指令）。在系统启动时，所有调用到的`mcount`都会被替换成无操作（nop）指令。当开启跟踪器后，所有函数入口处位置将动态替换为跳转至 `ftrace_caller()`的指令。这个选项是`fentry`内核配置中`CONFIG_FPROBE`的依赖项，因此可能导致`fentry`无法生效。
 
-2. `CONFIG_FUNCTION_TRACER`。内核中打开`CONFIG_FUNCTION_TRACER`后，会增加`pg`编译选项，这样在每个函数入口处都会插入`bl mcount`跳转指令，函数运行时会进入`mcount`函数。`mcount`会判断函数指针`ftrace_trace_function`是否被注册，默认注册的是空函数`ftrace_stub`，这是ftrace静态方法跟踪的内核配置选项。这个选项也是`fentry`的内核配置`CONFIG_FPROBE`的依赖，会导致`fentry`无法生效。这个选项也会有一个`available_filter_functions`文件，供用户配置Ftrace，如果没有开启，会因为缺少了它，`bpftrace`在kprobes功能函数列表时，就会失败。
+2. `CONFIG_FUNCTION_TRACER`: 开启该选项后，在每个函数入口处插入一个跳转指令(`bl mcount`)到`mcount()`函数中进行运行时追踪。在`mcount()`中会检查是否注册了函数指针 `ftrace_trace_function`, 默认情况下注册为空函数`ftrace_stub`。这是用于静态方法跟踪的Ftrace内核配置选项。同样地，这个选项也是"fentry"内核配置中CONFIG_FPROBE的依赖项，并且还提供一个名为available_filter_functions的文件来供用户配置Ftrace跟踪功能。如果未开启此选项，则由于缺少此功能而导致`bpftrace`在Kprobe功能函数列表时失败。
 
-3. `CONFIG_FTRACE_SYSCALLS`。这是一个在几乎所有Ubuntu发行版本中都开启的内核配置，但是在安卓中却中默认关闭的。并且安卓官方的Pixel6以上设备开启后，配置Kprobe相关的选项开启，会让设备并得很卡。这个内核配置会在tracefs的events目录下，加入一个syscalls目录，支持对所有的系统调用进行单独的跟踪观测，是一个很有用的内核配置。
+3. `CONFIG_FTRACE_SYSCALLS`: 这是几乎所有Ubuntu发行版本中默认开启的内核配置选项，但在安卓中默认关闭。此外，在Pixel6及以上设备上启用该选项，并同时启用Kprobe相关选项，可能会导致设备性能下降。该内核配置会在tracefs的events目录下增加一个syscalls子目录，以支持对所有系统调用进行单独的跟踪和观测。这是一个非常有用的内核配置选项。
 
-关于其它内核配置对eBPF的影响，可以查看bcc提供的一个内核配置说明文档。地址是：https://github.com/iovisor/bcc/blob/master/docs/kernel_config.md。
+关于其他与eBPF相关的内核配置对影响，可以参考`bcc`提供的一个内核配置说明文档：[https://github.com/iovisor/bcc/blob/master/docs/kernel_config.md](https://github.com/iovisor/bcc/blob/master/docs/kernel_config.md)。
 
 
 ### 10.3.3 为低版本系统打上eBPF补丁
 
 eBPF的强大功能很大一部分来源于其内核辅助方法。在这里不得不提两个功能强大的方法：`bpf_probe_read_user`与`bpf_probe_write_user`，这两个接口允许eBPF读取与写入内存地址指定的数据，它们拥有内核一样的能力，却有着比内核高得多的稳定性，功能不可谓不强大。
 
-大多数eBPF程序都有观测函数方法的参数的需求，对于整形的参数，数据来源于其上下文的寄存器。直接读取其值便可以。涉及到字符串或结构体类型的数据，则需要使用`bpf_probe_read_user`方法来读取。如果该方法在内核中功能欠缺，则会让eBPF程序的整体功能无法实现。而这种事情却发生在了arm64架构5.5版本之前的内核中。由于arm64的功能更新滞后。`bpf_probe_read_user`接口在Linux主线内核5.5中才正式引入arm64的支持。具体的链接是：https://github.com/torvalds/linux/commit/358fdb456288d48874d44a064a82bfb0d9963fa0。这个补丁内容非常的多，修改的文件数量多达17个，包含bpf.h头文件导出接口申明，bpf/core.c添加接口实现逻辑，以及内存相关的接口的更新等，共计597处修改与197处删除。
+大多数eBPF程序都有观测函数方法的参数的需求，对于整形的参数，数据来源于其上下文的寄存器。直接读取其值便可以。涉及到字符串或结构体类型的数据，则需要使用 `bpf_probe_read_user`方法来读取。如果该方法在内核中功能欠缺，则会让eBPF程序无法实现其整体功能。然而，在arm64架构5.5版本之前的内核中就存在这种问题。由于arm64平台更新滞后，只在Linux主线内核5.5中引入了`bpf_probe_read_user`接口对arm64平台进行支持。具体补丁链接为：[https://github.com/torvalds/linux/commit/358fdb456288d48874d44a064a82bfb0d9963fa0](https://github.com/torvalds/linux/commit/358fdb456288d48874d44a064a82bfb0d9963fa0)。该补丁内容非常繁多，修改了17个文件，包括导出bpf.h头文件接口声明、添加bpf/core.c接口实现逻辑以及更新与内存相关的接口等，共计597处修改和197处删除。
 
-在安卓11内核5.4上想要使用`bpf_probe_read_user`接口，需要对内核代码做一个向前移植操作（backport），其难度在可控的范围，只需要对照补丁中的代码，在5.4内核相应的地方做相应的添加与修改。更低版本如4.19与4.14的backport操作更麻烦一些，主要体现在主线内核大版本不同，接口的变化较大，版本5的内核在内存读写的多线程同步上，做了大量精细的工作，这些在内核4中是没有的，整个backport会变得更加困难。笔者本人尝试过了安卓10模拟器4.14与安卓11模拟器5.4内核的补丁，并且让它们可以正常的工作。
+要在安卓11内核5.4上使用`bpf_probe_read_user`接口，需要对内核代码进行向前移植（backport）操作。这一操作难度可控，在相应位置按照补丁中的代码进行添加和修改即可。更低版本如4.19和4.14则更加麻烦，主要因为主线内核大版本不同造成接口变化较大。版本5的内核在多线程同步下做了很多精细工作，而这些在内核4中是没有的，所以整个向前移植会变得更加困难。我自己尝试过将补丁应用于安卓10模拟器上的4.14内核和安卓11模拟器上的5.4内核，并使其正常运行。
 
-5.4内核补丁的网络上已经有多处的讨论，也有给出具体的解决方案。有发布针对安卓5.4内核的补丁代码的，也有提供完成补丁后内核代码分支的。当然，绝大多数的人员不关心补丁的内容详情，更在乎如何使用补丁后的产物。于是，后者更受人青睐。这里给出一个网络上修改好的方案链接：https://github.com/HorseLuke/aosp_android_common_kernels/tree/android-11-5.4-bpf_probe_read_user。
+针对5.4内核补丁已经有网络上讨论并提供了具体解决方案。有人发布了适用于安卓5.4内核的补丁代码，并提供了完成补丁后的分支代码。当然，大部分人关心如何利用修复后的结果而不是补丁的具体内容。因此，后者更受欢迎。这里提供一个已经修改好的方案链接：[https://github.com/HorseLuke/aosp_android_common_kernels/tree/android-11-5.4-bpf_probe_read_user](https://github.com/HorseLuke/aosp_android_common_kernels/tree/android-11-5.4-bpf_probe_read_user)。
 
 编译内核采用官方的build.sh脚本。执行下面的命令，下载内核代码。
 
@@ -463,49 +488,7 @@ open [/proc/889/timerslack_ns]
 open [/proc/902/timerslack_ns]
 open [/proc/911/timerslack_ns]
 open [/proc/913/timerslack_ns]
-open [/proc/914/timerslack_ns]
-open [/proc/915/timerslack_ns]
-open [/proc/916/timerslack_ns]
-open [/proc/917/timerslack_ns]
-open [/proc/918/timerslack_ns]
-open [/proc/932/timerslack_ns]
-open [/proc/939/timerslack_ns]
-open [/proc/940/timerslack_ns]
-open [/proc/943/timerslack_ns]
-open [/proc/972/timerslack_ns]
-open [/proc/979/timerslack_ns]
-open [/proc/981/timerslack_ns]
-open [/proc/987/timerslack_ns]
-open [/proc/989/timerslack_ns]
-open [/proc/1012/timerslack_ns]
-open [/proc/1013/timerslack_ns]
-open [/proc/1014/timerslack_ns]
-open [/proc/1015/timerslack_ns]
-open [/proc/1016/timerslack_ns]
-open [/proc/1017/timerslack_ns]
-open [/proc/1018/timerslack_ns]
-open [/proc/1019/timerslack_ns]
-open [/proc/1027/timerslack_ns]
-open [/proc/1029/timerslack_ns]
-open [/proc/1030/timerslack_ns]
-open [/proc/1069/timerslack_ns]
-open [/proc/1076/timerslack_ns]
-open [/proc/1080/timerslack_ns]
-open [/proc/1088/timerslack_ns]
-open [/proc/1089/timerslack_ns]
-open [/proc/1100/timerslack_ns]
-open [/proc/1165/timerslack_ns]
-open [/proc/1166/timerslack_ns]
-open [/proc/1249/timerslack_ns]
-open [/proc/1291/timerslack_ns]
-open [/proc/1403/timerslack_ns]
-open [/proc/1404/timerslack_ns]
-open [/proc/1406/timerslack_ns]
-open [/proc/1478/timerslack_ns]
-open [/proc/1671/timerslack_ns]
-open [/proc/1675/timerslack_ns]
-open [/proc/1764/timerslack_ns]
-open [/proc/6238/timerslack_ns]
+......
 open [/proc/6256/timerslack_ns]
 open [/proc/6258/timerslack_ns]
 open [/proc/6260/timerslack_ns]
@@ -540,24 +523,7 @@ open [/proc/1041/stat]
 __system_property_find [debug.renderengine.capture_skia_ms]
 __system_property_find [debug.renderengine.capture_skia_ms]
 __system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
-__system_property_find [debug.renderengine.capture_skia_ms]
+......
 __system_property_find [debug.renderengine.capture_skia_ms]
 __system_property_find [debug.renderengine.capture_skia_ms]
 faccessat [/data/system_ce/0/snapshots]
@@ -579,8 +545,9 @@ emulator64_arm64:/data/local/tmp/bpftools #
 
 目前，Hook监控了`libc.so`共计64个接口方法。后面，可以扩展`ndksnoop`，实现对其它方法与其它库的方法跟踪。这种方式Hook最大的好处是输出内容中，没有多余的信息，所有的输出都是目标进程的行为捕获。缺点也是有的，那就是无法捕获直接使用系统调用方式执行的方法。
 
+
 ## 10.6 小结
 
-本节主要介绍了eBPF相关的一些信息，以及如何在安卓系统上配置好eBPF开发与运行环境。最后，通过`ndksnoop`工具的代码，讲解了如何对安卓系统动态库调用进行跟踪分析。
+本节主要介绍了eBPF相关的信息，以及在安卓系统上配置eBPF开发与运行环境的方法。最后，通过`ndksnoop`工具的代码示例，详细讲解了如何跟踪分析安卓系统中的动态库调用。
 
-任何工具与技术方案都有它的优势与短板，在学习系统定制与软件安全的过程中，应该根据实现情况，结合不同的方案，扬长避短，达到最终的目标。
+在学习系统定制与软件安全过程中，每个工具和技术方案都有其优势和限制。因此，在实际应用中，我们应根据具体情况结合不同方案，并充分利用各自长处、避免短板，以达到最终目标。
