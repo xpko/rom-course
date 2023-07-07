@@ -1,16 +1,24 @@
 # 第五章 系统内置功能
 
-​	`AOSP`系统默认仅提供一些基础的功能，例如短信、电话、联系人、浏览器等基础功能，在定制过程中，可以根据自身的需求，将一些开发好的`APP`应用内置到系统中，作为系统的基础配套应用，也可以开发特定业务的系统服务提供支持。经过前几章对源码理论的学习，在这一章将小牛试刀修改源码，学习如何对系统进行简单的改造，为其添加模块和系统应用。
+​	`AOSP`系统默认提供一些基础的功能，例如短信、电话、联系人、浏览器等，在定制过程中，可以根据自身的需求，将一些开发好的`APP`应用内置到系统中，作为系统的基础配套应用，也可以开发特定业务的系统服务提供支持。几乎所有的手机厂商出厂的设备中，都内置了厂商开发的专属应用，有一些还会内置一些推广的第三方应用。
+
+经过前几章对源码理论的学习，在这一章将小牛试刀修改源码，学习如何对系统进行简单的改造，为其添加模块和系统应用。
+
 
 ## 5.1 什么是系统内置
 
-​	系统内置简单的说，就是将镜像刷入手机后默认就在手机自带的功能，例如`Android`内置的`Launcher、Phone、Email、Setting`等系统`App`都是属于内置的。同样开发者也可以制作一个`App`，将其内置在系统中并且作为系统应用。
+简单来说，系统内置指的是手机出厂后，在启动完成后用户可以看到的那些自带功能。例如，Android内置了一些系统应用程序如 Launcher、Phone、Email 和``Setting`等。同样地，开发者也可以制作一个应用程序，并将其内置在系统中作为系统应用。
 
-​	在前几章的学习中，介绍了`Android`是如何实现启动系统，以及打开应用程序的执行流程，并且修改替换了系统的资源文件。将`AOSP`看做是一个大型的项目，本章需要学习的是，如何对这个项目二次开发，在它的基础上扩展一些，将一些更加便利的功能内置在系统中，由于`Android`系统非常庞大，每次修改后都需要进行编译再刷入手机。而这些功能的业务相关的代码，尽量不要直接写在`AOSP`源码中，避免浪费大量的时间在等待中。
+在前几章中，我们学习了``Android`系统启动流程和打开应用程序时的执行细节，并介绍了修改替换系统资源文件的方法。现在我们需要学习更多关于`AOSP`（Android Open Source Project）项目的二次开发，以及如何基于该项目扩展并将更便捷功能内置到系统中。
+
+内置应用可以是对具有系统级权限应用功能进行扩展，也可以是业务型`App`的集成，这取决于所需求与目标。由于`Android`系统非常庞大且编译刷机操作耗时较长，在实践过程中需要结合自身需求，在经历一段时间的开发之后，总结出提高效率和形成完整定制方法论所需采取的策略。一个典型而常见问题是，针对某些基础类代码进行增改，导致重新编译大量依赖库，每次微小修改直至测试完成可能需要数小时以上。解决这种问题可通过抽象接口为独立类并生成库文件来引用，将所有功能封装后导入基础类代码中，避免直接在`AOSP`源码中编写。这样一次添加引入修改会耗费时间，但以后的代码修改只需操作库文件而无需修改`AOSP`本身代码，从而大大提升编译速度，并避免浪费大量时间在等待编译上。
+
 
 ## 5.2 系统内置App
 
-​	首先，找到`Android`系统自身内置`App`的所在目录`packages/apps`，在系统中内置的大多数`App`源码都是在这里，打开任意一个系统内`App`的目录进去后，能看到这里的结构和正常开发的`Android App`没有什么区别。需要内置的`App`代码并不是一定要放在这个目录下，可以选择将编译后的`apk`内置进去。
+`Android`系统自身内置`App`的所在目录为系统源码的`packages/apps`目录，系统中内置的大多数`App`源码都存放在此处。打开任意一个系统内`App`的目录进去后，能看到这里的目录层次结构和使用`Android Studio`开发的`Android`程序没有什么区别。
+
+当然，需要内置的`App`代码并不是一定要放在这个目录下，可以选择将编译后的成品`apk`文件内置进去，这也是厂商集成第三方软件App到自身系统的主要方法。
 
 ```
 cd ./packages/apps
@@ -46,9 +54,9 @@ public class MainActivity extends AppCompatActivity {
 }
 ```
 
-​	`android:shareUserId` 是`AndroidManifest.xml`文件中的一个属性，用于应用程序之间的共享用户`ID`。共用用户`ID`可以让应用程序之间更好的进行相互访问和操作。当一个应用程序定义了`android:shareUserId`属性时，另一个相互信任的应用程序，可以设置相同的 `android:shareUserId` 属性，从而实现应用程序的数据共享和交互。
+​	`android:shareUserId`是`AndroidManifest.xml`文件中的一个属性，用于应用程序之间的共享用户`ID`。共用用户`ID`可以让应用程序之间更好的进行相互访问和操作。当一个应用程序定义了`android:shareUserId`属性时，另一个相互信任的应用程序，可以设置相同的`android:shareUserId`属性，从而实现应用程序的数据共享和交互。
 
-​	在安装和运行应用程序之前，设备会将具有相同共享用户`ID`的应用程序，视为同一用户。因此，可以访问对方的数据，比如，`SharedPreferences`和文件等。如果应用程序没有设置`android:shareUserId`属性，则其默认值是该应用程序的包名。以下是`AndroidManifest.xml`中的配置 ，设置`android:shareUserId`为`android.uid.system`。
+​	在安装和运行应用程序之前，设备会将具有相同共享用户`ID`的应用程序，视为同一用户。因此，可以访问对方的数据，比如，`SharedPreferences`和文件等。如果应用程序没有设置`android:shareUserId`属性，则其默认值是该应用程序的包名。以下是`AndroidManifest.xml`文件中的配置 ，设置`android:shareUserId`为`android.uid.system`。
 
 ```
 <?xml version="1.0" encoding="utf-8"?>
@@ -98,9 +106,9 @@ LOCAL_DEX_PREOPT := false
 include $(BUILD_PREBUILT)
 ```
 
-​	在`Android`系统编译过程中，`PRODUCT_PACKAGES` 是一个重要的变量，它定义了系统所需构建的软件包列表。`PRODUCT_PACKAGES` 变量定义的是本次构建需要编译打包的软件包，包括一些基础系统组件和应用程序模块，例如音频服务模块、媒体播放库、输入法、设置应用程序等。
+​	在`Android`系统编译过程中，`PRODUCT_PACKAGES`是一个重要的环境变量，它定义了系统所需构建的软件包列表。`PRODUCT_PACKAGES`环境变量定义的是本次构建需要编译打包的软件包，包括一些基础系统组件和应用程序模块，例如音频服务模块、媒体播放库、输入法、设置应用程序等。
 
-​	在构建规则文件`./build/make/target/product/mainline_system.mk`中添加配置。
+​	在构建规则文件`./build/make/target/product/mainline_system.mk`文件中添加配置。
 
 ```
 PRODUCT_PACKAGES += SystemAppDemo \
@@ -110,13 +118,9 @@ PRODUCT_PACKAGES += SystemAppDemo \
 
 ```
 source ./build/envsetup.sh
-
 lunch aosp_blueline-userdebug
-
 make -j$(nproc --all)
-
 adb reboot bootloader
-
 flashflash all -w
 
 // 等待系统刷机完成后打开桌面上的SystemAppDemo
@@ -124,12 +128,12 @@ adb shell
 ps -e|grep systemappdemo
 // 发现进程身份已经变成system的了。
 system        5033  1058 14718076 89256 0                   0 S cn.mik.systemappdemo
-
 ```
+
 
 ## 5.3 构建系统
 
-​	`Android`提供了两种构建系统方式，在`Android7.0`之前都是使用基于`make`的构建系统，在源码中由`Android.mk`文件描述构建规则，这是`Android`开发历史中遗留的一种构建方式，由于`make`在`Android`中构建缓慢、容易出错、无法扩展难以测试。所以在7.0后引入了`soong`构建系统，在源码中由`Android.bp`文件描述`soong`的构建规则，在`soong`中采用了`kati GNU Make`克隆工具和`ninja`来加速对系统的构建。
+​	`Android`提供了两种构建系统方式，在`Android` 7.0之前都是使用基于`make`的构建系统，在源码中由`Android.mk`文件描述构建规则，这是`Android`开发历史中遗留的一种构建方式，由于`make`在`Android`中构建缓慢、容易出错、无法扩展难以测试。所以在7.0后引入了`soong`构建系统，在源码中由`Android.bp`文件描述`soong`的构建规则，在`soong`中采用了`kati GNU Make`克隆工具和`ninja`后端来加速对系统源码的构建。
 
 ​	`Soong`构建系统是一个由`Google`开发的，专门用于构建`Android`的构建系统。它是一个用`go`语言编写的构建系统，旨在解决早期版本的`Android`构建系统中存在的问题，所以，它现在是`Android`构建系统的首选。
 
@@ -224,7 +228,7 @@ LOCAL_SRC_FILES := $(call \
 include $(BUILD_SHARED_LIBRARY)
 ```
 
-​	`Android.bp`文件使用的是一种名为`Blueprint`的语言来表示模块和它们的依赖关系。`Blueprint` 是一种声明式语言，它描述了一个系统的构建规则和依赖关系，而无需描述如何构建代码本身。在`Android.bp`文件中，每个模块都表示为一个独立的蓝图，并且该蓝图包含有关模块的信息，例如名称、类型、源文件等。此外，蓝图还可以包含有关与该模块相关的依赖关系的信息，例如库、标头文件等。使用 `Android.bp`文件可以使`Android`模块的构建过程更加简单明了，并且易于实现自定义构建规则和自动化构建操作。同时，它还能提高编译效率，特别是在多核`CPU`系统上。下面是`Android.bp`文件的基本格式：
+​	`Android.bp`文件使用的是一种名为`Blueprint`的语言来表示模块和它们的依赖关系。`Blueprint`是一种声明式语言，它描述了一个系统的构建规则和依赖关系，而无需描述如何构建代码本身。在`Android.bp`文件中，每个模块都表示为一个独立的蓝图，并且该蓝图包含有关模块的信息，例如名称、类型、源文件等。此外，蓝图还可以包含有关与该模块相关的依赖关系的信息，例如库、标头文件等。使用 `Android.bp`文件可以使`Android`模块的构建过程更加简单明了，并且易于实现自定义构建规则和自动化构建操作。同时，它还能提高编译效率，特别是在多核`CPU`系统上。下面是`Android.bp`文件的基本格式：
 
 ```
 // Android.bp文件中的模块以模块类型开头，后跟一组 name: "value", 格式的属性
@@ -289,10 +293,9 @@ android_library {
 soong_namespace {
     imports: ["path/to/otherNamespace1", "path/to/otherNamespace2"],
 }
-
 ```
 
-​	`androidmk`是`soong`中提供的一个工具，因为基于`make`的构建系统已经逐渐被`soong`替代了，但是依然有很多人习惯使用`Android.mk`的规则来配置构建条件，在这种情况下可以选择写完`Android.mk`后，再使用`androidmk`工具将其转换为`Android.bp`文件。在其源码中可以看到由`map`进行存放对应规则，左边是`Android.mk`的规则，右边则是对应`Android.bp`中对应的规则，在编写的过程中，如果对`Android.bp`不是很熟悉，可以借鉴转换工具的源码进行参考，或者直接使用工具进行转换。找到文件`./build/soong/androidmk/androidmk/android.go`
+`androidmk`是`soong`中提供的一个工具，作用是在两个编译脚本格式上做转换工作。因为基于`make`的构建系统已经逐渐被`soong`替代了，但是依然有很多人习惯使用`Android.mk`的规则来配置构建条件，在这种情况下可以选择写完`Android.mk`后，再使用`androidmk`工具将其转换为`Android.bp`文件。在其源码中可以看到由`map`进行存放对应规则，左边是`Android.mk`的规则，右边则是对应`Android.bp`中对应的规则，在编写的过程中，如果对`Android.bp`不是很熟悉，可以借鉴转换工具的源码进行参考，或者直接使用工具进行转换。找到文件`./build/soong/androidmk/androidmk/android.go`
 
 ```go
 var moduleTypes = map[string]string{
@@ -331,21 +334,17 @@ var prebuiltTypes = map[string]string{
 }
 ```
 
-​	下面讲述如何编译androidmk工具，并使用其进行转换。
+下面讲述如何编译`androidmk`工具，并使用其进行转换。
 
 ```
 source ./build/envsetup.sh
-
 lunch aosp_blueline-userdebug
-
 make androidmk
-
 cd ./out/soong/host/linux-x86/bin
-
 ./androidmk ./Android.mk > ./Android.bp
 ```
 
-​	最后使用工具将上一节中内置`App`时使用的构建规则，`Android.mk`转换为`Android.bp`后的结果如下，看到对比起`mk`规则内容，看起来要更加简单清晰·。
+最后使用工具将上一节中内置`App`时使用的构建规则，`Android.mk`转换为`Android.bp`后的结果如下，看到对比起`mk`规则内容，看起来要更加简单清晰·。
 
 ```
 android_app_import {
@@ -360,11 +359,12 @@ android_app_import {
 }
 ```
 
+
 ## 5.4 系统内置jar包
 
-​	`Android`系统默认携带了许多`jar`包（`Java Archive`文件），这些`jar`文件包含了许多提供`Android`系统调用的工具，以及用于开发应用程序的`API`。通过修改`Android`源码的方式，同样可以让开发人员将自己经常使用的`jar`包也内置到系统中，又或者将定制的业务功能包装在`jar`包中，在调整时就仅需要修改`jar`包的代码，最后更新到系统中即可。如此可以节省臃肿的编译时间，还能更加便捷的管理业务代码。
+​	`Android`系统默认携带了许多`jar`包（`Java Archive`文件），这些`jar`文件包含了许多提供`Android`系统调用的工具，以及用于开发应用程序的`API`。通过修改`Android`源码的方式，同样可以让开发人员将自己经常使用的`jar`包也内置到系统中，又或者将定制的业务功能包装在`jar`包中，在调整时就仅需要修改`jar`包的代码，最后更新到系统中即可。这种做法既能节省编译时间，又能更便捷地管理业务代码。
 
-​	内置`jar`包的方式是有多种的，下面将使用两种方式将一个自己编写的`jar`包集成到系统中。首先创建一个`no Activity`的`Android`项目，项目命名为`MyJar`，如下图所示。
+有多种方式可以实现内置`JAR`包功能。接下来将介绍两种方法来集成一个自己编写的JAR包到系统中。首先要创建一个没有Activity的Android项目，并命名为`MyJar` ，如下图所示：
 
 ![image-20230308211039320](.\images\create_no_activity.png)
 
@@ -514,11 +514,11 @@ protected void onCreate(Bundle savedInstanceState) {
 
 ## 5.5 系统内置so动态库
 
-​	上一小节介绍的内置方式非常简单，只需通过配置`PRODUCT_COPY_FILES`即可将指定文件从源码中复制到目标目录中。除了`jar`文件外，其他文件也可以使用这种方式进行内置。为了内置`so`文件，将采用另一种方式。并且，第二种内置方式同样适用于`jar`文件。
+上一小节介绍了一种非常简单的内置方式，只需通过配置环境变量`PRODUCT_COPY_FILES`，将指定文件从源码复制到目标目录即可。除了`.jar`文件之外，其他文件也可以使用这种方式进行内置。为了内置`.so`文件，我们将采用另一种方式。此第二种方式同样适用于`.jar`文件。
 
-​	第二种方式是前文使用内置`apk`的方式，对构建规则进行细节的描述，将指定的`so`动态库内置到`/system/lib`和`/system/lib64`目录中。并且同时将调用`so`动态库的`jar`文件也内置在`/system/framework`目录中，在内置完成后，将调用`jar`文件来访问`so`动态库，以及直接调用动态库进行测试。
+第二种方式是在前文中所述的内置`.apk`的基础上，进一步描述构建规则的细节，并将指定的动态库（`.so`）内置到 `/system/lib`和`/system/lib64`目录中。同时，调用该动态库的 `.jar`文件也会被内置在`/system/framework`目录中。完成内置后，我们可以通过调用该`.jar`文件来访问动态库（`.so`)，或者直接调用动态库进行测试操作。
 
-​	首先准备一个测试项目，创建Native C++的项目。见下图。
+首先准备一个测试项目，创建Native C++的项目。见下图。
 
 ![image-20230308232615347](.\images\create_so_project.png)
 
@@ -570,9 +570,7 @@ cp ./app-debug/lib/armeabi-v7a/libmysodemo.so /root/android_src/aosp12/framework
 
 ```
 cd ./frameworks/base/packages/apps/mysodemo
-
 touch Android.mk
-
 gedit Android.mk
 
 // 添加下面的内容到文件
@@ -690,17 +688,18 @@ protected void onCreate(Bundle savedInstanceState) {
 
 ​	加载系统中的动态库进行调用我就不再详细写案例测试了，这个流程和正常加载系统中的动态库基本一致。只需要留意案例中的`native`函数的符号，加载动态库后，查找对应符号，最后调用即可。
 
+
 ## 5.6 系统内置证书
 
-​	证书是由证书颁发机构（`CA`）签发的数字文件，用于验证实体的身份和保护通信。证书包含实体的公钥、名称、有效期、颁发机构等信息，并使用颁发机构的私钥进行签名。常见的证书类型包括`SSL/TLS`证书、代码签名证书、电子邮件证书等。当客户端与服务器建立`HTTPS`连接时，服务器将向客户端发送其证书，并由客户端使用根证书或中间证书来验证其合法性。如果验证成功，则客户端会使用服务器的公钥来加密数据，并确保双方通信的机密性和完整性。
+证书是由证书颁发机构（CA）签发的数字文件，用于验证实体的身份和保护通信。证书包含实体的公钥、名称、有效期、颁发机构等信息，并使用颁发机构的私钥进行签名。常见的证书类型包括SSL/TLS证书、代码签名证书、电子邮件证书等。当客户端与服务器建立HTTPS连接时，服务器会向客户端发送其证书，并由客户端使用根证书或中间证书来验证其合法性。如果验证成功，则客户端将使用服务器的公钥来加密数据，并确保双方通信的机密性和完整性。
 
-​	在源码的路径`system/ca-certificates/files`下的系统证书通常是作为客户端的根证书或中间证书使用的。这些证书由受信任的第三方颁发机构签发，并预先安装在操作系统中，以确保与服务器建立的`HTTPS`连接的安全性和可信性。客户端会使用这些证书来验证服务器的身份以及保护通信的机密性和完整性。管理员也可以向此目录添加自己的自签名证书，以便其他应用程序可以信任它们。
+在源码路径`system/ca-certificates/files`下，系统通常会使用这些系统内置证书，作为客户端根或中间CA，以确保与服务器建立HTTPS连接时安全可信。这些系统内置根CA由受信任第三方颁发机构签署并预先安装在操作系统中。通过这些内置根CA，客户端可以验证服务器身份并确保通信过程中数据传输的秘密性和完整性。管理员也可以将自己创建或自签名的用户特定CA添加到此目录中，以便其他应用程序能够相信它们。
 
-​	在系统中进行手动安装证书时，这些证书将被划分为用户证书，这些用户证书被认定为个人签发的，所以不被信任，从而拒绝`HTTPS`连接。相比之下，预先内置在系统证书中的则会认为更加可靠，能正常进行`HTTPS`请求。所以在一些抓包的需求中，可以将中间人证书直接内置在系统中，达到无需`root`设备，也能插入系统证书进行抓包的目的。
+手动安装新到系统上时所需注意：这些用户特定CA证书将被视为由个人签署，因此不受信任，并可能导致HTTPS连接失败。相比之下，预先内置的系统根和中间CA，更可靠且能正常建立HTTPS请求。因此，在某些抓包需求中，可以直接将中间人证书内置到系统中，无需root设备即可在系统级别进行抓包。
 
-​	内置的过程非常简单，将证书文件放在`system/ca-certificates/files`目录下即可，这些证书通常是以`.0`作为结尾，例如`0d69c7e1.0`。如果需要内置两个相同名字的证书，第二个则需要将`.0`修改为`.1`。这个证书和抓包工具中导出的文件是有一定区别的，所以先需要进行一层转换，最后将转换后的结果放入源码中的系统证书目录。接下来将演示两种转换方式。
+内置证书的过程非常简单：只需将证书文件放入`system/ca-certificates/files`目录下。这些证书通常以`.0`结尾（例如 `0d69c7e1.0`）。如果需要内置同名的多个证书，则第二个应将结尾改为`.1`。与抓包工具导出的文件有一些区别，所以首先需要进行一层转换，并最终将转换后的结果放入源码中的系统证书目录。以下是两种转换方式示例：
 
-​	以`Charles`作为例子，首先保存中间人证书到本地中`Help-->SSL Proxying-->Save Charles Root Certificate`，保存为`chls.cer`的证书文件。然后执行下面的命令。
+以 Charles 作为例子：首先，在`Charles`中保存中间人证书至本地（选择 Help -> SSL Proxying -> Save Charles Root Certificate），并命名为`chls.cer`。然后执行以下命令：
 
 ```
 // 生成基于证书主题的hash值
@@ -748,6 +747,7 @@ cp d37a53cc.0 ~/android_src/mikrom12_gitlab/system/ca-certificates/files
 ```
 
 ​	除了这种转换方式，还有另一种更加简便的办法，首先将证书作为用户证书安装，直接将`Charles`导出的证书上传到手机，在手机中找到`Setting->Security->Encryption & credentials-> install a certificate`最后选中证书完成安装，然后来到用户证书目录` /data/misc/user/0/cacerts-added`中，刚刚导入的证书会被转换好作为用户证书放在这里，将其从手机中传出来，放入源码中的系统证书目录即可。
+
 
 ## 5.7 修改AOSP的默认签名
 
@@ -848,13 +848,15 @@ ro.build.description=aosp_blueline-userdebug 12 SP1A.210812.016.A1 eng.king.2023
 
 ## 5.8 默认开启adb调试
 
+本小节修改的主要应用场景为安卓App的开发调试与逆向工程。
+
 ### 5.8.1 adb介绍
 
 ​	`ADB（Android Debug Bridge）`是一个用于在`Android`设备和计算机之间进行通信的工具，可以通过`ADB`将设备连接到计算机并执行各种操作。`ADB`源码是`AOSP`源码中的一部分，包含了`ADB`的实现代码。`ADB`主要由以下几个部分组成。
 
-​	`adb client`是运行在开发机上的命令行客户端，用于向设备发送命令和数据，并接收响应和数据。`ADB client`可以通过`USB、Wi-Fi`等多种方式连接到设备，并与 `adbd` 建立通道进行通信。
+​	`adb client`是运行在开发机上的命令行客户端，用于向设备发送命令和数据，并接收响应和数据。`ADB client`可以通过`USB、Wi-Fi`等多种方式连接到设备，并与`adbd`建立通道进行通信。
 
-​	`adb server`是运行在开发机上的守护进程，负责协调`ADB client`和 `adbd` 之间的通信。`ADB server`可以监听多个本地或远程的 `adbd` 连接，并将来自客户端的请求转发给相应的设备和进程。
+​	`adb server`是运行在开发机上的守护进程，负责协调`ADB client`和`adbd`之间的通信。`ADB server`可以监听多个本地或远程的 `adbd` 连接，并将来自客户端的请求转发给相应的设备和进程。
 
 ​	`adbd` 是运行在`Android`设备上的守护进程，负责监听`USB、TCP`等多种接口，并与`ADB client`或`ADB server`建立通道进行通信。`adbd` 可以接收来自`ADB client`的命令和数据，并解析执行相应的操作；也可以向`ADB client`发送响应和数据，并将设备上的状态信息反馈给开发机。
 
@@ -1036,22 +1038,21 @@ int adb_commandline(int argc, const char** argv) {
     }
     ...
 }
-
 ```
 
-​	`adb_server_main()` 和 `launch_server()` 都是`ADB`服务器的启动函数，但它们的实现方式不同，有以下几个区别：
+`adb_server_main()`和`launch_server()`都是`ADB`服务器的启动函数，但它们的实现方式不同，有以下几个区别：
 
-1. `adb_server_main()` 可以作为独立进程运行，也可以在当前进程中直接调用。而 `launch_server()` 只能在当前进程中执行，无法作为独立进程运行。
-2. `adb_server_main()` 启动后会一直监听来自客户端的连接请求，并使用多线程或`epoll`等技术处理并发请求。而 `launch_server()` 只负责启动本地`ADB`服务器，并让其开始监听指定的端口。
-3. `adb_server_main()` 可以通过 `-D` 选项控制是否启用守护进程模式，还可以设置回复文件描述符等高级功能。而 `launch_server()` 没有这些高级功能。
+1. `adb_server_main()`可以作为独立进程运行，也可以在当前进程中直接调用。而 `launch_server()` 只能在当前进程中执行，无法作为独立进程运行。
+2. `adb_server_main()`启动后会一直监听来自客户端的连接请求，并使用多线程或`epoll`等技术处理并发请求。而`launch_server()`只负责启动本地`ADB`服务器，并让其开始监听指定的端口。
+3. `adb_server_main()`可以通过`-D`选项控制是否启用守护进程模式，还可以设置回复文件描述符等高级功能。而`launch_server()`没有这些高级功能。
 
-​	因此，一般情况下，如果需要在独立进程中启`ADB`服务器并处理来自客户端的请求，应该调用`adb_server_main()`函数，这种方式适用于需要长时间运行`ADB`服务器并处理大量并发请求的场景，例如`Android`开发中常用的设备调试、应用测试等。如果只需要在当前进程中启动本地`ADB`服务器并监听指定端口，则应该使用 `launch_server()` 函数，例如执行单个文件传输或`shell`操作时，只需要启动一个本地`ADB`服务器即可，无需额外的进程和线程资源。
+​	因此，一般情况下，如果需要在独立进程中启`ADB`服务器并处理来自客户端的请求，应该调用`adb_server_main()`函数，这种方式适用于需要长时间运行`ADB`服务器并处理大量并发请求的场景，例如`Android`开发中常用的设备调试、应用测试等。如果只需要在当前进程中启动本地`ADB`服务器并监听指定端口，则应该使用`launch_server()`函数，例如执行单个文件传输或`shell`操作时，只需要启动一个本地`ADB`服务器即可，无需额外的进程和线程资源。
 
-​	需要注意的是，在实际使用中，`adb_server_main()` 和 `launch_server()` 可能会根据具体需求进行组合使用，例如启动一个本地`ADB`服务器后，再使用 `adb_connect()` 函数连接远程设备上运行的`ADB`服务器。
+​	需要注意的是，在实际使用中，`adb_server_main()`和`launch_server()`可能会根据具体需求进行组合使用，例如启动一个本地`ADB`服务器后，再使用`adb_connect()`函数连接远程设备上运行的`ADB`服务器。
 
-​	`adbd`运行在`Android`设备上并监听来自主机的`ADB`请求。通过与` adbd` 进程交互，开发人员可以使用`adb`工具执行各种调试和测试任务，例如安装应用程序、查看日志、启动`Activity`等。`adbd`通常以 `root`用户权限运行。这意味着 `adbd` 进程可以执行许多敏感操作，并访问系统中的各种资源和设置。`adbd `与主机之间通过`USB、Wi-Fi`或其他连接方式进行通信，并使用`ADB`协议进行数据传输和命令交互。`adbd `默认监听`TCP`端口5555，以便通过网络进行远程调试和管理。在默认情况下，普通应用程序无法直接访问`adbd`进程。
+​	`adbd`运行在`Android`设备上并监听来自主机的`ADB`请求。通过与`adbd`进程交互，开发人员可以使用`adb`工具执行各种调试和测试任务，例如安装应用程序、查看日志、启动`Activity`等。`adbd`通常以`root`用户权限运行。这意味着`adbd`进程可以执行许多敏感操作，并访问系统中的各种资源和设置。`adbd`与主机之间通过`USB、Wi-Fi`或其他连接方式进行通信，并使用`ADB`协议进行数据传输和命令交互。`adbd`默认监听`TCP`端口5555，以便通过网络进行远程调试和管理。在默认情况下，普通应用程序无法直接访问`adbd`进程。
 
-​	下面看看`init.rc`中`adbd`服务的定义
+下面看看`init.rc`中`adbd`服务的定义。
 
 ```
 // --root_seclabel=u:r:su:s0：指定了 adbd 进程的 SELinux 上下文标签。该标签表示 adbd 进程以 root 用户权限运行，并且被分配了 su 初始上下文。
@@ -1116,11 +1117,11 @@ int adbd_main(int server_port) {
 }
 ```
 
-​	`ro.adb.secure`是`Android`系统中的一个属性，用于控制`adb`守护进程（`adbd`）是否启用安全模式。具体来说，当`ro.adb.secure`的值为 1 时，表示`adb`守护进程需要进行身份验证才能连接到`Android`设备；当其值为 0 时，表示 adb 守护进程不需要进行身份验证即可连接。
+`ro.adb.secure`是`Android`系统中的一个属性，用于控制`adb`守护进程（`adbd`）是否启用安全模式。具体来说，当`ro.adb.secure`的值为1时，表示`adb`守护进程需要进行身份验证才能连接到`Android`设备；当其值为0时，表示`adb`守护进程不需要进行身份验证即可连接。
 
-​	默认情况下，`Android`系统会将`ro.adb.secure`属性设置为 1，以提高系统的安全性。在此模式下，只有经过授权的`adb`客户端 才能访问`Android`设备上的`adbd`进程，并执行相应的调试和测试任务。如果不希望修改`ro.adb.secure`属性，又希望默认能开启调试，可以选择将`auth_required`直接赋值为0。
+默认情况下，`Android`系统会将`ro.adb.secure`属性设置为1，以提高系统的安全性。在此模式下，只有经过授权的`adb`客户端 才能访问`Android`设备上的`adbd`进程，并执行相应的调试和测试任务。如果不希望修改`ro.adb.secure`属性，又希望默认能开启调试，可以选择将`auth_required`直接赋值为0。
 
-​	`init_transport_registration`函数负责注册一个传输协议以便通过`USB`与设备通信。就是在这里管理着`adb`客户端和`adbd`进程之间的连接通讯。继续深入查看`init_transport_registration`的实现逻辑。代码如下
+`init_transport_registration`函数负责注册一个传输协议以便通过`USB`与设备通信。就是在这里管理着`adb`客户端和`adbd`进程之间的连接通讯。继续深入查看`init_transport_registration`的实现逻辑。代码如下。
 
 ```java
 void init_transport_registration(void) {
@@ -1140,7 +1141,7 @@ void init_transport_registration(void) {
 }
 ```
 
-​	`transport_registration_recv`回调函数用来处理回复过来的消息，`transport_registration_func`作为写入事件的函数。
+`transport_registration_recv`回调函数用来处理回复过来的消息，`transport_registration_func`作为写入事件的函数。
 
 ```c++
 
@@ -1153,7 +1154,7 @@ static void transport_registration_func(int _fd, unsigned ev, void*) {
 }
 ```
 
-​	`fdevent_run_on_main_thread`函数将一个`lamda`表达式封装的函数作为参数，`post`给`adbd`进程的主线程来执行，类似于在`Android`开发时，子线程需要对`UI`进行更新，通过调用`runOnMainThread`来让主线程执行的意思。`handle_packet`函数是 `ADB`协议中最核心的功能之一，负责解析和处理各种类型的数据包，并将其转换为对应的操作或事件，接下来继续看看`handle_packet`的处理。
+`fdevent_run_on_main_thread`函数将一个`lamda`表达式封装的函数作为参数，`post`给`adbd`进程的主线程来执行，类似于在`Android`开发时，子线程需要对`UI`进行更新，通过调用`runOnMainThread`来让主线程执行的意思。`handle_packet`函数是 `ADB`协议中最核心的功能之一，负责解析和处理各种类型的数据包，并将其转换为对应的操作或事件，接下来继续看看`handle_packet`的处理。
 
 ```cpp
 
@@ -1239,7 +1240,7 @@ void handle_packet(apacket *p, atransport *t)
 }
 ```
 
-​	在这里看到了详细的`ADB`授权的流程，可以看到使用`adbd_auth_verify`函数进行身份认证信息的确认。下面是验证的具体实现。
+​在这里看到了详细的`ADB`授权的流程，可以看到使用`adbd_auth_verify`函数进行身份认证信息的确认。下面是验证的具体实现。
 
 ```cpp
 
@@ -1281,3 +1282,10 @@ bool adbd_auth_verify(const char* token, size_t token_size, const std::string& s
 ```
 
 ​	将这个函数改为一律返回`true`，同样可以做到默认开启调试，无需再进行手动的授权。
+
+
+## 5.9 本章小结
+
+本章主要介绍了在安卓系统中植入功能的方法。植入的实体可以是需要预装的App程序，也可以是开发人员编译好的开发库SDK，以及系统CA证书等。
+
+植入的实体在功能上扩展系统外，还需要注意可能为系统带来的的稳定性与安全性问题。存在严重BUG的程序与开发库，会让系统运行变得不稳定，甚至会有被泄漏隐私、恶意攻击、权限提升等安全风险。大家在集成开发时，需要对目标实体进行严格的测试，以免不必要的麻烦与损失。
