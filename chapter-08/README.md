@@ -1,4 +1,4 @@
-# 第八章 脱壳
+# 第八章 软件壳
 
 ​	熟悉类的加载流程后可以利用加载的原理来开发辅助功能，在逆向中，比较典型的功能就是脱壳，加壳就是对类中代码的保护，而脱壳则是还原出被保护的代码，除此之外，`Art Hook`的实现也是和类的加载，函数的执行的原理息息相关的。在这一章中，将对加壳和脱壳进行详细的介绍，在最后将通过上一章中学习到的类加载原理，简单实现自动脱壳机。
 
@@ -160,9 +160,9 @@ keyPassword   = 123456
 
 ```shell
  java -jar jiaguLib.jar app-debug.apk keystore.cfg
- 
+
  //输出的内容如下
- 
+
  根目录=========>D:\git_src\apkjiagu\jiagu/libs/sx_jiagu.dll
 ==================== 步骤一：将加固壳中的aar中的jar转成dex文件 ====================
 开始执行命令===>dx --dex --output temp\shell\classes.dex temp\shell\classes.jar
@@ -865,7 +865,7 @@ static jclass DexFile_defineClassNative(JNIEnv* env,
   for (auto& dex_file : dex_files) {
     ...
     if (dex_class_def != nullptr) {
-      
+
       ...
       // 使用类加载器和 DEX 文件定义一个新的 Java 类，并返回一个描述该类的 Class 对象指针
       ObjPtr<mirror::Class> result = class_linker->DefineClass(soa.Self(),
@@ -928,7 +928,7 @@ ObjPtr<mirror::Class> ClassLinker::DefineClass(Thread* self,
   StackHandleScope<3> hs(self);
   metrics::AutoTimer timer{GetMetrics()->ClassLoadingTotalTime()};
   auto klass = hs.NewHandle<mirror::Class>(nullptr);
-  
+
   // 获取包名
   std::string cmdlinePath="/proc/self/cmdline";
     auto cmdlineData = std::string();
@@ -957,7 +957,7 @@ ObjPtr<mirror::Class> ClassLinker::DefineClass(Thread* self,
 ​	重新编译系统后，刷入手机，安装前文中加固好的样例应用，打开后在日志中成功看到下面的输出信息。
 
 ```
-D/k.myservicedem: mikrom DefineClass write 2 /data/data/cn.mik.myservicedemo/defineClass_9738740.dex dex begin:0xbdbc5000 
+D/k.myservicedem: mikrom DefineClass write 2 /data/data/cn.mik.myservicedemo/defineClass_9738740.dex dex begin:0xbdbc5000
 ```
 
 ​	最后将这个文件传到电脑中，使用`jadx`打开看到脱壳后的结果。
