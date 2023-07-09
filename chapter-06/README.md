@@ -185,7 +185,7 @@ frida.resume(pid)
 
 ​	通过前文的介绍，了解到`Native`函数必须要进行注册才能被找到并调用，接下来看两个例子，展示了如何对`Native`函数进行静态注册和动态注册的。
 
-​	当使用`Android Studio`创建一个`Native C++`的项目，其中默认使用的就是静态注册，在这个例子中，`Java`函数与`C++`函数的绑定是通过`Java`和`C++`函数名的约定来实现的。具体地说，在`Java`代码中声明的`native`方法的命名规则为：`Java_`+全限定类名+_+方法名，将所有的点分隔符替换为下划线。例如，在这个例子中，`Java`类的全限定名为`com.mik.nativecppdemo.MainActivity`，方法名为`stringFromJNI`，因此对应的`C++`函数名为`Java_com_mik_nativecppdemo_MainActivity_stringFromJNI`，静态注册例子如下。
+​	当使用`Android Studio`创建一个`Native C++`的项目，其中默认使用的就是静态注册，在这个例子中，`Java`函数与`C++`函数的绑定是通过`Java`和`C++`函数名的约定来实现的。具体地说，在`Java`代码中声明的`native`方法的命名规则为：`Java_`+全限定类名+_+方法名，将所有的点分隔符替换为下划线。例如，在这个例子中，`Java`类的全限定名为`cn.rom.nativecppdemo.MainActivity`，方法名为`stringFromJNI`，因此对应的`C++`函数名为`Java_cn_rom_nativecppdemo_MainActivity_stringFromJNI`，静态注册例子如下。
 
 ```java
 // java文件
@@ -198,7 +198,7 @@ public class MainActivity extends AppCompatActivity {
 }
 // c++文件
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mik_nativecppdemo_MainActivity_stringFromJNI(
+Java_cn_rom_nativecppdemo_MainActivity_stringFromJNI(
         JNIEnv* env,
         jobject /* this */) {
     std::string hello = "Hello from C++";
@@ -474,7 +474,7 @@ const void* ClassLinker::RegisterNative(
 const void* ClassLinker::RegisterNative(
     Thread* self, ArtMethod* method, const void* native_method) {
   ...
-  LOG(INFO) << "mikrom ClassLinker::RegisterNative "<<method->PrettyMethod().c_str()<<" native_ptr:"<<new_native_method<<" method_idx:"<<method->GetMethodIndex()<<" baseAddr:"<<base_addr;
+  LOG(INFO) << "[ROM] ClassLinker::RegisterNative "<<method->PrettyMethod().c_str()<<" native_ptr:"<<new_native_method<<" method_idx:"<<method->GetMethodIndex()<<" baseAddr:"<<base_addr;
   return new_native_method;
 }
 ```
@@ -482,8 +482,8 @@ const void* ClassLinker::RegisterNative(
 ​	刷机编译后，安装测试`demo`，输出结果如下，成功打印出静态注册和动态注册的对应函数以及其函数地址。
 
 ```
-mik.nativedem: mikrom ClassLinker::RegisterNative java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI2() native_ptr:0x7983a918c8 method_idx:632
-mik.nativedem: mikrom ClassLinker::RegisterNative java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI() native_ptr:0x7983a916e8 method_idx:631
+rom.nativedem: [ROM] ClassLinker::RegisterNative java.lang.String cn.rom.nativedemo.MainActivity.stringFromJNI2() native_ptr:0x7983a918c8 method_idx:632
+rom.nativedem: [ROM] ClassLinker::RegisterNative java.lang.String cn.rom.nativedemo.MainActivity.stringFromJNI() native_ptr:0x7983a916e8 method_idx:631
 ```
 
 ​	这里尽管已经输出了函数地址，但是可以再进行细节的优化，比如将函数地址去掉动态库的基址，获取到文件中的真实函数偏移。在这个时机已知了函数地址，只需要遍历已加载的所有动态库，计算出动态库结束地址，如果函数地址在某个动态库范围中，则返回动态库基址，最后打桩时，使用函数地址减掉基址即可拿到真实偏移了。实现代码如下。
@@ -498,13 +498,13 @@ int dl_iterate_callback(struct dl_phdr_info* info, size_t , void* data) {
     // 计算出结束地址
     void* endptr=  (void*)(info->dlpi_addr + info->dlpi_phdr[info->dlpi_phnum - 1].p_vaddr + info->dlpi_phdr[info->dlpi_phnum - 1].p_memsz);
     uintptr_t end=reinterpret_cast<uintptr_t>(endptr);
-    ALOGD("mikrom native: %p\n", (void*)addr);
-    ALOGD("mikrom Library name: %s\n", info->dlpi_name);
-    ALOGD("mikrom Library base address: %p\n", (void*) info->dlpi_addr);
-    ALOGD("mikrom Library end address: %p\n\n",endptr);
+    ALOGD("[ROM] native: %p\n", (void*)addr);
+    ALOGD("[ROM] Library name: %s\n", info->dlpi_name);
+    ALOGD("[ROM] Library base address: %p\n", (void*) info->dlpi_addr);
+    ALOGD("[ROM] Library end address: %p\n\n",endptr);
     // 函数地址在动态库范围则返回该动态库的基址
     if(addr >= info->dlpi_addr && addr<=end){
-        ALOGD("mikrom Library found address: %p\n\n",(void*)info->dlpi_addr);
+        ALOGD("[ROM] Library found address: %p\n\n",(void*)info->dlpi_addr);
         reinterpret_cast<void**>(data)[0] = reinterpret_cast<void*>(info->dlpi_addr);
     }
     return 0;
@@ -528,7 +528,7 @@ const void* ClassLinker::RegisterNative(
     uintptr_t native_data = reinterpret_cast<uintptr_t>(native_ptr);
     uintptr_t base_data = reinterpret_cast<uintptr_t>(base_addr);
     uintptr_t offset=native_data-base_data;
-    ALOGD("mikrom ClassLinker::RegisterNative %s native_ptr:%p method_idx:%p offset:0x%lx",method->PrettyMethod().c_str(),new_native_method,method->GetMethodIndex(),(void*)offset);
+    ALOGD("[ROM] ClassLinker::RegisterNative %s native_ptr:%p method_idx:%p offset:0x%lx",method->PrettyMethod().c_str(),new_native_method,method->GetMethodIndex(),(void*)offset);
     return new_native_method;
 }
 
@@ -537,19 +537,19 @@ const void* ClassLinker::RegisterNative(
 ​	优化后的输出日志如下
 
 ```
-mik.nativedem: mikrom native: 0x7a621108c8
-mik.nativedem: mikrom Library name: /data/app/~~sm_GZ36XVwW9zZJGRl1ABg==/cn.mik.nativedemo-VJiQEEQ3s9XXRMp6pkOKqA==/base.apk!/lib/arm64-v8a/libnativedemo.so
-mik.nativedem: mikrom Library base address: 0x7a62102000
-mik.nativedem: mikrom Library end address: 0x7a62136000
-mik.nativedem: mikrom Library found address: 0x7a62102000
-mik.nativedem: mikrom ClassLinker::RegisterNative java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI2() native_ptr:0x7a621108c8 method_idx:0x278 offset:0xe8c8
+rom.nativedem: [ROM] native: 0x7a621108c8
+rom.nativedem: [ROM] Library name: /data/app/~~sm_GZ36XVwW9zZJGRl1ABg==/cn.rom.nativedemo-VJiQEEQ3s9XXRMp6pkOKqA==/base.apk!/lib/arm64-v8a/libnativedemo.so
+rom.nativedem: [ROM] Library base address: 0x7a62102000
+rom.nativedem: [ROM] Library end address: 0x7a62136000
+rom.nativedem: [ROM] Library found address: 0x7a62102000
+rom.nativedem: [ROM] ClassLinker::RegisterNative java.lang.String cn.rom.nativedemo.MainActivity.stringFromJNI2() native_ptr:0x7a621108c8 method_idx:0x278 offset:0xe8c8
 
-mik.nativedem: mikrom native: 0x7a621106e8
-mik.nativedem: mikrom Library name: /data/app/~~sm_GZ36XVwW9zZJGRl1ABg==/cn.mik.nativedemo-VJiQEEQ3s9XXRMp6pkOKqA==/base.apk!/lib/arm64-v8a/libnativedemo.so
-mik.nativedem: mikrom Library base address: 0x7a62102000
-mik.nativedem: mikrom Library end address: 0x7a62136000
-mik.nativedem: mikrom Library found address: 0x7a62102000
-mik.nativedem: mikrom ClassLinker::RegisterNative java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI() native_ptr:0x7a621106e8 method_idx:0x277 offset:0xe6e8
+rom.nativedem: [ROM] native: 0x7a621106e8
+rom.nativedem: [ROM] Library name: /data/app/~~sm_GZ36XVwW9zZJGRl1ABg==/cn.rom.nativedemo-VJiQEEQ3s9XXRMp6pkOKqA==/base.apk!/lib/arm64-v8a/libnativedemo.so
+rom.nativedem: [ROM] Library base address: 0x7a62102000
+rom.nativedem: [ROM] Library end address: 0x7a62136000
+rom.nativedem: [ROM] Library found address: 0x7a62102000
+rom.nativedem: [ROM] ClassLinker::RegisterNative java.lang.String cn.rom.nativedemo.MainActivity.stringFromJNI() native_ptr:0x7a621106e8 method_idx:0x277 offset:0xe6e8
 ```
 
 
@@ -563,7 +563,7 @@ mik.nativedem: mikrom ClassLinker::RegisterNative java.lang.String cn.mik.native
 3. **数据备份与恢复**：通过编写脚本和程序实现数据备份和恢复，保证数据安全性和连续性；
 4. **后台任务处理**：例如定时清理缓存、定时更新索引等任务，减轻人工干预压力，并提高系统效率。
 
-第三章已经简单介绍了如何启动一个系统服务。要添加一个新的自定义系统服务，请参考 AOSP 源码中的添加方式来逐步完成。接下来我们将参考源码来添加一个最简单的名为 `MIK_SERVICE` 的自定义系统服务。
+第三章已经简单介绍了如何启动一个系统服务。要添加一个新的自定义系统服务，请参考 AOSP 源码中的添加方式来逐步完成。接下来我们将参考源码来添加一个最简单的名为 `ROM_SERVICE` 的自定义系统服务。
 
 首先，在文件`frameworks/base/core/java/android/content/Context.java`中可以找到定义了各种系统服务的名称。在这里，我们将参考`POWER_SERVICE`服务的添加方式，在其下面添加自定义的服务。同时，在该文件中寻找其他处理`POWER_SERVICE`的代码段，并将自定义的服务同样进行处理。以下是相关代码示例：
 
@@ -572,11 +572,11 @@ public abstract class Context {
     @StringDef(suffix = { "_SERVICE" }, value = {
             POWER_SERVICE,
             ...
-            MIKROM_SERVICE,
+            [ROM]_SERVICE,
     })
     ...
     public static final String POWER_SERVICE = "power";
-    public static final String MIKROM_SERVICE = "mikrom";
+    public static final String [ROM]_SERVICE = "[ROM]";
 }
 ```
 
@@ -600,13 +600,13 @@ public final class SystemServiceRegistry {
                         ctx.mMainThread.getHandler());
             }});
 		//新增的自定义服务注册
-        registerService(Context.MIKROM_SERVICE, MikRomManager.class,
-                        new CachedServiceFetcher<MikRomManager>() {
+        registerService(Context.[ROM]_SERVICE, [ROM]Manager.class,
+                        new CachedServiceFetcher<[ROM]Manager>() {
                     @Override
-                    public MikRomManager createService(ContextImpl ctx) throws ServiceNotFoundException {
-                        IBinder mikromBinder = ServiceManager.getServiceOrThrow(Context.MIKROM_SERVICE);
-                        IMikRomManager mikromService = IMikRomManager.Stub.asInterface(mikromBinder);
-                        return new MikRomManager(ctx.getOuterContext(), mikromService, ctx.mMainThread.getHandler());
+                    public [ROM]Manager createService(ContextImpl ctx) throws ServiceNotFoundException {
+                        IBinder [ROM]Binder = ServiceManager.getServiceOrThrow(Context.[ROM]_SERVICE);
+                        I[ROM]Manager [ROM]Service = I[ROM]Manager.Stub.asInterface([ROM]Binder);
+                        return new [ROM]Manager(ctx.getOuterContext(), [ROM]Service, ctx.mMainThread.getHandler());
                     }});
         ...
 	}
@@ -614,12 +614,12 @@ public final class SystemServiceRegistry {
 }
 ```
 
-`PowerManager`的功能中用到了`THERMAL_SERVICE`系统服务，所以这里不必完全照搬，省略掉这个参数即可。接下来发现注册时用到的`IMikRomManager`、`MikRomManager`并不存在，所以继续参考`PowerManager`的实现，先寻找`IPowerManager`在哪里定义的，通过搜索，发现该接口在文件`frameworks/base/core/java/android/os/IPowerManager.aidl`中。在同目录下新建文件`IMikRomManager.aidl`并添加简单的接口内容如下。
+`PowerManager`的功能中用到了`THERMAL_SERVICE`系统服务，所以这里不必完全照搬，省略掉这个参数即可。接下来发现注册时用到的`I[ROM]Manager`、`[ROM]Manager`并不存在，所以继续参考`PowerManager`的实现，先寻找`IPowerManager`在哪里定义的，通过搜索，发现该接口在文件`frameworks/base/core/java/android/os/IPowerManager.aidl`中。在同目录下新建文件`I[ROM]Manager.aidl`并添加简单的接口内容如下。
 
 ```java
 package android.os;
 
-interface IMikRomManager
+interface I[ROM]Manager
 {
     String hello();
 }
@@ -635,42 +635,42 @@ filegroup {
     srcs: [
         ...
         "android/os/IPowerManager.aidl",
-        "android/os/IMikRomManager.aidl",
+        "android/os/I[ROM]Manager.aidl",
     ],
 }
 ```
 
-​	然后继续寻找`IPowerManager.aidl`在哪里进行实现的，搜索`IPowerManager.Stub`，找到文件`frameworks/base/services/core/java/com/android/server/power/PowerManagerService.java`实现的具体的逻辑。该服务的路径是在`power`目录下，并不适合存放自定义的服务，所以选择在更上级目录创建一个对应的新文件`frameworks/base/services/core/java/com/android/server/MikRomManagerService.java`，代码如下。
+​	然后继续寻找`IPowerManager.aidl`在哪里进行实现的，搜索`IPowerManager.Stub`，找到文件`frameworks/base/services/core/java/com/android/server/power/PowerManagerService.java`实现的具体的逻辑。该服务的路径是在`power`目录下，并不适合存放自定义的服务，所以选择在更上级目录创建一个对应的新文件`frameworks/base/services/core/java/com/android/server/[ROM]ManagerService.java`，代码如下。
 
 ```java
-public class MikRomManagerService extends IMikRomManager.Stub {
+public class [ROM]ManagerService extends I[ROM]Manager.Stub {
     private Context mContext;
-    private String TAG="MikRomManagerService";
-    public MikRomManagerService(Context context){
+    private String TAG="[ROM]ManagerService";
+    public [ROM]ManagerService(Context context){
         mContext=context;
     }
 
     @Override
     public String hello(){
-        return "hello mikrom service";
+        return "hello [ROM] service";
     }
 }
 ```
 
-​	继续找到`PowerManager`的实现，在文件` frameworks/base/core/java/android/os/PowerManager.java`中，所以在这个目录中创建文件`MikRomManager.java`，代码实现如下。
+​	继续找到`PowerManager`的实现，在文件` frameworks/base/core/java/android/os/PowerManager.java`中，所以在这个目录中创建文件`[ROM]Manager.java`，代码实现如下。
 
 ```java
 package android.os;
 
-@SystemService(Context.MIKROM_SERVICE)
-public final class MikRomManager {
-    private static final String TAG = "MikRomManager";
+@SystemService(Context.[ROM]_SERVICE)
+public final class [ROM]Manager {
+    private static final String TAG = "[ROM]Manager";
     final Context mContext;
     @UnsupportedAppUsage
-    final IMikRomManager mService;
+    final I[ROM]Manager mService;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
     final Handler mHandler;
-    public MikRomManager(Context context, IMikRomManager service,Handler handler) {
+    public [ROM]Manager(Context context, I[ROM]Manager service,Handler handler) {
             mContext = context;
             mService = service;
             mHandler = handler;
@@ -699,12 +699,12 @@ private void startOtherServices(@NonNull TimingsTraceAndSlog t) {
     t.traceEnd();
 
 	// 启动自定义的服务
-    t.traceBegin("StartMikRomManagerService");
+    t.traceBegin("Start[ROM]ManagerService");
     try {
-        MikRomManagerService mikromService = new MikRomManagerService(context);
-        ServiceManager.addService(Context.MIKROM_SERVICE,mikromService);
+        [ROM]ManagerService [ROM]Service = new [ROM]ManagerService(context);
+        ServiceManager.addService(Context.[ROM]_SERVICE,[ROM]Service);
     } catch (Throwable e) {
-        reportWtf("starting MikRom Service", e);
+        reportWtf("starting [ROM] Service", e);
     }
     t.traceEnd();
     ...
@@ -722,13 +722,13 @@ lunch aosp_blueline-userdebug
 make update-api -j8
 
 // 出现下面的错误
-frameworks/base/core/java/android/os/MikRomManager.java:10: error: Method parameter type `android.content.Context` violates package layering: nothin
+frameworks/base/core/java/android/os/[ROM]Manager.java:10: error: Method parameter type `android.content.Context` violates package layering: nothin
 g in `package android.os` should depend on `package android.content` [PackageLayering]
-frameworks/base/core/java/android/os/MikRomManager.java:16: error: Managers must always be obtained from Context; no direct constructors [ManagerCon
+frameworks/base/core/java/android/os/[ROM]Manager.java:16: error: Managers must always be obtained from Context; no direct constructors [ManagerCon
 structor]
-frameworks/base/core/java/android/os/MikRomManager.java:16: error: Missing nullability on parameter `context` in method `MikRomManager` [MissingNull
+frameworks/base/core/java/android/os/[ROM]Manager.java:16: error: Missing nullability on parameter `context` in method `[ROM]Manager` [MissingNull
 ability]
-frameworks/base/core/java/android/os/MikRomManager.java:16: error: Missing nullability on parameter `service` in method `MikRomManager` [MissingNull
+frameworks/base/core/java/android/os/[ROM]Manager.java:16: error: Missing nullability on parameter `service` in method `[ROM]Manager` [MissingNull
 ability]
 ```
 
@@ -740,7 +740,7 @@ metalava_framework_docs_args = "--manifest $(location core/res/AndroidManifest.x
     "--api-lint-ignore-prefix android.os."
 ```
 
-​	根据上面另一个错误提示知道`Managers`必须是单例模式，并且`String`的参数火返回值需要允许为`null`值的，也就是要携带`@Nullable`注解，调用`service`函数时，需要捕获异常。针对以上的提示对`MikRomManager`进行调整如下。
+​	根据上面另一个错误提示知道`Managers`必须是单例模式，并且`String`的参数火返回值需要允许为`null`值的，也就是要携带`@Nullable`注解，调用`service`函数时，需要捕获异常。针对以上的提示对`[ROM]Manager`进行调整如下。
 
 ```java
 package android.os;
@@ -750,28 +750,28 @@ import android.annotation.Nullable;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.annotation.SystemService;
-import android.os.IMikRomManager;
+import android.os.I[ROM]Manager;
 
-@SystemService(Context.MIKROM_SERVICE)
-public final class MikRomManager {
-    private static final String TAG = "MikRomManager";
-    IMikRomManager mService;
-    public MikRomManager(IMikRomManager service) {
+@SystemService(Context.[ROM]_SERVICE)
+public final class [ROM]Manager {
+    private static final String TAG = "[ROM]Manager";
+    I[ROM]Manager mService;
+    public [ROM]Manager(I[ROM]Manager service) {
             mService = service;
     }
-    private static MikRomManager sInstance;
+    private static [ROM]Manager sInstance;
     /**
      *@hide
      */
     @NonNull
     @UnsupportedAppUsage
-    public static MikRomManager getInstance() {
-        synchronized (MikRomManager.class) {
+    public static [ROM]Manager getInstance() {
+        synchronized ([ROM]Manager.class) {
             if (sInstance == null) {
                 try {
-                    IBinder mikromBinder = ServiceManager.getServiceOrThrow(Context.MIKROM_SERVICE);
-                    IMikRomManager mikromService = IMikRomManager.Stub.asInterface(mikromBinder);
-                    sInstance= new MikRomManager(mikromService);
+                    IBinder [ROM]Binder = ServiceManager.getServiceOrThrow(Context.[ROM]_SERVICE);
+                    I[ROM]Manager [ROM]Service = I[ROM]Manager.Stub.asInterface([ROM]Binder);
+                    sInstance= new [ROM]Manager([ROM]Service);
                 } catch (ServiceManager.ServiceNotFoundException e) {
                     throw new IllegalStateException(e);
                 }
@@ -797,11 +797,11 @@ public final class SystemServiceRegistry {
 	...
 	static {
 		...
-        registerService(Context.MIKROM_SERVICE, MikRomManager.class,
-                        new CachedServiceFetcher<MikRomManager>() {
+        registerService(Context.[ROM]_SERVICE, [ROM]Manager.class,
+                        new CachedServiceFetcher<[ROM]Manager>() {
                     @Override
-                    public MikRomManager createService(ContextImpl ctx) throws ServiceNotFoundException {
-                        return MikRomManager.getInstance();
+                    public [ROM]Manager createService(ContextImpl ctx) throws ServiceNotFoundException {
+                        return [ROM]Manager.getInstance();
                     }});
         ...
 	}
@@ -812,29 +812,29 @@ public final class SystemServiceRegistry {
 ​	经过修改后，再重新编译就能正常编译完成了，最后还需要对`selinux`进行修改，对新增的服务设置权限。找到文件`system/sepolicy/public/service.te`，参考其他的服务定义，在最后添加一条类型定义如下。
 
 ```
-type mikrom_service, system_api_service, system_server_service, service_manager_type;
+type [ROM]_service, system_api_service, system_server_service, service_manager_type;
 ```
 
-​	然后找到文件`system/sepolicy/private/service_contexts`，在最后给我们`Context`中定义的`mikrom`服务设置使用刚刚定义的`mikrom_service`类型的权限，修改如下。
+​	然后找到文件`system/sepolicy/private/service_contexts`，在最后给我们`Context`中定义的`[ROM]`服务设置使用刚刚定义的`[ROM]_service`类型的权限，修改如下。
 
 ```
-mikrom                                    u:object_r:mikrom_service:s0
+[ROM]                                    u:object_r:[ROM]_service:s0
 ```
 
 ​	为自定义的系统服务设置了`selinux`权限后，还需要给应用开启权限访问这个系统服务，找到`system/sepolicy/public/untrusted_app.te`文件，添加如下策略开放让其能查找该系统服务。
 
 ```
-allow untrusted_app mikrom_service:service_manager find;
-allow untrusted_app_27 mikrom_service:service_manager find;
-allow untrusted_app_25 mikrom_service:service_manager find;
+allow untrusted_app [ROM]_service:service_manager find;
+allow untrusted_app_27 [ROM]_service:service_manager find;
+allow untrusted_app_25 [ROM]_service:service_manager find;
 ```
 
 ​	这时直接编译会出现下面的错误。
 
 ```
-FAILED: ~/android_src/mikrom_out/target/product/blueline/obj/FAKE/sepolicy_freeze_test_intermediates/sepolicy_freeze_test
+FAILED: ~/android_src/out/target/product/blueline/obj/FAKE/sepolicy_freeze_test_intermediates/sepolicy_freeze_test
 /bin/bash -c "(diff -rq -x bug_map system/sepolicy/prebuilts/api/31.0/public system/sepolicy/public ) && (diff -rq -x bug_map system/sepolicy/prebui
-lts/api/31.0/private system/sepolicy/private ) && (touch ~/android_src/mikrom_out/target/product/blueline/obj/FAKE/sepolicy_freeze_test_int
+lts/api/31.0/private system/sepolicy/private ) && (touch ~/android_src/out/target/product/blueline/obj/FAKE/sepolicy_freeze_test_int
 ermediates/sepolicy_freeze_test )"
 ```
 
@@ -850,25 +850,25 @@ SELinux: The following public types were found added to the policy without an en
 ```
 adb shell
 
-service list|grep mikrom
+service list|grep [ROM]
 
 // 成功查询到自定义的系统服务
-120	mikrom: [android.os.IMikRomManager]
+120	[ROM]: [android.os.I[ROM]Manager]
 ```
 
-​	最后开发测试的`app`对这个系统服务调用`hello`函数。创建一个`Android`项目，在`java`目录下创建`package`路径`android.os`，然后在该路径下创建一个文件`IMikRomManager.aidl`，内容和前文添加系统服务时一至，内容如下。
+​	最后开发测试的`app`对这个系统服务调用`hello`函数。创建一个`Android`项目，在`java`目录下创建`package`路径`android.os`，然后在该路径下创建一个文件`I[ROM]Manager.aidl`，内容和前文添加系统服务时一至，内容如下。
 
 ```java
 package android.os;
 
-interface IMikRomManager
+interface I[ROM]Manager
 {
     String hello();
 }
 
 ```
 
-​	通过反射获取`ServiceManager`类，调用该类的`getService`函数得到`mikrom`的系统服务，将返回的结果转换为刚刚定义的接口对象，最后调用目标函数拿到结果。实现代码如下。
+​	通过反射获取`ServiceManager`类，调用该类的`getService`函数得到`[ROM]`的系统服务，将返回的结果转换为刚刚定义的接口对象，最后调用目标函数拿到结果。实现代码如下。
 
 ```java
 
@@ -886,12 +886,12 @@ public class MainActivity extends AppCompatActivity {
             Method getServiceMethod = localClass.getMethod("getService", new Class[] {String.class});
             if(getServiceMethod != null) {
                 // 获取自定义的服务
-                Object objResult = getServiceMethod.invoke(localClass, new Object[]{"mikrom"});
+                Object objResult = getServiceMethod.invoke(localClass, new Object[]{"[ROM]"});
                 if (objResult != null) {
                     IBinder binder = (IBinder) objResult;
-                    IMikRomManager iMikRom = IMikRomManager.Stub.asInterface(binder);
+                    I[ROM]Manager i[ROM] = I[ROM]Manager.Stub.asInterface(binder);
                     // 调用服务中的实现
-                    String msg= iMikRom.hello();
+                    String msg= i[ROM].hello();
                     Log.i("MainActivity", "msg: " + msg);
                 }
             }
@@ -913,7 +913,7 @@ public class MainActivity extends AppCompatActivity {
 ​	最后成功输出结果如下。
 
 ```
-cn.mik.myservicedemo I/MainActivity: msg: hello mikrom service
+cn.rom.myservicedemo I/MainActivity: msg: hello [ROM] service
 ```
 
 
@@ -1477,7 +1477,7 @@ private ParseResult<ParsingPackage> parseBaseApplication(ParseInput input,
 
             pkg.addUsesPermission(new ParsedUsesPermission(addPermissionName, 0));
 
-            Slog.w("mikrom","parseBaseApplication add android.permission.INTERNET " );
+            Slog.w("[ROM]","parseBaseApplication add android.permission.INTERNET " );
         }
 		// add end
         boolean hasActivityOrder = false;
@@ -1537,7 +1537,7 @@ protected void onCreate(Bundle savedInstanceState) {
         Class<?> clazz1 = null;
         try {
             // 通过反射调用函数
-            clazz1 = pathClassLoader.loadClass("cn.mik.myjar.MyCommon");
+            clazz1 = pathClassLoader.loadClass("cn.rom.myjar.MyCommon");
             Method method = clazz1.getDeclaredMethod("getMyJarVer");
             Object result = method.invoke(null);
             Log.i("MainActivity","getMyJarVer:"+result);
@@ -1590,7 +1590,7 @@ private void InjectJar(){
     Class<?> clazz1 = null;
     try {
         // 通过反射调用函数
-        clazz1 = pathClassLoader.loadClass("cn.mik.myjar.MyCommon");
+        clazz1 = pathClassLoader.loadClass("cn.rom.myjar.MyCommon");
         Method method = clazz1.getDeclaredMethod("injectJar");
         Object result = method.invoke(null);
 

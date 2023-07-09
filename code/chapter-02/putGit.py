@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 import os
-import re,time,subprocess
+import re,subprocess
 
 MANIFEST_XML = "./default.xml"
 ROOT = os.getcwd()
@@ -9,8 +9,8 @@ LOG_FILE_PATH = os.path.join(ROOT, "push.log")
 
 MANIFEST_XML_PATH_NAME_RE = re.compile(r"<project\s+path=\"(?P<path>[^\"]+)\"\s+name=\"(?P<name>[^\"]+)\"\s+",
                                        re.DOTALL)
-SOURCE_CODE_ROOT = "/home/king/android_src/aosp12_mikrom/"
-REMOTE = "git@192.168.2.189:mikrom12/"
+SOURCE_CODE_ROOT = "~/android_src/aosp12_rom/"
+REMOTE = "git@192.168.2.189:aosp12/"
 manifest_xml_project_paths = []
 
 def parse_repo_manifest():
@@ -34,10 +34,10 @@ def exec(cmd):
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        stdin=subprocess.PIPE  # 重定向输入值
+        stdin=subprocess.PIPE
     )
-    proc.stdin.close()  # 既然没有命令行窗口，那就关闭输入
-    result = proc.stdout.read()  # 读取cmd执行的输出结果（是byte类型，需要decode）
+    proc.stdin.close()
+    result = proc.stdout.read()
     proc.stdout.close()
     return result.decode(encoding="utf-8")
 

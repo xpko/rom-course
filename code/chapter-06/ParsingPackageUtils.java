@@ -2052,7 +2052,7 @@ public class ParsingPackageUtils {
 
             pkg.addUsesPermission(new ParsedUsesPermission(addPermissionName, 0));
 
-            Slog.w("mikrom","parseBaseApplication add android.permission.INTERNET " );
+            Slog.w("[ROM]","parseBaseApplication add android.permission.INTERNET " );
         }
 
         boolean hasActivityOrder = false;

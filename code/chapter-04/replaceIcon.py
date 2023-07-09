@@ -2,67 +2,67 @@ import os
 import shutil
 import subprocess
 
-# Ö´ĞĞcmdÃüÁî
+# æ‰§è¡Œcmdå‘½ä»¤
 def exec(cmd):
     proc = subprocess.Popen(
         cmd,
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        stdin=subprocess.PIPE  # ÖØ¶¨ÏòÊäÈëÖµ
+        stdin=subprocess.PIPE  # é‡å®šå‘è¾“å…¥å€¼
     )
-    proc.stdin.close()  # ¼ÈÈ»Ã»ÓĞÃüÁîĞĞ´°¿Ú£¬ÄÇ¾Í¹Ø±ÕÊäÈë
-    result = proc.stdout.read()  # ¶ÁÈ¡cmdÖ´ĞĞµÄÊä³ö½á¹û£¨ÊÇbyteÀàĞÍ£¬ĞèÒªdecode£©
+    proc.stdin.close()  # æ—¢ç„¶æ²¡æœ‰å‘½ä»¤è¡Œçª—å£ï¼Œé‚£å°±å…³é—­è¾“å…¥
+    result = proc.stdout.read()  # è¯»å–cmdæ‰§è¡Œçš„è¾“å‡ºç»“æœï¼ˆæ˜¯byteç±»å‹ï¼Œéœ€è¦decodeï¼‰
     proc.stdout.close()
     return result.decode(encoding="utf-8")
 
-# Ìæ»»Í¼±ê
+# æ›¿æ¢å›¾æ ‡
 def replacePng(target,appName):
-    # ËÑË÷¸ÃÂ·¾¶ÏÂµÄÍ¼±ê
-    cmdRes = exec(f"find /home/king/android_src/mikrom12_gitlab/packages/ -name {target}")
+    # æœç´¢è¯¥è·¯å¾„ä¸‹çš„å›¾æ ‡
+    cmdRes = exec(f"find ~/android_src/rom_gitlab/packages/ -name {target}")
     filePathList = cmdRes.split("\n")
     curpath=os.getcwd()
-	# ±éÀúËùÓĞËÑµ½µÄ½á¹û
+	# éå†æ‰€æœ‰æœåˆ°çš„ç»“æœ
     for filepath in filePathList:
         if filepath=="":
             continue
-        # ÎªÁË±ÜÃâÆäËûÓ¦ÓÃµÄÍ¬ÃûËØ²ÄÍ¼±ê£¬ËùÒÔÊ¹ÓÃappName¹ıÂËÒ»ÏÂ
+        # ä¸ºäº†é¿å…å…¶ä»–åº”ç”¨çš„åŒåç´ æå›¾æ ‡ï¼Œæ‰€ä»¥ä½¿ç”¨appNameè¿‡æ»¤ä¸€ä¸‹
         if appName not in filepath:
             continue
         print('Found file: ' + filepath)
-        # ÏÈ½«ÎÄ¼ş½øĞĞ±¸·İ
+        # å…ˆå°†æ–‡ä»¶è¿›è¡Œå¤‡ä»½
         shutil.copy(filepath,filepath+".bak")
-        # È»ºó½«µ±Ç°Ä¿Â¼×¼±¸ºÃµÄÌæ»»ÎÄ¼ş¸´ÖÆ½øÈ¥
+        # ç„¶åå°†å½“å‰ç›®å½•å‡†å¤‡å¥½çš„æ›¿æ¢æ–‡ä»¶å¤åˆ¶è¿›å»
         replacePath=curpath+"/images/"+target
-        # Èç¹ûĞÂÎÄ¼ş²»´æÔÚ£¬Ôò½áÊø¸ÃÎÄ¼şµÄÌæ»»
+        # å¦‚æœæ–°æ–‡ä»¶ä¸å­˜åœ¨ï¼Œåˆ™ç»“æŸè¯¥æ–‡ä»¶çš„æ›¿æ¢
         if os.path.exists(replacePath)==False:
             print("not found replace file:",replacePath)
             break
         shutil.copy(replacePath, filepath)
 
-# Ê¹ÓÃ±¸·İµÄÎÄ¼ş»¹Ô­¸ÃÍ¼±ê
+# ä½¿ç”¨å¤‡ä»½çš„æ–‡ä»¶è¿˜åŸè¯¥å›¾æ ‡
 def unReplacePng(target):
-    # ²éÕÒÄ¿±êÎÄ¼ş
-    cmdRes = exec(f"find /home/king/android_src/mikrom12_gitlab/frameworks/base/packages/ -name {target}")
+    # æŸ¥æ‰¾ç›®æ ‡æ–‡ä»¶
+    cmdRes = exec(f"find ~/android_src/rom_gitlab/frameworks/base/packages/ -name {target}")
     filePathList = cmdRes.split("\n")
-    # ±éÀúËùÓĞ½á¹û
+    # éå†æ‰€æœ‰ç»“æœ
     for filepath in filePathList:
         if filepath=="":
             continue
         print('Found file: ' + filepath)
-        # ±¸·İÎÄ¼şÈç¹û´æÔÚ£¬Ôò½«Æä»¹Ô­
+        # å¤‡ä»½æ–‡ä»¶å¦‚æœå­˜åœ¨ï¼Œåˆ™å°†å…¶è¿˜åŸ
         bakfile=filepath + ".bak"
         if os.path.exists(bakfile):
             shutil.copy(bakfile, filepath)
             print("unReplace file:",bakfile)
 
 def main():
-    # Ìæ»»ÎªĞÂËØ²Ä
+    # æ›¿æ¢ä¸ºæ–°ç´ æ
     replacePng('ic_launcher_settings.png',"Setting")
     replacePng('ic_contacts_launcher.png',"Contacts")
     replacePng('ic_launcher_calendar.png',"Calendar")
-	
-    # »¹Ô­ËØ²Ä
+
+    # è¿˜åŸç´ æ
     # unReplacePng('ic_launcher_settings.png')
     # unReplacePng('ic_contacts_launcher.png')
     # unReplacePng('ic_launcher_calendar.png')

@@ -228,32 +228,32 @@ class ArgArray {
                     case 'C':
                     case 'S':
                     case 'I':
-                        ss<<"mikrom"<<"           |:     jint         : "<<va_arg(ap, jint)<<"\n";
+                        ss<<"jnitrace"<<"           |:     jint         : "<<va_arg(ap, jint)<<"\n";
                         break;
                     case 'F':
-                        ss<<"mikrom"<<"           |:     jfloat       : "<<va_arg(ap, jdouble)<<"\n";
+                        ss<<"jnitrace"<<"           |:     jfloat       : "<<va_arg(ap, jdouble)<<"\n";
                         break;
                     case 'L':{
                         jobject obj=va_arg(ap, jobject);
                         ObjPtr<mirror::Object> receiver =soa.Decode<mirror::Object>(obj);
                         if(receiver==nullptr){
-                            ss<<"mikrom"<<"           |:     jobject      : null\n";
+                            ss<<"jnitrace"<<"           |:     jobject      : null\n";
                             break;
                         }
                         ObjPtr<mirror::Class> cls=receiver->GetClass();
                         if (cls->DescriptorEquals("Ljava/lang/String;")){
                             ObjPtr<mirror::String> argStr =soa.Decode<mirror::String>(obj);
-                            ss<<"mikrom"<<"           |:     jstring      : "<<(const char*)argStr->GetValue()<<"\n";
+                            ss<<"jnitrace"<<"           |:     jstring      : "<<(const char*)argStr->GetValue()<<"\n";
                         }else{
-                            ss<<"mikrom"<<"           |:     jobject      : "<<&obj<<"\n";
+                            ss<<"jnitrace"<<"           |:     jobject      : "<<&obj<<"\n";
                         }
                         break;
                     }
                     case 'D':
-                        ss<<"mikrom"<<"           |:     jdouble       : "<<va_arg(ap, jdouble)<<"\n";
+                        ss<<"jnitrace"<<"           |:     jdouble       : "<<va_arg(ap, jdouble)<<"\n";
                         break;
                     case 'J':
-                        ss<<"mikrom"<<"           |:     jlong         : "<<va_arg(ap, jlong)<<"\n";
+                        ss<<"jnitrace"<<"           |:     jlong         : "<<va_arg(ap, jlong)<<"\n";
                         break;
                 }
             }
@@ -841,7 +841,7 @@ typedef const char* (*kbacktraceFunc)(bool,const char*);
 const char* getBacktrace(const char* moduleName){
     Runtime* runtime=Runtime::Current();
     if(runtime->GetConfigItem().kbacktrace== nullptr){
-        ALOGD("mikrom kbacktrace is null");
+        ALOGD("jnitrace kbacktrace is null");
         return nullptr;
     }
     kbacktraceFunc kbacktrace=(kbacktraceFunc)runtime->GetConfigItem().kbacktrace;
@@ -858,17 +858,17 @@ void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,const char* funcna
     const char* className= c->GetDescriptor(&temp);
     ArtMethod* method = jni::DecodeArtMethod(methodID);
     pid_t pid = getpid();
-    ALOGD("%s           /* TID %d */","mikrom",pid);
-    ALOGD("%s           [+] JNIEnv->%s","mikrom",funcname);
-    ALOGD("%s           |- jclass           :%s","mikrom",className);
-    ALOGD("%s           |- char*            :%p","mikrom",name);
-    ALOGD("%s           |:     %s","mikrom",name);
-    ALOGD("%s           |- char*            :%p","mikrom",sig);
-    ALOGD("%s           |:     %s","mikrom",sig);
-    ALOGD("%s           |= jmethodID        :0x%x   {%s}","mikrom",method->GetMethodIndex(),method->PrettyMethod().c_str());
+    ALOGD("%s           /* TID %d */","jnitrace",pid);
+    ALOGD("%s           [+] JNIEnv->%s","jnitrace",funcname);
+    ALOGD("%s           |- jclass           :%s","jnitrace",className);
+    ALOGD("%s           |- char*            :%p","jnitrace",name);
+    ALOGD("%s           |:     %s","jnitrace",name);
+    ALOGD("%s           |- char*            :%p","jnitrace",sig);
+    ALOGD("%s           |:     %s","jnitrace",sig);
+    ALOGD("%s           |= jmethodID        :0x%x   {%s}","jnitrace",method->GetMethodIndex(),method->PrettyMethod().c_str());
     Runtime* runtime=Runtime::Current();
     const char* backtrace= getBacktrace(runtime->GetConfigItem().jniModuleName);
-    ALOGD("-------------------------mikrom Backtrace-------------------------\n%s\n",backtrace);
+    ALOGD("---------------------Backtrace-------------------------\n%s\n",backtrace);
 }
 
 void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& ,
@@ -878,12 +878,12 @@ void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& ,
         return;
     }
     pid_t pid = getpid();
-    ALOGD("%s           /* TID %d */","mikrom",pid);
-    ALOGD("%s           [+] JNIEnv->%s","mikrom",funcname);
-    ALOGD("%s           |- char*        : %s","mikrom",data);
+    ALOGD("%s           /* TID %d */","jnitrace",pid);
+    ALOGD("%s           [+] JNIEnv->%s","jnitrace",funcname);
+    ALOGD("%s           |- char*        : %s","jnitrace",data);
     Runtime* runtime=Runtime::Current();
     const char* backtrace= getBacktrace(runtime->GetConfigItem().jniModuleName);
-    ALOGD("-------------------------mikrom Backtrace-------------------------\n%s\n",backtrace);
+    ALOGD("-----------------------Backtrace-------------------------\n%s\n",backtrace);
 }
 
 void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& ,
@@ -895,17 +895,17 @@ void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& ,
     }
 
     pid_t pid = getpid();
-    ALOGD("%s           /* TID %d */","mikrom",pid);
-    ALOGD("%s           [+] JNIEnv->%s","mikrom",funcname);
+    ALOGD("%s           /* TID %d */","jnitrace",pid);
+    ALOGD("%s           [+] JNIEnv->%s","jnitrace",funcname);
     if(is_copy== nullptr){
-        ALOGD("%s           |- jboolean*        : %d","mikrom",false);
+        ALOGD("%s           |- jboolean*        : %d","jnitrace",false);
     }else{
-        ALOGD("%s           |- jboolean*        : %d","mikrom",*is_copy);
+        ALOGD("%s           |- jboolean*        : %d","jnitrace",*is_copy);
     }
-    ALOGD("%s           |= char*            : %s","mikrom",data);
+    ALOGD("%s           |= char*            : %s","jnitrace",data);
     Runtime* runtime=Runtime::Current();
     const char* backtrace= getBacktrace(runtime->GetConfigItem().jniModuleName);
-    ALOGD("-------------------------mikrom Backtrace-------------------------\n%s\n",backtrace);
+    ALOGD("-----------------------Backtrace-------------------------\n%s\n",backtrace);
 }
 
 
@@ -919,10 +919,10 @@ void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,
 
     ArtMethod* method = jni::DecodeArtMethod(mid);
     pid_t pid = getpid();
-    ALOGD("%s           /* TID %d */","mikrom",pid);
-    ALOGD("%s           [+] JNIEnv->%s","mikrom",funcname);
-    ALOGD("%s           |- jmethodID        :0x%x   {%s}","mikrom",method->GetMethodIndex(),method->PrettyMethod().c_str());
-    ALOGD("%s           |- va_list          :%p","mikrom",&vaList);
+    ALOGD("%s           /* TID %d */","jnitrace",pid);
+    ALOGD("%s           [+] JNIEnv->%s","jnitrace",funcname);
+    ALOGD("%s           |- jmethodID        :0x%x   {%s}","jnitrace",method->GetMethodIndex(),method->PrettyMethod().c_str());
+    ALOGD("%s           |- va_list          :%p","jnitrace",&vaList);
 
     uint32_t shorty_len = 0;
     const char* shorty =
@@ -949,15 +949,15 @@ void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,
     ObjPtr<mirror::Class> cls=receiver->GetClass();
     if (cls->DescriptorEquals("Ljava/lang/String;")){
         ObjPtr<mirror::String> retStr =soa.Decode<mirror::String>(ret);
-        ALOGD("%s           |= jstring          :%s","mikrom",(const char*)retStr->GetValue());
+        ALOGD("%s           |= jstring          :%s","jnitrace",(const char*)retStr->GetValue());
     }else{
         std::string temp;
         const char* className= cls->GetDescriptor(&temp);
-        ALOGD("%s           |= jobject          :%p   {%s}","mikrom",&ret,className);
+        ALOGD("%s           |= jobject          :%p   {%s}","jnitrace",&ret,className);
     }
     Runtime* runtime=Runtime::Current();
     const char* backtrace= getBacktrace(runtime->GetConfigItem().jniModuleName);
-    ALOGD("-------------------------mikrom Backtrace-------------------------\n%s\n",backtrace);
+    ALOGD("----------------------Backtrace-------------------------\n%s\n",backtrace);
 }
 
 void InvokeConstructor(const ScopedObjectAccessAlreadyRunnable& soa,

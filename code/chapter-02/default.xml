@@ -3,7 +3,7 @@
 
   <remote  name="origin"
            fetch=".."
-           review="http://192.168.2.189:mikrom12/" />
+           review="http://192.168.2.189:aosp12/" />
   <default revision="master"
            remote="origin"
            sync-j="4" />

@@ -79,10 +79,10 @@ public class MainActivity extends AppCompatActivity {
 
 ```c++
 extern "C" JNIEXPORT jstring JNICALL
-Java_cn_mik_nativedemo_MainActivity_stringFromJNI(
+Java_cn_rom_nativedemo_MainActivity_stringFromJNI(
         JNIEnv* env,
         jobject obj /* this */) {
-    jclass cls= env->FindClass("cn/mik/nativedemo/MainActivity");
+    jclass cls= env->FindClass("cn/rom/nativedemo/MainActivity");
     jmethodID mid=env->GetMethodID(cls,"demo","()Ljava/lang/String;");
     jstring data= (jstring)env->CallObjectMethod(obj,mid);
     std::string datatmp= env->GetStringUTFChars(data,nullptr);
@@ -93,7 +93,7 @@ Java_cn_mik_nativedemo_MainActivity_stringFromJNI(
 ​案例准备就绪后，接着通过命令，让`JniTrace`启动应用并监控`JNI`的调用，操作如下。
 
 ```
-jnitrace -l libnativedemo.so cn.mik.nativedemo
+jnitrace -l libnativedemo.so cn.rom.nativedemo
 ```
 
 ​默认会以`spawn`的方式进行附加，所以应用会自动拉起，点击按钮触发`JNI`调用，`JniTrace`则会输出日志如下。
@@ -104,8 +104,8 @@ jnitrace -l libnativedemo.so cn.mik.nativedemo
     309 ms [+] JNIEnv->FindClass							// 调用的JNI函数
     309 ms |- JNIEnv*          : 0x7d3892f610				// 参数1的类型和值
     309 ms |- char*            : 0x7c011aaf00				// 参数2的类型和值
-    309 ms |:     cn/mik/nativedemo/MainActivity
-    309 ms |= jclass           : 0x71    { cn/mik/nativedemo/MainActivity }// 参数3的类型和值
+    309 ms |:     cn/rom/nativedemo/MainActivity
+    309 ms |= jclass           : 0x71    { cn/rom/nativedemo/MainActivity }// 参数3的类型和值
 	// 下面是调用的堆栈
     309 ms ---------------------------------------Backtrace---------------------------------------
     309 ms |->       0x7c011919c4: _ZN7_JNIEnv9FindClassEPKc+0x2c (libnativedemo.so:0x7c01183000)
@@ -114,7 +114,7 @@ jnitrace -l libnativedemo.so cn.mik.nativedemo
            /* TID 6996 */
     310 ms [+] JNIEnv->GetMethodID
     310 ms |- JNIEnv*          : 0x7d3892f610
-    310 ms |- jclass           : 0x71    { cn/mik/nativedemo/MainActivity }
+    310 ms |- jclass           : 0x71    { cn/rom/nativedemo/MainActivity }
     310 ms |- char*            : 0x7c011aaf1f
     310 ms |:     demo
     310 ms |- char*            : 0x7c011aaf24
@@ -216,7 +216,7 @@ protected void onCreate(Bundle savedInstanceState) {
 ​为了访问方便，配置文件以`json`的格式进行存储，在执行进入应用主进程后，则读取该配置文件，然后再根据配置的值进行相应的处理。下面是该配置文件的内容。
 
 ```
-[{"packageName":"cn.mik.nativedemo","isJNIMethodPrint":true,"isRegisterNativePrint":true,"jniModuleName":"libnativedemo.so","jniFuncName":"stringFromJNI"}]
+[{"packageName":"cn.rom.nativedemo","isJNIMethodPrint":true,"isRegisterNativePrint":true,"jniModuleName":"libnativedemo.so","jniFuncName":"stringFromJNI"}]
 ```
 
 ​为了便于访问，使用一个对应的类对象来解析该配置文件，类结构定义如下。
@@ -680,7 +680,7 @@ static jmethodID GetMethodID(JNIEnv* env, jclass java_class, const char* name, c
            /* TID 6996 */
     310 ms [+] JNIEnv->GetMethodID
     310 ms |- JNIEnv*          : 0x7d3892f610
-    310 ms |- jclass           : 0x71    { cn/mik/nativedemo/MainActivity }
+    310 ms |- jclass           : 0x71    { cn/rom/nativedemo/MainActivity }
     310 ms |- char*            : 0x7c011aaf1f
     310 ms |:     demo
     310 ms |- char*            : 0x7c011aaf24
@@ -865,10 +865,10 @@ public String demo(int a,float b,long c,String d){
 
 ```c++
 extern "C" JNIEXPORT jstring JNICALL
-Java_cn_mik_nativedemo_MainActivity_stringFromJNI(
+Java_cn_rom_nativedemo_MainActivity_stringFromJNI(
         JNIEnv* env,
         jobject obj /* this */) {
-    jclass cls= env->FindClass("cn/mik/nativedemo/MainActivity");
+    jclass cls= env->FindClass("cn/rom/nativedemo/MainActivity");
     jmethodID mid=env->GetMethodID(cls,"demo", "(IFLjava/lang/String;)Ljava/lang/String;");
     jstring c=env->NewStringUTF("newdemo");
     jstring data= (jstring)env->CallObjectMethod(obj,mid,1,2.0f,c);
@@ -1006,21 +1006,21 @@ void VarArgsShowArg(const ScopedObjectAccessAlreadyRunnable& soa,
 ​	到这里案例中使用的相关`JNI`函数处理就添加完成了，编译后刷入测试机。当点击样例中的按钮时，最后输出效果如下所示。
 
 ```
-jnitrace enter jni java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI() 0x74656a77b0
+jnitrace enter jni java.lang.String cn.rom.nativedemo.MainActivity.stringFromJNI() 0x74656a77b0
 jnitrace           /* TID 5465 */
 jnitrace           [+] JNIEnv->GetMethodID
-jnitrace           |- jclass           :Lcn/mik/nativedemo/MainActivity;
+jnitrace           |- jclass           :Lcn/rom/nativedemo/MainActivity;
 jnitrace           |- char*            :0x7275d69f1b
 jnitrace           |:     demo
 jnitrace           |- char*            :0x7275d69eef
 jnitrace           |:     (IFLjava/lang/String;)Ljava/lang/String;
-jnitrace           |= jmethodID        :0x277   {java.lang.String cn.mik.nativedemo.MainActivity.demo(int, float, java.lang.String)}
+jnitrace           |= jmethodID        :0x277   {java.lang.String cn.rom.nativedemo.MainActivity.demo(int, float, java.lang.String)}
 jnitrace           /* TID 5465 */
 jnitrace           [+] JNIEnv->NewStringUTF
 jnitrace           |- char*        : newdemo
 jnitrace           /* TID 5465 */
 jnitrace           [+] JNIEnv->CallObjectMethodV
-jnitrace           |- jmethodID        :0x277   {java.lang.String cn.mik.nativedemo.MainActivity.demo(int, float, java.lang.String)}
+jnitrace           |- jmethodID        :0x277   {java.lang.String cn.rom.nativedemo.MainActivity.demo(int, float, java.lang.String)}
 jnitrace           |- va_list          :0x7fe0461bb0
 jnitrace           |:     jint         : 1
 jnitrace           |:     jfloat       : 2
@@ -1033,7 +1033,7 @@ jnitrace           |= char*            : 3.0newdemo
 jnitrace           /* TID 5465 */
 jnitrace           [+] JNIEnv->NewStringUTF
 jnitrace           |- char*        : 3.0newdemo
-jnitrace leave jni java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI()
+jnitrace leave jni java.lang.String cn.rom.nativedemo.MainActivity.stringFromJNI()
 ```
 
 
@@ -1475,7 +1475,7 @@ const char* kbacktrace(bool with_context,const char* moduleName) {
 #define ALOGI(fmt, ...) __android_log_print(LOG_PRIORITY, TAG, fmt, ##__VA_ARGS__)
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mik_nativecppdemo_MainActivity_stringFromJNI(
+Java_cn_rom_nativecppdemo_MainActivity_stringFromJNI(
         JNIEnv* env,
         jobject obj /* this */) {
     jstring resObj=env->NewStringUTF("test");
@@ -1562,9 +1562,9 @@ endif()
 ​	最后运行这个新的测试样例，输出日志如下。
 
 ```
-com.mik.nativecppdemo                I  -------------------------Backtrace-------------------------
-                                                                                                    #01 pc 000000000001e02c  /data/app/~~-XZEZm9rvOBJhceZK8LuKg==/com.mik.nativecppdemo-SoSNN-J1eghWN4JW7rNYqw==/base.apk!/lib/arm64-v8a/libnativecppdemo.so
-                                                                                                    #02 pc 000000000001dd74  /data/app/~~-XZEZm9rvOBJhceZK8LuKg==/com.mik.nativecppdemo-SoSNN-J1eghWN4JW7rNYqw==/base.apk!/lib/arm64-v8a/libnativecppdemo.so (Java_com_mik_nativecppdemo_MainActivity_stringFromJNI+180)
+cn.rom.nativecppdemo                I  -------------------------Backtrace-------------------------
+    #01 pc 000000000001e02c  /data/app/~~-XZEZm9rvOBJhceZK8LuKg==/cn.rom.nativecppdemo-SoSNN-J1eghWN4JW7rNYqw==/base.apk!/lib/arm64-v8a/libnativecppdemo.so
+    #02 pc 000000000001dd74  /data/app/~~-XZEZm9rvOBJhceZK8LuKg==/cn.rom.nativecppdemo-SoSNN-J1eghWN4JW7rNYqw==/base.apk!/lib/arm64-v8a/libnativecppdemo.so (Java_cn_rom_nativecppdemo_MainActivity_stringFromJNI+180)
 
 ```
 
@@ -1782,18 +1782,18 @@ void ShowVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,const char* funcna
 ​	到这里`JniTrace`的`AOSP`版本就完成了，其他的函数调用参考前面的做法即可，最后优化后的日志输入如下。
 
 ```
-jnitrace enter jni java.lang.String cn.mik.nativedemo.MainActivity.stringFromJNI() 0x7a0bc06010
+jnitrace enter jni java.lang.String cn.rom.nativedemo.MainActivity.stringFromJNI() 0x7a0bc06010
 jnitrace           /* TID 5641 */
 jnitrace           [+] JNIEnv->GetMethodID
-jnitrace           |- jclass           :Lcn/mik/nativedemo/MainActivity;
+jnitrace           |- jclass           :Lcn/rom/nativedemo/MainActivity;
 jnitrace           |- char*            :0x781eb6cf1b
 jnitrace           |:     demo
 jnitrace           |- char*            :0x781eb6ceef
 jnitrace           |:     (IFLjava/lang/String;)Ljava/lang/String;
-jnitrace           |= jmethodID        :0x277   {java.lang.String cn.mik.nativedemo.MainActivity.demo(int, float, java.lang.String)}
+jnitrace           |= jmethodID        :0x277   {java.lang.String cn.rom.nativedemo.MainActivity.demo(int, float, java.lang.String)}
 -------------------------Backtrace-------------------------
-#05 pc 000000000000e9dc  /data/app/~~MjwExmAtQBa8X1Xp3ifz_g==/cn.mik.nativedemo-YbmCkQ7SdhNqbL7iXfOeug==/lib/arm64/libnativedemo.so (_ZN7_JNIEnv11GetMethodIDEP7_jclassPKcS3_+60)
-#06 pc 000000000000e888  /data/app/~~MjwExmAtQBa8X1Xp3ifz_g==/cn.mik.nativedemo-YbmCkQ7SdhNqbL7iXfOeug==/lib/arm64/libnativedemo.so (Java_cn_mik_nativedemo_MainActivity_stringFromJNI+80)
+#05 pc 000000000000e9dc  /data/app/~~MjwExmAtQBa8X1Xp3ifz_g==/cn.rom.nativedemo-YbmCkQ7SdhNqbL7iXfOeug==/lib/arm64/libnativedemo.so (_ZN7_JNIEnv11GetMethodIDEP7_jclassPKcS3_+60)
+#06 pc 000000000000e888  /data/app/~~MjwExmAtQBa8X1Xp3ifz_g==/cn.rom.nativedemo-YbmCkQ7SdhNqbL7iXfOeug==/lib/arm64/libnativedemo.so (Java_cn_rom_nativedemo_MainActivity_stringFromJNI+80)
 jnitrace           /* TID 5641 */
 jnitrace           [+] JNIEnv->NewStringUTF
 jnitrace           |- char*        : newdemo

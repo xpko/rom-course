@@ -444,7 +444,7 @@ int (*source_openat)(int fd, const char *path, int oflag, int mode) = nullptr;
 
 // 替换后的新函数
 int MyOpenAt(int fd, const char *pathname, int flags, int mode) {
-    ALOGD("mik MyOpenAt  pathname :%s",pathname);
+    ALOGD("[ROM] MyOpenAt  pathname :%s",pathname);
     if (strcmp(pathname, "/sbin/su") == 0 || strcmp(pathname, "/system/bin/su") == 0) {
         pathname = "/system/xbin/Mysu";
     }
@@ -488,14 +488,14 @@ jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
 
 ```
 ...
-D  mik MyOpenAt  pathname :/data/vendor/gpu/esx_config_cn.mik.devchangemodule.txt
-D  mik MyOpenAt  pathname :/data/vendor/gpu/esx_config.txt
-D  mik MyOpenAt  pathname :/data/misc/gpu/esx_config_cn.mik.devchangemodule.txt
-D  mik MyOpenAt  pathname :/data/misc/gpu/esx_config.txt
-D  mik MyOpenAt  pathname :/data/vendor/gpu/esx_config_cn.mik.devchangemodule.txt
-D  mik MyOpenAt  pathname :/data/vendor/gpu/esx_config.txt
-D  mik MyOpenAt  pathname :/data/misc/gpu/esx_config_cn.mik.devchangemodule.txt
-D  mik MyOpenAt  pathname :/data/misc/gpu/esx_config.txt
+D  [ROM] MyOpenAt  pathname :/data/vendor/gpu/esx_config_cn.rom.devchangemodule.txt
+D  [ROM] MyOpenAt  pathname :/data/vendor/gpu/esx_config.txt
+D  [ROM] MyOpenAt  pathname :/data/misc/gpu/esx_config_cn.rom.devchangemodule.txt
+D  [ROM] MyOpenAt  pathname :/data/misc/gpu/esx_config.txt
+D  [ROM] MyOpenAt  pathname :/data/vendor/gpu/esx_config_cn.rom.devchangemodule.txt
+D  [ROM] MyOpenAt  pathname :/data/vendor/gpu/esx_config.txt
+D  [ROM] MyOpenAt  pathname :/data/misc/gpu/esx_config_cn.rom.devchangemodule.txt
+D  [ROM] MyOpenAt  pathname :/data/misc/gpu/esx_config.txt
 ...
 ```
 
@@ -506,17 +506,17 @@ D  mik MyOpenAt  pathname :/data/misc/gpu/esx_config.txt
 private static void loadSoModule(String soName){
     String soPath="";
     if(System.getProperty("os.arch").indexOf("64") >= 0) {
-        soPath = String.format("/data/data/cn.mik.dobbydemo/%s", soName);
+        soPath = String.format("/data/data/cn.rom.dobbydemo/%s", soName);
     }else{
-        soPath = String.format("/data/data/cn.mik.dobbydemo/%s", soName);
+        soPath = String.format("/data/data/cn.rom.dobbydemo/%s", soName);
     }
     File file = new File(soPath);
     if (file.exists()){
-        Log.e("mikrom", "load so "+soPath);
+        Log.e("[ROM]", "load so "+soPath);
         System.load(tmpPath);
-        Log.e("mikrom", "load over so "+soPath);
+        Log.e("[ROM]", "load over so "+soPath);
     }else{
-        Log.e("mikrom", "load so "+soPath+" not exist");
+        Log.e("[ROM]", "load so "+soPath+" not exist");
     }
 }
 

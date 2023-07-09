@@ -164,7 +164,7 @@ import android.os.ISystemUpdateManager;
 import android.os.IThermalService;
 import android.os.IUserManager;
 import android.os.IncidentManager;
-import android.os.MikRomManager;
+import android.os.RomManager;
 import android.os.PerformanceHintManager;
 import android.os.PowerManager;
 import android.os.RecoverySystem;
@@ -595,11 +595,11 @@ public final class SystemServiceRegistry {
                         ctx.mMainThread.getHandler());
             }});
 
-        registerService(Context.MIKROM_SERVICE, MikRomManager.class,
-                        new CachedServiceFetcher<MikRomManager>() {
+        registerService(Context.ROM_SERVICE, RomManager.class,
+                        new CachedServiceFetcher<RomManager>() {
                     @Override
-                    public MikRomManager createService(ContextImpl ctx) throws ServiceNotFoundException {
-                        return MikRomManager.getInstance();
+                    public RomManager createService(ContextImpl ctx) throws ServiceNotFoundException {
+                        return RomManager.getInstance();
                     }});
 
         registerService(Context.PERFORMANCE_HINT_SERVICE, PerformanceHintManager.class,

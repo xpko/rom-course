@@ -914,10 +914,10 @@ static void DexFile_setTrusted(JNIEnv* env, jclass, jobject j_cookie) {
 }
 
 //addfunction 将ava的Method转换成ArtMethod。然后主动调用
-static void DexFile_mikromInvokeMethod(JNIEnv* env, jclass,jobject method,jboolean isDeep) {
+static void DexFile_InvokeMethod(JNIEnv* env, jclass,jobject method,jboolean isDeep) {
   if(method!=nullptr)
   {
-//      LOG(ERROR) << "mikrom DexFile_mikromInvokeMethod";
+//      LOG(ERROR) << "[ROM] DexFile_InvokeMethod";
       jobject2ArtMethod(env, method);
       ArtMethod* proxy_method = jobject2ArtMethod(env, method);
       InvokeMethod(proxy_method,isDeep);
@@ -970,12 +970,12 @@ DexFile_initConfig(JNIEnv* env, jobject ,jobject item) {
         if(handle_kbacktrace!=nullptr){
             citem.kbacktrace= dlsym(handle_kbacktrace, "_Z10kbacktracebPKc");
             if(citem.kbacktrace==nullptr){
-                ALOGD("mikrom kbacktrace is null.err:%s",dlerror());
+                ALOGD("[ROM] kbacktrace is null.err:%s",dlerror());
             }else{
-                ALOGD("mikrom kbacktrace:%p.",citem.kbacktrace);
+                ALOGD("[ROM] kbacktrace:%p.",citem.kbacktrace);
             }
         }else{
-            ALOGD("mikrom handle_kbacktrace is null.err:%s",dlerror());
+            ALOGD("[ROM] handle_kbacktrace is null.err:%s",dlerror());
         }
     }
     runtime->SetConfigItem(citem);
@@ -1033,7 +1033,7 @@ static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(DexFile, getDexFileOptimizationStatus,
                 "(Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;"),
   NATIVE_METHOD(DexFile, setTrusted, "(Ljava/lang/Object;)V"),
-  NATIVE_METHOD(DexFile, mikromInvokeMethod,"(Ljava/lang/Object;Z)V"),
+  NATIVE_METHOD(DexFile, InvokeMethod,"(Ljava/lang/Object;Z)V"),
   NATIVE_METHOD(DexFile, initConfig,"(Ljava/lang/Object;)V"),
 };
 

@@ -465,17 +465,17 @@ ClassLinker::VisiblyInitializedCallback* ClassLinker::MarkClassInitialized(
   }
 }
 
-//add mikrom
+//add
 int dl_iterate_callback(struct dl_phdr_info* info, size_t , void* data) {
     uintptr_t addr = reinterpret_cast<uintptr_t>(*(void**)data);
     void* endptr=  (void*)(info->dlpi_addr + info->dlpi_phdr[info->dlpi_phnum - 1].p_vaddr + info->dlpi_phdr[info->dlpi_phnum - 1].p_memsz);
     uintptr_t end=reinterpret_cast<uintptr_t>(endptr);
-    //ALOGD("mikrom native: %p\n", (void*)addr);
-    //ALOGD("mikrom Library name: %s\n", info->dlpi_name);
-    //ALOGD("mikrom Library base address: %p\n", (void*) info->dlpi_addr);
-    //ALOGD("mikrom Library end address: %p\n\n",endptr);
+    //ALOGD("[ROM] native: %p\n", (void*)addr);
+    //ALOGD("[ROM] Library name: %s\n", info->dlpi_name);
+    //ALOGD("[ROM] Library base address: %p\n", (void*) info->dlpi_addr);
+    //ALOGD("[ROM] Library end address: %p\n\n",endptr);
     if(addr >= info->dlpi_addr && addr<=end){
-        //ALOGD("mikrom Library found address: %p\n\n",(void*)info->dlpi_addr);
+        //ALOGD("[ROM] Library found address: %p\n\n",(void*)info->dlpi_addr);
         reinterpret_cast<void**>(data)[0] = reinterpret_cast<void*>(info->dlpi_addr);
     }
     return 0;
@@ -514,14 +514,14 @@ const void* ClassLinker::RegisterNative(
   } else {
     method->SetEntryPointFromJni(new_native_method);
   }
-  // add mikrom
+  // add
   if(Runtime::Current()->GetConfigItem().isRegisterNativePrint){
       void * native_ptr=new_native_method;
       void* base_addr=FindLibraryBaseAddress(native_ptr);
       uintptr_t native_data = reinterpret_cast<uintptr_t>(native_ptr);
       uintptr_t base_data = reinterpret_cast<uintptr_t>(base_addr);
       uintptr_t offset=native_data-base_data;
-      ALOGD("mikrom ClassLinker::RegisterNative %s native_ptr:%p method_idx:0x%x offset:%p",method->PrettyMethod().c_str(),new_native_method,method->GetMethodIndex(),(void*)offset);
+      ALOGD("[ROM] ClassLinker::RegisterNative %s native_ptr:%p method_idx:0x%x offset:%p",method->PrettyMethod().c_str(),new_native_method,method->GetMethodIndex(),(void*)offset);
   }
   // addend
     return new_native_method;
@@ -3106,13 +3106,13 @@ ObjPtr<mirror::Class> ClassLinker::DefineClass(Thread* self,
 //        &&!strstr(cmdlineData.c_str(),"zygote") &&!strstr(cmdlineData.c_str(),"system_server")){
 //            if(cmdlineData.length()>0){
 //                char savePath[100]={0};
-//                ALOGD("mikrom DefineClass write 1 %s dex begin:%p size:%zu\n",cmdlineData.c_str(),dex_file.Begin(),dex_file.Size());
+//                ALOGD("[ROM] DefineClass write 1 %s dex begin:%p size:%zu\n",cmdlineData.c_str(),dex_file.Begin(),dex_file.Size());
 //                sprintf(savePath, "/data/data/%s/defineClass_%zu", cmdlineData.c_str(),dex_file.Size());
-//                ALOGD("mikrom DefineClass write 2 %s dex begin:%p size:%zu\n",savePath,dex_file.Begin(),dex_file.Size());
+//                ALOGD("[ROM] DefineClass write 2 %s dex begin:%p size:%zu\n",savePath,dex_file.Begin(),dex_file.Size());
 //                if(access(savePath, F_OK) != 0){
 //                    if (!WriteStringToFile(std::string((const char*)dex_file.Begin(), dex_file.Size()), savePath)) {
 //                        // 写入失败
-//                        ALOGD("mikrom DefineClass dex begin:%p size:%zu write err\n",dex_file.Begin(),dex_file.Size());
+//                        ALOGD("[ROM] DefineClass dex begin:%p size:%zu write err\n",dex_file.Begin(),dex_file.Size());
 //
 //                    }
 //                }
@@ -3120,7 +3120,7 @@ ObjPtr<mirror::Class> ClassLinker::DefineClass(Thread* self,
 //        }
 //    }
 
-//  ALOGD("mikrom DefineClass dex begin:%p size:%zu\n",dex_file.Begin(),dex_file.Size());
+//  ALOGD("[ROM] DefineClass dex begin:%p size:%zu\n",dex_file.Begin(),dex_file.Size());
   // Load the class from the dex file.
   if (UNLIKELY(!init_done_)) {
     // finish up init of hand crafted class_roots_

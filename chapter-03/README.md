@@ -806,7 +806,7 @@ user <username>                                    在启动服务前将用户�
 ​	到这里，相信大家应该能够看懂`init.rc`中的大多数`section`的含义了。下面的例子将组合使用，定义一个自己的服务，并且启动它。
 
 ```
-service kservice /system/bin/app_process -Djava.class.path=/system/framework/ksvr.jar /system/bin cn.mik.ksvr.kSystemSvr svr
+service kservice /system/bin/app_process -Djava.class.path=/system/framework/ksvr.jar /system/bin cn.ksvr.kSystemSvr svr
     class main
     user root
     group root
@@ -818,7 +818,7 @@ on property:sys.boot_completed=1
     start kservice
 ```
 
-​	上面的案例中，我定义了一个`kservice`的服务，使用`/system/bin/app_process`作为进程启动，并设置目标`jar`作为应用的`classpath`，最后设置`jar`文件的入口类`cn.mik.ksvr.kSystemSvr`，最后的`svr`是做为参数传递给`kSystemSvr`中的`main`函数。接下来是当属性`sys.boot_completed`变更为1时表示手机完成引导，执行节点下的命令启动刚刚定义的服务。
+​	上面的案例中，我定义了一个`kservice`的服务，使用`/system/bin/app_process`作为进程启动，并设置目标`jar`作为应用的`classpath`，最后设置`jar`文件的入口类`cn.ksvr.kSystemSvr`，最后的`svr`是做为参数传递给`kSystemSvr`中的`main`函数。接下来是当属性`sys.boot_completed`变更为1时表示手机完成引导，执行节点下的命令启动刚刚定义的服务。
 
 
 ## 3.6 Zygote启动
@@ -1547,7 +1547,7 @@ lunch aosp_blueline-userdebug
 // 多线程编译
 make -j$(nproc --all)
 // 设置刷机目录
-export ANDROID_PRODUCT_OUT=~/android_src/mikrom_out/target/product/blueline
+export ANDROID_PRODUCT_OUT=~/android_src/out/target/product/blueline
 // 手机重启进入bootloader
 adb reboot bootloader
 // 查看手机是否已经进入bootloader了

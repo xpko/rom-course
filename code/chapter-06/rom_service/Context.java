@@ -3711,7 +3711,7 @@ public abstract class Context {
             //@hide: SPEECH_RECOGNITION_SERVICE,
             UWB_SERVICE,
             MEDIA_METRICS_SERVICE,
-            MIKROM_SERVICE,
+            ROM_SERVICE,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ServiceName {}
@@ -3948,7 +3948,7 @@ public abstract class Context {
      * you're running long tasks.
      */
     public static final String POWER_SERVICE = "power";
-    public static final String MIKROM_SERVICE = "mikrom";
+    public static final String ROM_SERVICE = "rom";
     /**
      * Use with {@link #getSystemService(String)} to retrieve a
      * {@link android.os.PowerStatsService} for accessing power stats

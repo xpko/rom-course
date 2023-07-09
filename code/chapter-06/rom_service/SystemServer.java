@@ -1830,11 +1830,11 @@ public final class SystemServer implements Dumpable {
             }
             t.traceEnd();
 
-            t.traceBegin("StartMikRomManagerService");
+            t.traceBegin("StartRomManagerService");
             try {
-                ServiceManager.addService(Context.MIKROM_SERVICE,new MikRomManagerService());
+                ServiceManager.addService(Context.ROM_SERVICE,new RomManagerService());
             } catch (Throwable e) {
-                reportWtf("starting MikRom Service", e);
+                reportWtf("starting Rom Service", e);
             }
             t.traceEnd();
 

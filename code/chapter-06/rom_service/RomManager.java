@@ -5,29 +5,29 @@ import android.annotation.Nullable;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.annotation.SystemService;
-import android.os.IMikRomManager;
+import android.os.IRomManager;
 
-@SystemService(Context.MIKROM_SERVICE)
-public final class MikRomManager {
-    private static final String TAG = "MikRomManager";
-    IMikRomManager mService;
-    public MikRomManager(IMikRomManager service) {
+@SystemService(Context.ROM_SERVICE)
+public final class RomManager {
+    private static final String TAG = "RomManager";
+    IRomManager mService;
+    public RomManager(IRomManager service) {
             mService = service;
     }
-    private static MikRomManager sInstance;
+    private static RomManager sInstance;
     /**
      *@hide
      */
     @NonNull
     @UnsupportedAppUsage
-    public static MikRomManager getInstance() {
-        synchronized (MikRomManager.class) {
+    public static RomManager getInstance() {
+        synchronized (RomManager.class) {
             if (sInstance == null) {
 
                 try {
-                    IBinder mikromBinder = ServiceManager.getServiceOrThrow(Context.MIKROM_SERVICE);
-                    IMikRomManager mikromService = IMikRomManager.Stub.asInterface(mikromBinder);
-                    sInstance= new MikRomManager(mikromService);
+                    IBinder romBinder = ServiceManager.getServiceOrThrow(Context.ROM_SERVICE);
+                    IRomManager romService = IRomManager.Stub.asInterface(romBinder);
+                    sInstance= new RomManager(romService);
                 } catch (ServiceManager.ServiceNotFoundException e) {
                     throw new IllegalStateException(e);
                 }

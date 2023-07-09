@@ -71,7 +71,7 @@ protected void onCreate(Bundle savedInstanceState) {
 
         Class<?> clazz2 = null;
         try {
-            clazz2 = classLoader.loadClass("cn.mik.myjar.MyCommon");
+            clazz2 = classLoader.loadClass("cn.rom.myjar.MyCommon");
             Method addMethod = clazz2.getDeclaredMethod("add", int.class,int.class);
             Object result = addMethod.invoke(null, 12,25);
             Log.i("MainActivity","getMyJarVer:"+result);
@@ -999,7 +999,7 @@ public interface Opcodes {
 ​	接下来在`dex_class_defs`中寻找刚刚分析的目标类`MyCommon`。
 
 ```
-struct class_def_item class_def[2205]	public cn.mik.myjar.MyCommon	1243C4h	20h	Fg: Bg:0xE0E0E0	Class ID
+struct class_def_item class_def[2205]	public cn.rom.myjar.MyCommon	1243C4h	20h	Fg: Bg:0xE0E0E0	Class ID
 ```
 
 ​	将其展开后，能看到该`class`的详细信息，在上一节的类加载中，当`DEX`被解析后，加载的类在内存中就是以这样的结构存储着数据。

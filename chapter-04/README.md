@@ -203,7 +203,7 @@ def exec(cmd):
 # 替换图标
 def replacePng(target,appName):
     # 搜索该路径下的图标
-    cmdRes = exec(f"find /home/king/android_src/mikrom12_gitlab/packages/ -name {target}")
+    cmdRes = exec(f"find ~/android_src/rom_gitlab/packages/ -name {target}")
     filePathList = cmdRes.split("\n")
     curpath=os.getcwd()
 	# 遍历所有搜到的结果
@@ -227,7 +227,7 @@ def replacePng(target,appName):
 # 使用备份的文件还原该图标
 def unReplacePng(target):
     # 查找目标文件
-    cmdRes = exec(f"find /home/king/android_src/mikrom12_gitlab/frameworks/base/packages/ -name {target}")
+    cmdRes = exec(f"find ~/android_src/rom_gitlab/frameworks/base/packages/ -name {target}")
     filePathList = cmdRes.split("\n")
     # 遍历所有结果
     for filepath in filePathList:

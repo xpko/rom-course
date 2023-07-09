@@ -540,7 +540,7 @@ make bootimage
 adb reboot bootloader
 
 // 设置刷机包的路径到环境变量
-export ANDROID_PRODUCT_OUT=~/android_src/mikrom_out/target/product/blueline
+export ANDROID_PRODUCT_OUT=~/android_src/out/target/product/blueline
 
 // 查询fastboot是否能成功看到设备
 fastboot devices
@@ -559,7 +559,7 @@ fastboot flashall -w
 adb reboot bootloader
 
 // 进入编译结果的目录
-cd ~/android_src/mikrom_out/target/product/blueline
+cd ~/android_src/out/target/product/blueline
 
 // 单独刷入内核
 fastboot flash boot ./boot.img
@@ -603,7 +603,7 @@ lunch aosp_blueline-userdebug
 make otapackage
 ```
 
-​	编译完成后，可以在前面线刷包的同样路径下，看到`zip`格式的卡刷包文件，这里的文件名是`aosp_blueline-ota-eng.king.zip`。除了上面的方式，还可以执行`make dist`命令完整编译卡刷包，具体的编译方式如下。
+​	编译完成后，可以在前面线刷包的同样路径下，看到`zip`格式的卡刷包文件，这里的文件名是`aosp_blueline-ota-eng.user.zip`。除了上面的方式，还可以执行`make dist`命令完整编译卡刷包，具体的编译方式如下。
 
 ```
 //下面是完整编译卡刷包

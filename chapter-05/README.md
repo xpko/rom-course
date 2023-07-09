@@ -63,7 +63,7 @@ public class MainActivity extends AppCompatActivity {
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:sharedUserId="android.uid.system"
-    package="cn.mik.systemappdemo">
+    package="cn.rom.systemappdemo">
     ...
 </manifest>
 ```
@@ -75,8 +75,8 @@ Installation did not succeed.
 The application could not be installed: INSTALL_FAILED_SHARED_USER_INCOMPATIBLE
 
 List of apks:
-[0] 'C:\Users\king\AndroidStudioProjects\SystemAppDemo\app\build\intermediates\apk\debug\app-debug.apk'
-Installation failed due to: 'INSTALL_FAILED_SHARED_USER_INCOMPATIBLE: Package cn.mik.systemappdemo tried to change user null'
+[0] 'C:\Users\android\AndroidStudioProjects\SystemAppDemo\app\build\intermediates\apk\debug\app-debug.apk'
+Installation failed due to: 'INSTALL_FAILED_SHARED_USER_INCOMPATIBLE: Package cn.rom.systemappdemo tried to change user null'
 ```
 
 ​	测试用例准备就绪后就可以来到源码的目录`packages/apps`，创建一个新的目录`SystemAppDemo`，将刚刚编译的样例`App`改名为`SystemAppDemo`放入这个目录，在这个新目录中，添加一个编译的配置文件`Android.mk`。
@@ -127,7 +127,7 @@ flashflash all -w
 adb shell
 ps -e|grep systemappdemo
 // 发现进程身份已经变成system的了。
-system        5033  1058 14718076 89256 0                   0 S cn.mik.systemappdemo
+system        5033  1058 14718076 89256 0                   0 S cn.rom.systemappdemo
 ```
 
 
@@ -391,7 +391,7 @@ plugins {
 android {
     compileSdk 33
     defaultConfig {
-        applicationId "cn.mik.kframework"
+        applicationId "cn.rom.kframework"
         minSdk 29
         targetSdk 32
         versionCode 1
@@ -472,7 +472,7 @@ protected void onCreate(Bundle savedInstanceState) {
         Class<?> clazz1 = null;
         try {
             // 通过反射调用函数
-            clazz1 = pathClassLoader.loadClass("cn.mik.myjar.MyCommon");
+            clazz1 = pathClassLoader.loadClass("cn.rom.myjar.MyCommon");
             Method method = clazz1.getDeclaredMethod("getMyJarVer");
             Object result = method.invoke(null);
             Log.i("MainActivity","getMyJarVer:"+result);
@@ -496,7 +496,7 @@ protected void onCreate(Bundle savedInstanceState) {
         Class<?> clazz2 = null;
         try {
             // 通过反射调用函数
-            clazz2 = classLoader.loadClass("cn.mik.myjar.MyCommon");
+            clazz2 = classLoader.loadClass("cn.rom.myjar.MyCommon");
             Method addMethod = clazz2.getDeclaredMethod("add", int.class,int.class);
             Object result = addMethod.invoke(null, 12,25);
             Log.i("MainActivity","getMyJarVer:"+result);
@@ -535,7 +535,7 @@ public class NativeCommon {
 
 // native-lib.cpp文件中调整名称来对应新的类
 extern "C" JNIEXPORT jstring JNICALL
-Java_cn_mik_mysodemo_NativeCommon_stringFromJNI(
+Java_cn_rom_mysodemo_NativeCommon_stringFromJNI(
         JNIEnv* env,
         jobject /* this */) {
     std::string hello = "Hello from C++";
@@ -554,7 +554,7 @@ cd ./app/build/outputs/apk/debug/
 unzip app-debug.apk -d ./app-debug
 
 // 创建目录存放要内置的文件
-mkdir /root/android_src/aosp12_mikrom/frameworks/base/packages/apps/mysodemo
+mkdir /root/android_src/aosp12_rom/frameworks/base/packages/apps/mysodemo
 
 // 拷贝apk到需要内置的目录
 cp ./app-debug.apk /root/android_src/aosp12/frameworks/base/packages/apps/mysodemo/mysodemo.apk
@@ -743,7 +743,7 @@ fKzQVKiWNTnDew==
 openssl x509 -inform DER -in chls.cer -text > d37a53cc.0
 
 // 将证书拷贝到源码的系统证书目录
-cp d37a53cc.0 ~/android_src/mikrom12_gitlab/system/ca-certificates/files
+cp d37a53cc.0 ~/android_src/rom_gitlab/system/ca-certificates/files
 ```
 
 ​	除了这种转换方式，还有另一种更加简便的办法，首先将证书作为用户证书安装，直接将`Charles`导出的证书上传到手机，在手机中找到`Setting->Security->Encryption & credentials-> install a certificate`最后选中证书完成安装，然后来到用户证书目录` /data/misc/user/0/cacerts-added`中，刚刚导入的证书会被转换好作为用户证书放在这里，将其从手机中传出来，放入源码中的系统证书目录即可。
@@ -840,10 +840,10 @@ su
 cat /system/build.prop |grep "\-key"
 
 //得到的结果如下
-ro.system.build.fingerprint=Android/aosp_blueline/blueline:12/SP1A.210812.016.A1/king03111650:userdebug/release-keys
+ro.system.build.fingerprint=Android/aosp_blueline/blueline:12/SP1A.210812.016.A1/03111650:userdebug/release-keys
 ro.system.build.tags=release-keys
 ro.build.tags=release-keys
-ro.build.description=aosp_blueline-userdebug 12 SP1A.210812.016.A1 eng.king.20230311.165057 release-keys
+ro.build.description=aosp_blueline-userdebug 12 SP1A.210812.016.A1 eng.user.20230311.165057 release-keys
 ~~~
 
 ## 5.8 默认开启adb调试

@@ -118,7 +118,7 @@ filegroup {
         "android/os/IThermalStatusListener.aidl",
         "android/os/IThermalService.aidl",
         "android/os/IPowerManager.aidl",
-        "android/os/IMikRomManager.aidl",
+        "android/os/IRomManager.aidl",
     ],
 }
 

@@ -17,7 +17,7 @@
 
 package android.os;
 
-interface IMikRomManager
+interface IRomManager
 {
     String hello();
 }

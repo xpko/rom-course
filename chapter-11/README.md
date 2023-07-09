@@ -38,7 +38,7 @@
 #define ALOGD(...) __android_log_print(ANDROID_LOG_DEBUG  , LOG_TAG, __VA_ARGS__)
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_cn_mik_nativedemo_MainActivity_stringFromJNI(
+Java_cn_rom_nativedemo_MainActivity_stringFromJNI(
         JNIEnv* env,
         jobject /* this */) {
     std::string hello = "Hello from C++";
@@ -71,7 +71,7 @@ protected void onCreate(Bundle savedInstanceState) {
 ​	在调用该函数时，就会打印其`ppid`（父进程`id`）。运行该函数后输出如下。
 
 ```
-cn.mik.nativedemo D/native-lib: my ppid=1053
+cn.rom.nativedemo D/native-lib: my ppid=1053
 ```
 
 ​	然后查看该进程`id`对应哪个进程。
@@ -112,7 +112,7 @@ su
 
 ```
 // 没有调试时的文件内容
-Name:   .mik.nativedemo
+Name:   .rom.nativedemo
 Umask:  0077
 State:  S (sleeping)
 Tgid:   7759
@@ -123,7 +123,7 @@ TracerPid:      0
 
 // ida附加调试后的文件内容
 
-Name:   .mik.nativedemo
+Name:   .rom.nativedemo
 Umask:  0077
 State:  t (tracing stop)
 Tgid:   7759
@@ -175,7 +175,7 @@ t 1027 1027 0 0 -1 1077952832 29405 4835 0 0 81 9 0 0 20 0 19 0 424763 150881689
 
 ```c++
 extern "C" JNIEXPORT jstring JNICALL
-Java_cn_mik_nativedemo_MainActivity_stringFromJNI(
+Java_cn_rom_nativedemo_MainActivity_stringFromJNI(
         JNIEnv* env,
         jobject /* this */) {
     std::string hello = "Hello from C++";
@@ -196,7 +196,7 @@ Java_cn_mik_nativedemo_MainActivity_stringFromJNI(
 
 ```c++
 extern "C" JNIEXPORT jstring JNICALL
-Java_cn_mik_nativedemo_MainActivity_stringFromJNI(
+Java_cn_rom_nativedemo_MainActivity_stringFromJNI(
         JNIEnv* env,
         jobject /* this */) {
     std::string hello = "Hello from C++";

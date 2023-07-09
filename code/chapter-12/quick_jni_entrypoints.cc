@@ -81,13 +81,13 @@ extern uint32_t JniMethodStart(Thread* self) {
   DCHECK(env != nullptr);
   uint32_t saved_local_ref_cookie = bit_cast<uint32_t>(env->GetLocalRefCookie());
   env->SetLocalRefCookie(env->GetLocalsSegmentState());
-  //add mikrom
+  // add
   Runtime* runtime=Runtime::Current();
   if(runtime->GetConfigItem().isJNIMethodPrint){
       ArtMethod* native_method = *self->GetManagedStack()->GetTopQuickFrame();
       std::string methodname=native_method->PrettyMethod();
       if(strstr(methodname.c_str(),runtime->GetConfigItem().jniFuncName)){
-          ALOGD("mikrom enter jni %s %p",methodname.c_str(),self);
+          ALOGD("[ROM] enter jni %s %p",methodname.c_str(),self);
           runtime->GetConfigItem().jniEnable=true;
       }
   }
@@ -169,22 +169,22 @@ static inline void UnlockJniSynchronizedMethod(jobject locked, Thread* self)
 
 extern void JniMethodEnd(uint32_t saved_local_ref_cookie, Thread* self) {
 
-    //add mikrom
+    // add
     Runtime* runtime=Runtime::Current();
     if(runtime->GetConfigItem().isJNIMethodPrint){
         ArtMethod* native_method = *self->GetManagedStack()->GetTopQuickFrame();
         std::string methodname=native_method->PrettyMethod();
-        ALOGD("mikrom JniMethodEnd jni %s",methodname.c_str());
+        ALOGD("[ROM] JniMethodEnd jni %s",methodname.c_str());
         if(strstr(methodname.c_str(),runtime->GetConfigItem().jniFuncName)){
             runtime->GetConfigItem().jniEnable=false;
-            ALOGD("mikrom leave jni %s",methodname.c_str());
+            ALOGD("[ROM] leave jni %s",methodname.c_str());
         }
     }
     //endadd
 //  ArtMethod* native_method = *self->GetManagedStack()->GetTopQuickFrame();
 //  if(native_method!=nullptr){
 //      std::string methodname=native_method->PrettyMethod();
-//      ALOGD("mikrom JniMethodEnd %s",methodname.c_str());
+//      ALOGD("[ROM] JniMethodEnd %s",methodname.c_str());
 //  }
 
   GoToRunnable(self);
@@ -195,7 +195,7 @@ extern void JniMethodFastEnd(uint32_t saved_local_ref_cookie, Thread* self) {
 //    ArtMethod* native_method = *self->GetManagedStack()->GetTopQuickFrame();
 //    if(native_method!=nullptr){
 //        std::string methodname=native_method->PrettyMethod();
-//        ALOGD("mikrom JniMethodFastEnd %s",methodname.c_str());
+//        ALOGD("[ROM] JniMethodFastEnd %s",methodname.c_str());
 //    }
   GoToRunnableFast(self);
   PopLocalReferences(saved_local_ref_cookie, self);
@@ -207,7 +207,7 @@ extern void JniMethodEndSynchronized(uint32_t saved_local_ref_cookie,
 //    ArtMethod* native_method = *self->GetManagedStack()->GetTopQuickFrame();
 //    if(native_method!=nullptr){
 //        std::string methodname=native_method->PrettyMethod();
-//        ALOGD("mikrom JniMethodEndSynchronized %s",methodname.c_str());
+//        ALOGD("[ROM] JniMethodEndSynchronized %s",methodname.c_str());
 //    }
   GoToRunnable(self);
   UnlockJniSynchronizedMethod(locked, self);  // Must decode before pop.
@@ -220,21 +220,21 @@ static mirror::Object* JniMethodEndWithReferenceHandleResult(jobject result,
                                                              Thread* self)
     NO_THREAD_SAFETY_ANALYSIS {
 
-    //add mikrom
+    // add
     Runtime* runtime=Runtime::Current();
     if(runtime->GetConfigItem().isJNIMethodPrint){
         ArtMethod* native_method = *self->GetManagedStack()->GetTopQuickFrame();
         std::string methodname=native_method->PrettyMethod();
         if(strstr(methodname.c_str(),runtime->GetConfigItem().jniFuncName)){
             runtime->GetConfigItem().jniEnable=false;
-            ALOGD("mikrom leave jni %s",methodname.c_str());
+            ALOGD("[ROM] leave jni %s",methodname.c_str());
         }
     }
     //endadd
 //    ArtMethod* native_method = *self->GetManagedStack()->GetTopQuickFrame();
 //    if(native_method!=nullptr){
 //        std::string methodname=native_method->PrettyMethod();
-//        ALOGD("mikrom JniMethodEndWithReferenceHandleResult %s",methodname.c_str());
+//        ALOGD("[ROM] JniMethodEndWithReferenceHandleResult %s",methodname.c_str());
 //    }
   // Must decode before pop. The 'result' may not be valid in case of an exception, though.
   ObjPtr<mirror::Object> o;
@@ -282,7 +282,7 @@ extern uint64_t GenericJniMethodEnd(Thread* self,
                                     uint64_t result_f,
                                     ArtMethod* called)
     NO_THREAD_SAFETY_ANALYSIS {
-//    ALOGD("mikrom GenericJniMethodEnd ");
+//    ALOGD("[ROM] GenericJniMethodEnd ");
   bool critical_native = called->IsCriticalNative();
   bool fast_native = called->IsFastNative();
   bool normal_native = !critical_native && !fast_native;

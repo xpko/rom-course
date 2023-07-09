@@ -85,14 +85,14 @@
 首先准备一个需要被保护的APK，这里直接使用前文中测试动态加载系统内置JAR包的APP作为样例，代码如下：
 
 ```java
-package cn.mik.myservicedemo;
+package cn.rom.myservicedemo;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.app.Application;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.os.IMikRomManager;
+import android.os.IRomManager;
 import android.os.RemoteException;
 import android.util.Log;
 
@@ -111,11 +111,11 @@ public class MainActivity extends AppCompatActivity {
             localClass = Class.forName("android.os.ServiceManager");
             Method getServiceMethod = localClass.getMethod("getService", new Class[] {String.class});
             if(getServiceMethod != null) {
-                Object objResult = getServiceMethod.invoke(localClass, new Object[]{"mikrom"});
+                Object objResult = getServiceMethod.invoke(localClass, new Object[]{"rom"});
                 if (objResult != null) {
                     IBinder binder = (IBinder) objResult;
-                    IMikRomManager iMikRom = IMikRomManager.Stub.asInterface(binder);
-                    String msg= iMikRom.hello();
+                    IRomManager iRom = IRomManager.Stub.asInterface(binder);
+                    String msg= iRom.hello();
                     Log.i("MainActivity", "msg: " + msg);
                 }
             }
@@ -192,7 +192,7 @@ fixFileSizeHeader ===== size : 3664744
 I: Using Apktool 2.7.0 on app-debug.apk
 I: Loading resource table...
 I: Decoding AndroidManifest.xml with resources...
-I: Loading resource table from file: C:\Users\king\AppData\Local\apktool\framework\1.apk
+I: Loading resource table from file: C:\Users\android\AppData\Local\apktool\framework\1.apk
 I: Regular manifest package...
 I: Decoding file-resources...
 I: Decoding values */* XMLs...
@@ -269,7 +269,7 @@ zipalign -v 4 app-debug.apk app-debug-over.apk
 ```
 adb install ./app-debug-over.apk
 
-adb: failed to install ./app-debug-over.apk: Failure [INSTALL_PARSE_FAILED_NO_CERTIFICATES: Scanning Failed.: No signature found in package of version 2 or newer for package cn.mik.myservicedemo]
+adb: failed to install ./app-debug-over.apk: Failure [INSTALL_PARSE_FAILED_NO_CERTIFICATES: Scanning Failed.: No signature found in package of version 2 or newer for package cn.rom.myservicedemo]
 ```
 
 ​	这是因为当`targetSdkVersion`版本号，只要大于`30`时，需要使用`v2`进行签名，签名方式如下。
@@ -913,7 +913,7 @@ ObjPtr<mirror::Class> ClassLinker::DefineClass(Thread* self,
   StackHandleScope<3> hs(self);
   metrics::AutoTimer timer{GetMetrics()->ClassLoadingTotalTime()};
   auto klass = hs.NewHandle<mirror::Class>(nullptr);
-  ALOGD("mikrom DefineClass dex begin:%p size:%zu\n",dex_file.Begin(),dex_file.Size());
+  ALOGD("[ROM] DefineClass dex begin:%p size:%zu\n",dex_file.Begin(),dex_file.Size());
   ...
 }
 ```
@@ -927,7 +927,7 @@ ObjPtr<mirror::Class> ClassLinker::DefineClass(Thread* self,
 未保护的`dex`大小为`9738740`，接下来将加固后的`apk`安装到测试机中，查看系统输出日志，能看到添加的打桩输出信息非常多，这是因为每次加载类时，都会触发该函数，所以触发非常频繁。当打开这个被保护的样例应用时，就能看到大小和未加固前一样大的`dex`信息，输出信息如下。
 
 ```
-D/k.myservicedem: mikrom DefineClass dex begin:0xc6b37000 size:9738740
+D/k.myservicedem: [ROM] DefineClass dex begin:0xc6b37000 size:9738740
 ```
 
 ​	这样就通过打桩信息，确定出了这个时机能够获取到，这种加固方式保护的原始`dex`文件了。接下来调整代码，将这段内存数据写入到文件中保存出来。修改代码如下。
@@ -957,11 +957,11 @@ ObjPtr<mirror::Class> ClassLinker::DefineClass(Thread* self,
             if(cmdlineData.length()>0){
                 char savePath[100]={0};
                 sprintf(savePath, "/data/data/%s/defineClass_%zu.dex", cmdlineData.c_str(),dex_file.Size());
-                ALOGD("mikrom DefineClass write %s dex begin:%p size:%zu\n",savePath,dex_file.Begin(),dex_file.Size());
+                ALOGD("[ROM] DefineClass write %s dex begin:%p size:%zu\n",savePath,dex_file.Begin(),dex_file.Size());
                 if(access(savePath, F_OK) != 0){
                     if (!WriteStringToFile(std::string((const char*)dex_file.Begin(), dex_file.Size()), savePath)) {
                         // 写入失败
-                        ALOGD("mikrom DefineClass dex begin:%p size:%zu write err\n",dex_file.Begin(),dex_file.Size());
+                        ALOGD("[ROM] DefineClass dex begin:%p size:%zu write err\n",dex_file.Begin(),dex_file.Size());
 
                     }
                 }
@@ -975,7 +975,7 @@ ObjPtr<mirror::Class> ClassLinker::DefineClass(Thread* self,
 重新编译系统后，刷入手机，安装前文中加固好的样例应用，打开后在日志中成功看到下面的输出信息。
 
 ```
-D/k.myservicedem: mikrom DefineClass write 2 /data/data/cn.mik.myservicedemo/defineClass_9738740.dex dex begin:0xbdbc5000
+D/k.myservicedem: [ROM] DefineClass write 2 /data/data/cn.rom.myservicedemo/defineClass_9738740.dex dex begin:0xbdbc5000
 ```
 
 最后将这个文件传到电脑中，使用反编译工具`jadx`打开看到脱壳后的结果。
