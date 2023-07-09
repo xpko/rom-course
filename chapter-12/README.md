@@ -29,22 +29,22 @@ pip install jnitrace
 ​	由于该工具是基于`frida`实现的，需要在手机中运行`frida-server`，在地址`https://github.com/frida/frida/releases`中下载`frida-server`，开发环境是`AOSP12`的情况直接下载`16`任意版本即可。然后将其推送到手机的`/data/local/tmp`目录中，并运行。具体命令如下。
 
 ```
-adb push ./frida-server-16.0.11-android-arm64 /data/local/tmp
+adb push ./frida-server-16.1.1-android-arm64 /data/local/tmp
 
 adb forward tcp:27042 tcp:27042
 
-adb shell 
+adb shell
 
 su
 
 cd /data/local/tmp
 
-chmod +x ./frida-server-16.0.11-android-arm64
+chmod +x ./frida-server-16.1.1-android-arm64
 
 // 为防止出现错误，先将selinux关闭
 setenforce 0
 
-./frida-server-16.0.10-android-arm64
+./frida-server-16.1.1-android-arm64
 ```
 
 ​	`JniTrace`的启动环境准备就绪后，接下来准备测试的案例，案例实现如下。
@@ -101,7 +101,7 @@ jnitrace -l libnativedemo.so cn.mik.nativedemo
 
 ```
         /* TID 6996 */
-        
+
     309 ms [+] JNIEnv->FindClass							// 调用的JNI函数
     309 ms |- JNIEnv*          : 0x7d3892f610				// 参数1的类型和值
     309 ms |- char*            : 0x7c011aaf00				// 参数2的类型和值
@@ -371,7 +371,7 @@ DexFile_initConfig(JNIEnv* env, jobject ,jobject item) {
 
     citem.isRegisterNativePrint = env->GetBooleanField(item, jIsRegisterNativePrint);
     citem.isJNIMethodPrint = env->GetBooleanField(item, jIsJNIMethodPrint);
-	
+
     // 配置存储到全局
     runtime->SetConfigItem(citem);
 }
@@ -756,7 +756,7 @@ static const char* GetStringUTFChars(JNIEnv* env, jstring java_string, jboolean*
      313 ms |- jstring          : 0x85
      313 ms |- jboolean*        : 0x0
      313 ms |= char*            : 0x7c8893f330
- 
+
      313 ms ------------------------------------------------Backtrace------------------------------------------------
      313 ms |->       0x7c01191b4c: _ZN7_JNIEnv17GetStringUTFCharsEP8_jstringPh+0x34 (libnativedemo.so:0x7c01183000)
      313 ms |->       0x7c01191b4c: _ZN7_JNIEnv17GetStringUTFCharsEP8_jstringPh+0x34 (libnativedemo.so:0x7c01183000)
@@ -1077,7 +1077,7 @@ static void sample_signal_register(void) {
   struct sigaction act;
   // 清空act
   memset(&act, 0, sizeof(act));
-    
+
   // 填充所有信号
   sigfillset(&act.sa_mask);
   // 删除SIGSEGV信号
@@ -1126,7 +1126,7 @@ static void sample_test(int solution, jboolean remote_unwind, jboolean with_cont
   g_remote_unwind = (JNI_TRUE == remote_unwind ? true : false);
   g_with_context = (JNI_TRUE == with_context ? true : false);
   g_signal_interrupted = (JNI_TRUE == signal_interrupted ? true : false);
-  
+
   // 原子请求，为了保证获取到的g_frames_sz没问题
   __atomic_store_n(&g_frames_sz, 0, __ATOMIC_SEQ_CST);
   // 触发SIGABRT信号
