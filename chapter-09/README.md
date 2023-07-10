@@ -79,7 +79,7 @@ int main(int argc, char* const argv[])
 
 在这个特殊的`app_process`中，首先是对启动进程的参数进行检查，然后初始化`Xposed`框架，如果初始化成功了，则使用`Xposed`的入口`de.robv.android.xposed.XposedBridge$ToolEntryPoint`来替换系统原本的`com.android.internal.os.ZygoteInit`入口。
 
-​`xposed::initialize`是一个非常关键的函数，它完成了 `Xposed `框架的初始化工作。查看实现代码如下。
+`xposed::initialize`是一个非常关键的函数，它完成了 `Xposed `框架的初始化工作。查看实现代码如下。
 
 ```c++
 bool initialize(bool zygote, bool startSystemServer, const char* className, int argc, char* const argv[]) {
@@ -136,9 +136,9 @@ bool initialize(bool zygote, bool startSystemServer, const char* className, int 
 
 ```
 
-​在启用`SELinux`的情况下，`Xposed`需要使用`membased`服务来实现`hooking`功能。但是，为了确保安全性，`Xposed`需要限制将`Xposed`服务复制到其他进程中的能力。通过调用`restrictMemoryInheritance`函数，`Xposed`会防止任何进程继承`Zygote`进程的内存，这将确保`Xposed`服务只能被当前进程和其子进程使用。
+在启用`SELinux`的情况下，`Xposed`需要使用`membased`服务来实现`hooking`功能。但是，为了确保安全性，`Xposed`需要限制将`Xposed`服务复制到其他进程中的能力。通过调用`restrictMemoryInheritance`函数，`Xposed`会防止任何进程继承`Zygote`进程的内存，这将确保`Xposed`服务只能被当前进程和其子进程使用。
 
-​初始化完成时，将`XposedBridge.jar`文件添加到了`CLASSPATH`环境变量中，查看`addJarToClasspath`的实现。
+初始化完成时，将`XposedBridge.jar`文件添加到了`CLASSPATH`环境变量中，查看`addJarToClasspath`的实现。
 
 ```java
 #define XPOSED_JAR               "/system/framework/XposedBridge.jar"
@@ -158,7 +158,7 @@ bool addJarToClasspath() {
 }
 ```
 
-​初始化成功后，接着继续追踪替换后的入口点`de.robv.android.xposed.XposedBridge$ToolEntryPoint`，该入口点的实现是在`XposedBridge.jar`中。查看项目`https://github.com/rovo89/XposedBridge`，文件`XposedBridge.java`的实现代码如下。
+初始化成功后，接着继续追踪替换后的入口点`de.robv.android.xposed.XposedBridge$ToolEntryPoint`，该入口点的实现是在`XposedBridge.jar`中。查看项目`https://github.com/rovo89/XposedBridge`，文件`XposedBridge.java`的实现代码如下。
 
 ```java
 package de.robv.android.xposed;
@@ -208,7 +208,7 @@ public final class XposedBridge {
 }
 ```
 
-​到这里，`Xposed`的启动流程基本完成了，`Xposed`首先替换原始的`app_process`，让每个进程启动时使用自己的`app_process_xposed`，在执行`zygote`入口函数前，先初始化了自身的环境，然后每个进程后是先进入的`XposedBridge`，在完成自身的逻辑后，才调用`zygote`的入口函数，进入应用正常启动流程。这也意味着，对于系统定制者来说，所谓的`Root`权限才能使用`Xposed`并不是必须的。最后看看`loadModules`的实现，是如何加载`Xposed`模块的。
+到这里，`Xposed`的启动流程基本完成了，`Xposed`首先替换原始的`app_process`，让每个进程启动时使用自己的`app_process_xposed`，在执行`zygote`入口函数前，先初始化了自身的环境，然后每个进程后是先进入的`XposedBridge`，在完成自身的逻辑后，才调用`zygote`的入口函数，进入应用正常启动流程。这也意味着，对于系统定制者来说，所谓的`Root`权限才能使用`Xposed`并不是必须的。最后看看`loadModules`的实现，是如何加载`Xposed`模块的。
 
 ```java
 private static final String INSTANT_RUN_CLASS = "com.android.tools.fd.runtime.BootstrapApplication";
@@ -349,7 +349,7 @@ private static void loadModule(String apk, ClassLoader topClassLoader) {
 }
 ```
 
-​分析完加载模块的实现后，这时就明白模块开发时定义的入口是如何被调用的，以及被调用的时机在哪里。理解其中的原理后，同样可以自己进行修改，在其他的时机来选择注入。用自己的方式来定义模块。
+分析完加载模块的实现后，这时就明白模块开发时定义的入口是如何被调用的，以及被调用的时机在哪里。理解其中的原理后，同样可以自己进行修改，在其他的时机来选择注入。用自己的方式来定义模块。
 
 
 ## 9.3 常见的hook框架
@@ -389,8 +389,7 @@ project("mydobby")
 add_library(
         mydobby
         SHARED
-        native-lib.cpp
-        utils/parse.cpp)
+        native-lib.cpp)
 
 find_library(
         log-lib
