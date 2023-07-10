@@ -1,0 +1,523 @@
+#!/usr/bin/env bpftrace
+/*
+ * ndksnoop	trace APK .so calls.
+ *		For Android, uses bpftrace and eBPF.
+ *
+ * Also a basic example of bpftrace.
+ *
+ * USAGE: ndksnoop.bt
+ *
+ *
+ * Copyright 2023 fei_cong@hotmail.com (https://github.com/feicong/ebpf-course)
+ * Licensed under the Apache License, Version 2.0 (the "License")
+ *
+ * 09-Apr-2023	fei_cong created first version for libc.so tracing.
+ */
+
+#ifndef BPFTRACE_HAVE_BTF
+#include <linux/socket.h>
+#include <net/sock.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#endif
+
+
+BEGIN
+{
+    // # ls -an /data/data/io.github.vvb2060.mahoshojo
+    if ($1 != 0) {
+        @target_uid = (uint64)$1;
+    } else {
+        @target_uid = (uint64)2000; // 10241;
+    }
+
+	printf("Tracing android ndk so functions for uid %d. Hit Ctrl-C to end.\n", @target_uid);
+}
+
+/*
+int execl(const char *pathname, const char *arg, ...
+int execlp(const char *file, const char *arg, ...
+int execle(const char *pathname, const char *arg, ...
+int execv(const char *pathname, char *const argv[]);
+int execvp(const char *file, char *const argv[]);
+int execvpe(const char *file, char *const argv[],
+                char *const envp[]);
+int execve(const char *pathname, char *const argv[],
+                  char *const envp[]);
+*/
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:execl /uid == @target_uid/ {
+    printf("execl [%s %s]\n", str(arg0), str(arg1));
+}
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:execlp /uid == @target_uid/ {
+    printf("execlp [%s %s]\n", str(arg0), str(arg1));
+}
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:execle /uid == @target_uid/ {
+    printf("execle [%s %s]\n", str(arg0), str(arg1));
+}
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:execv /uid == @target_uid/ {
+    printf("execv [%s]\n", str(arg0));
+    join(arg1)
+}
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:execvp /uid == @target_uid/ {
+    printf("execvp [%s]\n", str(arg0));
+    join(arg1)
+}
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:execvpe /uid == @target_uid/ {
+    printf("execvpe [%s]\n", str(arg0));
+    join(arg1)
+}
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:execve /uid == @target_uid/ {
+    printf("execve [%s]\n", str(arg0));
+    join(arg1)
+}
+
+// int mkdir(const char *pathname, mode_t mode);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:mkdir /uid == @target_uid/ {
+    printf("mkdir [%s, mode:%d]\n", str(arg0), arg1);
+}
+
+// DIR *opendir(const char *name);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:opendir /uid == @target_uid/ {
+    printf("opendir [%s]\n", str(arg0));
+}
+
+// int rmdir(const char *pathname);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:rmdir /uid == @target_uid/ {
+    printf("rmdir [%s]\n", str(arg0));
+}
+
+// FILE *popen(const char *command, const char *type);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:popen /uid == @target_uid/ {
+    printf("popen [%s %s]\n", str(arg0), str(arg1));
+}
+
+// int access(const char *pathname, int mode);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:access /uid == @target_uid/ {
+    printf("access [%s]\n", str(arg0));
+}
+
+// int faccessat(int dirfd, const char *pathname, int mode, int flags);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:faccessat /uid == @target_uid/ {
+    printf("faccessat [%s]\n", str(arg1));
+}
+
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:open /uid == @target_uid/ {
+    printf("open [%s]\n", str(arg0));
+}
+
+// char *getenv(const char *name);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:getenv /uid == @target_uid/ {
+    printf("getenv [%s]\n", str(arg0));
+}
+
+// int putenv(char *string);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:putenv /uid == @target_uid/ {
+    printf("putenv [%s]\n", str(arg0));
+}
+
+// FILE *fopen64(const char *pathname, const char *mode);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:fopen64 /uid == @target_uid/ {
+    printf("fopen64 [%s %s]\n", str(arg0), str(arg1));
+}
+
+// FILE *freopen64(const char *pathname, const char *mode, FILE *stream);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:freopen64 /uid == @target_uid/ {
+    printf("freopen64 [%s %s]\n", str(arg0), str(arg1));
+}
+
+// int system(const char *command);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:system /uid == @target_uid/ {
+    printf("system [%s]\n", str(arg0));
+}
+
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:__system_property_get /uid == @target_uid/ {
+    @name[tid] = str(arg0);
+    @val[tid] = arg1;
+}
+
+uretprobe:/apex/com.android.runtime/lib64/bionic/libc.so:__system_property_get /uid == @target_uid/ {
+    if (sizeof(@name[tid]) > 0) {
+        printf("getprop [%s:0x%x:%s], ret:%d\n", @name[tid], (int32)(@val[tid]), str(@val[tid]), retval);
+    }
+
+    delete(@name[tid]);
+    delete(@val[tid]);
+}
+
+// __fastcall __system_property_foreach
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:__system_property_foreach /uid == @target_uid/ {
+    printf("__system_property_foreach [%s]\n", ustack);
+}
+
+// const prop_info* __system_property_find(const char* __name);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:__system_property_find /uid == @target_uid/ {
+    printf("__system_property_find [%s]\n", str(arg0));
+}
+
+// http://www.aospxref.com/android-13.0.0_r3/xref/bionic/libc/include/sys/system_properties.h
+// int __system_property_set(const char* __name, const char* __value);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:__system_property_set /uid == @target_uid/ {
+    printf("__system_property_set [%s %s]\n", str(arg0), str(arg1));
+}
+
+// void abort(void);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:abort /uid == @target_uid/ {
+    printf("abort [%s]\n", ustack);
+}
+
+// int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:accept /uid == @target_uid/ {
+    $address = (struct sockaddr *)arg1;
+    if ($address->sa_family == AF_INET) {
+        $sa = (struct sockaddr_in *)$address;
+        $port = $sa->sin_port;
+        $addr = ntop($address->sa_family, $sa->sin_addr.s_addr);
+        printf("accept [%s %d %d]\n", $addr, bswap($port), $address->sa_family);
+    } else {
+        $sa6 = (struct sockaddr_in6 *)$address;
+        $port = $sa6->sin6_port;
+        $addr6 = ntop($address->sa_family, $sa6->sin6_addr.s6_addr);
+        printf("accept [%s %d %d]\n", $addr6, bswap($port), $address->sa_family);
+    }
+}
+
+// unsigned int alarm(unsigned int seconds);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:alarm /uid == @target_uid/ {
+    printf("alarm [%d]\n", arg0);
+}
+
+// struct hostent *gethostbyname(const char *name);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:gethostbyname /uid == @target_uid/ {
+    printf("gethostbyname [%s]\n", str(arg0));
+}
+
+// struct hostent *gethostbyaddr(const void *addr, socklen_t len, int type);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:gethostbyaddr /uid == @target_uid/ {
+    printf("gethostbyaddr [%s %d %d]\n", str(arg0), arg1, arg2);
+}
+
+// int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:bind /uid == @target_uid/ {
+    $address = (struct sockaddr *)arg1;
+    if ($address->sa_family == AF_INET) {
+        $sa = (struct sockaddr_in *)$address;
+        $port = $sa->sin_port;
+        $addr = ntop($address->sa_family, $sa->sin_addr.s_addr);
+        printf("bind [%s %d %d]\n", $addr, bswap($port), $address->sa_family);
+    } else {
+        $sa6 = (struct sockaddr_in6 *)$address;
+        $port = $sa6->sin6_port;
+        $addr6 = ntop($address->sa_family, $sa6->sin6_addr.s6_addr);
+        printf("bind [%s %d %d]\n", $addr6, bswap($port), $address->sa_family);
+    }
+}
+
+// int socket(int domain, int type, int protocol);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:socket /uid == @target_uid/ {
+    printf("socket [%d %d %d]\n", arg0, arg1, arg2);
+}
+
+// int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:connect /uid == @target_uid/ {
+    $address = (struct sockaddr *)arg1;
+    if ($address->sa_family == AF_INET) {
+        $sa = (struct sockaddr_in *)$address;
+        $port = $sa->sin_port;
+        $addr = ntop($address->sa_family, $sa->sin_addr.s_addr);
+        printf("connect [%s %d %d]\n", $addr, bswap($port), $address->sa_family);
+    } else {
+        $sa6 = (struct sockaddr_in6 *)$address;
+        $port = $sa6->sin6_port;
+        $addr6 = ntop($address->sa_family, $sa6->sin6_addr.s6_addr);
+        printf("connect [%s %d %d]\n", $addr6, bswap($port), $address->sa_family);
+    }
+}
+
+// int unlink(const char *pathname);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:unlink /uid == @target_uid/ {
+    printf("unlink [%s]\n", str(arg0));
+}
+
+// int unlinkat(int dirfd, const char *pathname, int flags);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:unlinkat /uid == @target_uid/ {
+    printf("unlinkat [%d %s %d]\n", arg0, str(arg1), arg2);
+}
+
+// int sscanf(const char *str, const char *format, ...);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:sscanf /uid == @target_uid/ {
+    // printf("sscanf [%s %s]\n", str(arg0), str(arg1));
+}
+
+// int scanf(const char *format, ...);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:scanf /uid == @target_uid/ {
+    // printf("scanf [%s]\n", str(arg0));
+}
+
+// ssize_t getxattr(const char *path, const char *name, void *value, size_t size);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:getxattr /uid == @target_uid/ {
+    @path[tid] = str(arg0);
+    @name[tid] = str(arg1);
+    @val[tid] = arg2;
+    @sz[tid] = arg3;
+}
+uretprobe:/apex/com.android.runtime/lib64/bionic/libc.so:getxattr /uid == @target_uid/ {
+    printf("getxattr [%s %s %s %d]\n", @path[tid], @name[tid], str(@val[tid]), @sz[tid]);
+
+    delete(@path[tid]);
+    delete(@name[tid]);
+    delete(@val[tid]);
+    delete(@sz[tid]);
+}
+
+// ssize_t lgetxattr(const char *path, const char *name, void *value, size_t size);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:lgetxattr /uid == @target_uid/ {
+    @path[tid] = str(arg0);
+    @name[tid] = str(arg1);
+    @val[tid] = arg2;
+    @sz[tid] = arg3;
+}
+uretprobe:/apex/com.android.runtime/lib64/bionic/libc.so:lgetxattr /uid == @target_uid/ {
+    printf("lgetxattr [%s %s %s %d]\n", @path[tid], @name[tid], str(@val[tid]), @sz[tid]);
+
+    delete(@path[tid]);
+    delete(@name[tid]);
+    delete(@val[tid]);
+    delete(@sz[tid]);
+}
+
+// ssize_t fgetxattr(int fd, const char *name, void *value, size_t size);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:fgetxattr /uid == @target_uid/ {
+    @path_[tid] = arg0;
+    @name[tid] = str(arg1);
+    @val[tid] = arg2;
+    @sz[tid] = arg3;
+}
+uretprobe:/apex/com.android.runtime/lib64/bionic/libc.so:fgetxattr /uid == @target_uid/ {
+    printf("fgetxattr [%d %s %s %d]\n", @path_[tid], @name[tid], str(@val[tid]), @sz[tid]);
+
+    delete(@path[tid]);
+    delete(@name[tid]);
+    delete(@val[tid]);
+    delete(@sz[tid]);
+}
+
+// int chown(const char *pathname, uid_t owner, gid_t group);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:chown /uid == @target_uid/ {
+    printf("chown [%s %d %d]\n", str(arg0), arg1, arg2);
+}
+
+// int fchown(int fd, uid_t owner, gid_t group);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:fchown /uid == @target_uid/ {
+    printf("fchown [%d %d %d]\n", arg0, arg1, arg2);
+}
+
+// int lchown(const char *pathname, uid_t owner, gid_t group);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:lchown /uid == @target_uid/ {
+    printf("lchown [%s %d %d]\n", str(arg0), arg1, arg2);
+}
+
+// int fchownat(int dirfd, const char *pathname, uid_t owner, gid_t group, int flags);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:lchown /uid == @target_uid/ {
+    printf("lchown [%d %s %d %d]\n", arg0, str(arg1), arg2, arg3);
+}
+
+// int chmod(const char *pathname, mode_t mode);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:chmod /uid == @target_uid/ {
+    printf("chmod [%s %d]\n", str(arg0), arg1);
+}
+
+// int fchmod(int fd, mode_t mode);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:fchmod /uid == @target_uid/ {
+    printf("fchmod [%d %d]\n", arg0, arg1);
+}
+
+// int fchmodat(int dirfd, const char *pathname, mode_t mode, int flags);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:fchmodat /uid == @target_uid/ {
+    printf("fchmodat [%d %s %d %d]\n", arg0, str(arg1), arg2, arg3);
+}
+
+// int rename(const char *oldpath, const char *newpath);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:rename /uid == @target_uid/ {
+    printf("rename [%s %s]\n", str(arg0), str(arg1));
+}
+
+// int renameat(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:renameat /uid == @target_uid/ {
+    printf("renameat [%d %s %d %s]\n", arg0, str(arg1), arg2, str(arg3));
+}
+
+// int renameat2(int olddirfd, const char *oldpath, int newdirfd, const char *newpath, unsigned int flags);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:renameat2 /uid == @target_uid/ {
+    printf("renameat2 [%d %s %d %s %d]\n", arg0, str(arg1), arg2, str(arg3), arg4);
+}
+
+// ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:readlink /uid == @target_uid/ {
+    @pathname[tid] = str(arg0);
+    @buf[tid] = arg1;
+    @bufsiz[tid] = arg2;
+}
+uretprobe:/apex/com.android.runtime/lib64/bionic/libc.so:readlink /uid == @target_uid/ {
+    printf("readlink [%s %s %d]\n", @pathname[tid], str(@buf[tid]), @bufsiz[tid]);
+
+    delete(@pathname[tid]);
+    delete(@buf[tid]);
+    delete(@bufsiz[tid]);
+}
+
+// ssize_t readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:readlinkat /uid == @target_uid/ {
+    @dirfd[tid] = arg0;
+    @pathname[tid] = str(arg1);
+    @buf[tid] = arg2;
+    @bufsiz[tid] = arg3;
+}
+uretprobe:/apex/com.android.runtime/lib64/bionic/libc.so:readlinkat /uid == @target_uid/ {
+    printf("readlinkat [%d %s %s %d]\n", @dirfd[tid], @pathname[tid], str(@buf[tid]), @bufsiz[tid]);
+
+    delete(@dirfd[tid]);
+    delete(@pathname[tid]);
+    delete(@buf[tid]);
+    delete(@bufsiz[tid]);
+}
+
+// int scandir(const char *dirp, struct dirent ***namelist, int (*filter)(const struct dirent *), int (*compar)(const struct dirent **, const struct dirent **));
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:scandir /uid == @target_uid/ {
+    printf("scandir [%s]\n", str(arg0));
+}
+
+// int scandirat(int dirfd, const char *dirp, struct dirent ***namelist, int (*filter)(const struct dirent *), int (*compar)(const struct dirent **, const struct dirent **));
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:scandirat /uid == @target_uid/ {
+    printf("scandirat [%d %s]\n", arg0, str(arg1));
+}
+
+// int semget(key_t key, int nsems, int semflg);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:semget /uid == @target_uid/ {
+    printf("semget [%d %d %d]\n", arg0, arg1, arg2);
+}
+
+// const char *getprogname(void);
+uretprobe:/apex/com.android.runtime/lib64/bionic/libc.so:getprogname /uid == @target_uid/ {
+    printf("getprogname [%s]\n", str(retval));
+}
+
+// void setprogname(const char *progname);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:setprogname /uid == @target_uid/ {
+    printf("setprogname [%s]\n", str(arg0));
+}
+
+// ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:sendmsg /uid == @target_uid/ {
+    printf("sendmsg [%d %d %d]\n", arg0, arg1, arg2);
+}
+
+// ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:recvmsg /uid == @target_uid/ {
+    printf("recvmsg [%d %d %d]\n", arg0, arg1, arg2);
+}
+
+// char *strstr(const char *haystack, const char *needle);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:strstr /uid == @target_uid/ {
+    printf("strstr [%s %s]\n", str(arg0), str(arg1));
+}
+
+// char *strnstr(const char *haystack, const char *needle, size_t len);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:strnstr /uid == @target_uid/ {
+    printf("strnstr [%s %s %d]\n", str(arg0), str(arg1), arg2);
+}
+
+// int strcmp(const char *s1, const char *s2);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:strcmp /uid == @target_uid/ {
+    printf("strcmp [%s %s]\n", str(arg0), str(arg1));
+}
+
+// int strncmp(const char *s1, const char *s2, size_t n);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:strncmp /uid == @target_uid/ {
+    printf("strncmp [%s %s %d]\n", str(arg0), str(arg1), arg2);
+}
+
+// size_t strlen(const char *s);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:strlen /uid == @target_uid/ {
+    printf("strlen [%s]\n", str(arg0));
+}
+
+// size_t strnlen(const char *s, size_t maxlen);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:strnlen /uid == @target_uid/ {
+    printf("strnlen [%s %d]\n", str(arg0), arg1);
+}
+
+// char *strcat(char *restrict s1, const char *restrict s2);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:strcat /uid == @target_uid/ {
+    printf("strcat [%s %s]\n", str(arg0), str(arg1));
+}
+
+// char *strncat(char *restrict s1, const char *restrict s2, size_t n);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:strncat /uid == @target_uid/ {
+    printf("strncat [%s %s %d]\n", str(arg0), str(arg1), arg2);
+}
+
+// char *stpncpy(char * dst, const char * src, size_t len);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:stpncpy /uid == @target_uid/ {
+    printf("stpncpy [%s %s %d]\n", str(arg0), str(arg1), arg2);
+}
+
+// int fstat(int fildes, struct stat *buf);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:fstat /uid == @target_uid/ {
+    printf("fstat [%d]\n", arg0);
+}
+
+// int lstat(const char *restrict path, struct stat *restrict buf);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:lstat /uid == @target_uid/ {
+    printf("lstat [%s]\n", str(arg0));
+}
+
+// int stat(const char *restrict path, struct stat *restrict buf);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:stat /uid == @target_uid/ {
+    printf("stat [%s]\n", str(arg0));
+}
+
+// int fstatat(int fd, const char *path, struct stat *buf, int flag);
+// uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:fstatat /uid == @target_uid/ {
+//    printf("fstatat [%d %s]\n", arg0, str(arg1));
+// }
+
+// int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void *), void *arg);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:pthread_create /uid == @target_uid/ {
+    printf("pthread_create [%x %s]\n", arg2, ustack);
+}
+/*
+// int memcmp(const void *s1, const void *s2, size_t n);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:memcmp /uid == @target_uid/ {
+    printf("memcmp [%r %r %d]\n", buf(arg0, arg2), buf(arg1, arg2), arg2);
+}
+*/
+// int __android_log_print(int prio, const char *tag,  const char *fmt, ...);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:__android_log_print /uid == @target_uid/ {
+    printf("__android_log_print [%d %s %s]\n", arg0, str(arg1), str(arg2));
+}
+
+// ssize_t getline(char ** restrict linep, size_t * restrict linecapp,  FILE * restrict stream);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:getline /uid == @target_uid/ {
+    @line[tid] = *(int8 **)arg0;
+}
+uretprobe:/apex/com.android.runtime/lib64/bionic/libc.so:getline /uid == @target_uid/ {
+    if ((int64)retval != -1) {
+        printf("getline [%s]\n", str(@line[tid]));
+    }
+
+    delete(@line[tid]);
+}
+
+// void* dlopen(const char* path, int mode);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:dlopen /uid == @target_uid/ {
+    printf("dlopen [%s %d]\n", str(arg0), arg1);
+}
+
+// void* dlsym(void* handle, const char* symbol);
+uprobe:/apex/com.android.runtime/lib64/bionic/libc.so:dlsym /uid == @target_uid/ {
+    printf("dlsym [%p %s]\n", arg0, str(arg1));
+}
+
+//
+
