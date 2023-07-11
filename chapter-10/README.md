@@ -174,32 +174,7 @@ BUILD_CONFIG=common-modules/virtual-device/build.config.goldfish.aarch64 SKIP_MR
 
 ## 10.4 测试eBPF功能
 
-安卓设备环境准备好后，需要`bcc`与`bpftrace`等工具来测试eBPF功能。
-
-目前，这两个工具官方都没有提供安卓系统的编译与发布支持。使用第三方提供的工具替代。
-
-## 10.4.1 为安卓编译bcc与bpftrace
-
-这里使用的工具名叫ExtendedAndroidTools。它的下载仓库地址是：https://github.com/facebookexperimental/ExtendedAndroidTools。从名字上就可以看出，该仓库的目标是为安卓设备提供eBPF相关工具支持。
-
-接官方的指导执行下面的命令编译生成二进制。
-
-```
-# Build the image
-./scripts/build-docker-image.sh
-
-# Run the environment
-./scripts/run-docker-build-env.sh
-
-# Build a target of your choice from within the container
-make bpftools
-```
-
-编译好后，会生成`bcc`与`bpftrace`工具，还有一些`libbpf`相关的开发库。二进制工具可以执行python与bpftrace的脚本程序，而开发库则可以使用`libbpf`开发C语言的eBPF程序。
-
-### 10.4.2 运行bcc工具
-
-将生成好的bpftools推送到设备上。执行如下命令。
+安卓设备环境准备好后，需要`bcc`与`bpftrace`等工具来测试eBPF功能。这里使用的工具名叫ExtendedAndroidTools。将下载的bpftools推送到设备上。执行如下命令。
 
 ```
 $ adb push bpftools /data/local/tmp/
@@ -239,9 +214,7 @@ mount -t debugfs debugfs /sys/kernel/debug
 # cat /sys/kernel/tracing/trace_pipe
 ```
 
-### 10.4.3 运行bpftrace工具
-
-`bpftrace`工具位于share/bpftrace/tools/目录下。执行方法与`bcc`一样。如尝试执行如下命令，监控命令执行操作。
+接下来，测试一下`bpftrace`工具的使用效果。`bpftrace`工具位于share/bpftrace/tools/目录下。执行方法与`bcc`一样。如尝试执行如下命令，监控命令执行操作。
 
 ```
 $ adb shell
@@ -273,6 +246,7 @@ TIME PID COMM SADDR SPORT DADDR DPORT
 本小节讲解如何使用eBPF开发一个完整的功能的跟踪工具。该工具名为`ndksnoop`。是笔者使用`bpftrace`实现的安卓NDK中常见的so动态库接口的跟踪工具。
 
 整个工具分为三部分组成。头文件申明、BEGIN初始化块、Hook函数体。下面，分别进行讲解。
+
 
 ### 10.5.1 头文件的引用
 
