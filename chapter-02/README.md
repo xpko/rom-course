@@ -618,9 +618,9 @@ make dist DIST_DIR=dist_output
 
 ​	接下来是如何刷入卡刷包，有两种刷入方式，一种是使用`adb sideload`命令刷入，另一种方式是使用第三方的`Recovery`工具`TWRP`刷入。下面演示两种不同方式的刷机流程。
 
-1. `adb sideload`
+1. `adb sideload`命令刷机
 
-首先进入`fastbootd`
+​	首选需要手机进入`recovery`模式，通过命令`adb reboot recovery`进入该模式，也可以通过`fastbootd`进入该模式
 
 ```
 adb reboot bootloader
@@ -631,17 +631,33 @@ fastboot reboot fastboot
 
 ![image-20230108190236615](.\images\image-20230108190236615.png)
 
-​	接下来进入下面的界面，选择`Apply update from ADB`
+​	`recovery`模式的界面，选择`Apply update from ADB`
 
 ![image-20230108190631803](.\images\image-20230108190631803.png)
 
 ​	使用命令`adb devices`查看当前状态显示为`sideload`，即可直接通过命令`adb sideload ota.zip`进行刷机。
 
-2. `TWRP`
+2. `TWRP`工具刷机
 
-`TWRP`的刷机则更加简单，在刷好`TWRP`的设备上，执行`adb reboot recovery`进入其操作界面，然后选择要刷入的ZIP包，点击刷机即可。
+​	`TWRP（Team Win Recovery Project）`是一款流行的开源第三方恢复模式。它是一个基于触摸屏界面的自定义恢复模式，用于在`Android`设备上安装、备份、恢复和刷入操作系统等。可以在`TWRP`的官网：`https://twrp.me/`，下载对应当前设备的`TWRP`来刷入手机中。
 
+```
+adb reboot bootloader
 
+// 刷入twrp
+fastboot flash recovery twrp.img
+```
+
+​	有些手机并不能刷入`recovery`分区，这种情况可以让`TWRP`临时作为`boot`启动一次。
+
+```
+adb reboot bootloader
+
+// 临时启动到TWRP
+fastboot boot twrp.img
+```
+
+​	启动进入`twrp`后，将要刷入的卡刷包上传到手机的`sdcard`，最后在`TWRP`操作界面选择刷入该卡刷包即可。
 
 ### 2.7 源码开发环境搭建
 
@@ -689,7 +705,9 @@ vim ./android.iml
 <excludeFolder url="file://$MODULE_DIR$/kernel"/>
 ```
 
-​	修改好配置后，使用`Android studio`打开`android.ipr`文件即可。接下来，介绍将代码导入`Clion`。
+​	修改好配置后，使用`Android studio`打开`android.ipr`文件即可。
+
+​	由于`Android studio`在开发时，对于`c++`相关的代码无法正常的跳转和提示，所以我们还需要将源码导入`Clion`。下面是导入`Clion`的详细步骤。
 
 ```
 // 设置环境变量,在编译时生成CMakeLists.txt文件
