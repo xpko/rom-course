@@ -552,6 +552,121 @@ rom.nativedem: [ROM] Library found address: 0x7a62102000
 rom.nativedem: [ROM] ClassLinker::RegisterNative java.lang.String cn.rom.nativedemo.MainActivity.stringFromJNI() native_ptr:0x7a621106e8 method_idx:0x277 offset:0xe6e8
 ```
 
+​	尽管这里已经成功获取到了偏移地址，但是这里并不能确定拿到的end地址是正确的，对于end地址的计算方式，是获取最后一个段的地址+偏移+段大小计算出来的。下面简单修改一下函数对于段进行详细打印。
+
+```c++
+int dl_iterate_callback(struct dl_phdr_info* info, size_t , void* entry) {
+    void* endptr=  (void*)(info->dlpi_addr + info->dlpi_phdr[info->dlpi_phnum - 1].p_vaddr + info->dlpi_phdr[info->dlpi_phnum - 1].p_memsz);
+    LOGD("mikrom name:%s base:%p end:%p\n",info->dlpi_name,(void*)info->dlpi_addr,endptr);
+    for (int j = 0; j < info->dlpi_phnum; j++) {
+        LOGD("mikrom    %2d: [%14p; memsz:%7lx] flags: 0x%x; ", j,
+               (void *) (info->dlpi_addr + info->dlpi_phdr[j].p_vaddr),
+               info->dlpi_phdr[j].p_memsz,
+               info->dlpi_phdr[j].p_flags);
+    }
+    return 0;
+}
+```
+
+​	输出的结果如下所示，根据base和end的大小，可以看出来该结束地址是错误的。
+
+```
+ mikrom name:/system/bin/linker64 base:0x7b21c17000 end:0x7b21c17290
+ mikrom     0: [  0x7b21c17040; memsz:    230] flags: 0x4; 
+ mikrom     1: [  0x7b21c17000; memsz:  367b4] flags: 0x4; 
+ mikrom     2: [  0x7b21c4e000; memsz:  e2940] flags: 0x5; 
+ mikrom     3: [  0x7b21d31000; memsz:   7ca0] flags: 0x6; 
+ mikrom     4: [  0x7b21d39ca0; memsz:   c0f0] flags: 0x6; 
+ mikrom     5: [  0x7b21d381a8; memsz:    120] flags: 0x6; 
+ mikrom     6: [  0x7b21d31000; memsz:   8000] flags: 0x4; 
+ mikrom     7: [  0x7b21c2eacc; memsz:   5e14] flags: 0x4; 
+ mikrom     8: [  0x7b21c17000; memsz:      0] flags: 0x6; 
+ mikrom     9: [  0x7b21c17270; memsz:     20] flags: 0x4; 
+```
+
+​	接下来查看maps中的映射动态库的地址，印证计算的结果是否正确。
+
+```
+7b21c17000-7b21c4e000 r--p 00000000 07:48 16                             /apex/com.android.runtime/bin/linker64
+7b21c4e000-7b21d31000 r-xp 00037000 07:48 16                             /apex/com.android.runtime/bin/linker64
+7b21d31000-7b21d39000 r--p 0011a000 07:48 16                             /apex/com.android.runtime/bin/linker64
+7b21d39000-7b21d3b000 rw-p 00121000 07:48 16                             /apex/com.android.runtime/bin/linker64
+```
+
+​	为什么会出现这种错误呢，根据上面的段详细打印，以及前面的计算方式，是使用最后一个段的地址+段大小，得到的结束地址，也就是`0x7b21c17270+0x20=end(0x7b21c17290)`，所以这里需要将逻辑进行优化，应该取段中，最大的地址+段大小=end。同时优化代码，将动态库名称一起返回展示。代码如下。
+
+```c++
+// add mikrom
+typedef struct{
+    uintptr_t addr;
+    uintptr_t baseAddr;
+    std::string moduleName="";
+}ModuleStruck;
+
+int dl_iterate_callback(struct dl_phdr_info* info, size_t , void* entry) {
+    ModuleStruck* mod=reinterpret_cast<ModuleStruck*>(entry);
+    if(strlen(mod->moduleName.c_str())>0){
+        return 0;
+    }
+    uintptr_t addr = mod->addr;
+//    void* endptr=  (void*)(info->dlpi_addr + info->dlpi_phdr[info->dlpi_phnum - 1].p_vaddr + info->dlpi_phdr[info->dlpi_phnum - 1].p_memsz);
+    uint64_t maxAddr=0;
+    uint64_t maxMemsz=0;
+    for (int j = 0; j < info->dlpi_phnum; j++) {
+        if((info->dlpi_addr + info->dlpi_phdr[j].p_vaddr)>maxAddr){
+            maxAddr=info->dlpi_addr + info->dlpi_phdr[j].p_vaddr;
+            maxMemsz=info->dlpi_phdr[j].p_memsz;
+        }
+    }
+    uintptr_t end=maxAddr+maxMemsz;
+//    ALOGD("mikrom native:%p name:%s base:%p end:%p\n", (void*)addr,info->dlpi_name,(void*)info->dlpi_addr,(void*)end);
+    if(addr >= info->dlpi_addr && addr<=end){
+//        ALOGD("mikrom Library found native:%p base:%p\n\n",(void*)addr,(void*)info->dlpi_addr);
+        mod->baseAddr=info->dlpi_addr;
+        mod->moduleName=info->dlpi_name;
+    }
+    return 0;
+}
+
+void FindLibraryBaseAddress(ModuleStruck* entry) {
+    dl_iterate_phdr(dl_iterate_callback, entry);
+}
+// addend
+
+const void* ClassLinker::RegisterNative(
+    Thread* self, ArtMethod* method, const void* native_method) {
+  ...
+  if (method->IsCriticalNative()) {
+    ...
+  } else {
+    method->SetEntryPointFromJni(new_native_method);
+    if(Runtime::Current()->GetConfigItem().isRegisterNativePrint){
+        void * native_ptr=new_native_method;
+        ModuleStruck mod;
+        mod.addr=(uintptr_t)native_ptr;
+        FindLibraryBaseAddress(&mod);
+        uintptr_t base_addr=mod.baseAddr;
+
+        uintptr_t native_data = reinterpret_cast<uintptr_t>(native_ptr);
+        uintptr_t base_data = reinterpret_cast<uintptr_t>(base_addr);
+        uintptr_t offset=native_data-base_data;
+        ALOGD("mikrom ClassLinker::RegisterNative %s native_ptr:%p method_idx:0x%x offset:%p module_name:%s",method->PrettyMethod().c_str(),new_native_method,method->GetMethodIndex(),(void*)offset,mod.moduleName.c_str());
+    }
+  }
+  return new_native_method;
+}
+```
+
+​	最终在实际应用中效果展示如下。
+
+```
+2023-08-01 15:24:08.816  5468-5659  com.UCMobile            com.UCMobile                         D  mikrom ClassLinker::RegisterNative void com.alibaba.mbg.unet.internal.UNetRequestJni.nativeSetExtraInfo(long, int, java.lang.String[]) native_ptr:0xb60d7ae9 method_idx:0x11 offset:0x108ae9 module_name:/data/app/~~JHAIRSSsk6jBdgjb90EHSQ==/com.UCMobile-aUSjEzsqxD6w8l-eJW7kWw==/lib/arm/libunet.so
+2023-08-01 15:24:08.816  5468-5659  com.UCMobile            com.UCMobile                         D  mikrom ClassLinker::RegisterNative void com.alibaba.mbg.unet.internal.UNetRequestJni.nativeAddLogScene(long, java.lang.String, java.lang.String, java.lang.String) native_ptr:0xb60d7c95 method_idx:0x1 offset:0x108c95 module_name:/data/app/~~JHAIRSSsk6jBdgjb90EHSQ==/com.UCMobile-aUSjEzsqxD6w8l-eJW7kWw==/lib/arm/libunet.so
+2023-08-01 15:24:08.816  5468-5659  com.UCMobile            com.UCMobile                         D  mikrom ClassLinker::RegisterNative void com.alibaba.mbg.unet.internal.UNetRequestJni.nativeSetEnableDeepPrefetch(long, boolean) native_ptr:0xb60d7d5d method_idx:0x10 offset:0x108d5d module_name:/data/app/~~JHAIRSSsk6jBdgjb90EHSQ==/com.UCMobile-aUSjEzsqxD6w8l-eJW7kWw==/lib/arm/libunet.so
+2023-08-01 15:24:08.816  5468-5659  com.UCMobile            com.UCMobile                         D  mikrom ClassLinker::RegisterNative void com.alibaba.mbg.unet.internal.UNetRequestStatJni.nativeDestroy(long) native_ptr:0xb60d8895 method_idx:0x2 offset:0x109895 module_name:/data/app/~~JHAIRSSsk6jBdgjb90EHSQ==/com.UCMobile-aUSjEzsqxD6w8l-eJW7kWw==/lib/arm/libunet.so
+```
+
+
 
 ## 6.4 自定义系统服务
 
