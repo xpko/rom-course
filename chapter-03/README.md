@@ -1,15 +1,15 @@
 # 第三章 认识系统组件
 
-​	在上一章的学习中，成功编译了`Android`12，以及对应的系统内核，并且通过多种方式刷入手机。接下来需要先对`Android`源码的根结构有一定的了解，了解结构能有助于更快的定位和分析源码，同时能让开发人员更好的理解`Android`系统。在修改系统时，有些简单的功能（例如`native`中的文件读写，`java`类型的转换`c++`类型等）并不需要我们重新实现，因为这些需求大多数在`Android`系统源码中都有类似的实现，熟练掌握`Android`系统源码，了解系统中常用的那些功能性函数，可以大大的提高定制系统的效率。在源码的学习过程中。
+​	在上一章的学习中，我们成功编译了`Android`12，以及对应的系统内核，并且通过多种方式刷入手机。接下来需要先对`Android`源码的根结构有一定的了解，了解结构有助于更快地定位和分析源码，同时能让开发人员更好地理解`Android`系统。在修改系统时，有些简单的功能（例如`native`中的文件读写、`java`类型的转换`c++`类型等）并不需要我们重新实现，因为这些需求大多数在`Android`系统源码中都有类似的实现，熟练掌握`Android`系统源码，了解系统中常用的那些功能性函数，可以大大提高定制系统的效率。
 
-**学习系统源码时，碰到问题，要学会暂时记录并跳过，经历过一遍遍学习和实践后，之前遇到的问题可能简单思考便会明白，这不仅节省了时间，也不会在学习过程中逐渐失去信心。**
+**在学习系统源码时，碰到问题，要学会暂时记录并跳过，经历过一遍遍学习和实践后，之前遇到的问题可能简单思考便会明白，这不仅节省了时间，也不会在学习过程中逐渐失去信心。**
 
 
 ## 3.1 源码结构介绍
 
 ​	首先看看`Android`源码根目录下，各个目录的简单介绍。
 
-1. `art`：该目录在`Android` 5.0中新增加的，主要是实现`Android RunTime（ART）`的目录，它作为`Android` 4.4中的`Dalvik`虚拟机的替代，主要处理`Java`字节码执行。
+1. `art`：该目录是在`Android` 5.0中新增加的，主要是实现`Android RunTime（ART）`的目录，它作为`Android` 4.4中的`Dalvik`虚拟机的替代，主要处理`Java`字节码执行。
 2. `bionic`：`Android`的`C`库，包含了很多标准的`C`库函数和头文件，还有一些`Android`特有的函数和头文件。
 3. `build`：该目录包含了编译`Android`源代码所需要的脚本，包括`makefile`文件和一些构建工具。
 4. `compatibility`：`Android`设备的兼容性测试套件`（CTS）`和兼容性实现`（Compatibility Implementation）`。
@@ -34,15 +34,15 @@
 23. `tools`：开发工具，如`Android SDK`工具、`Android Studio、Eclipse`等。
 24. `vendor`：硬件厂商提供的驱动程序，如摄像头驱动、蓝牙驱动等。
 
-​	在上述目录中，并不需要全部记下，只需要记住几个重点即可。在实践时，为了实现功能，查阅翻读源码时，就会不断加深你对这些目录划分的了解。
+​	在上述目录中，并不需要全部记下，只需要记住几个重点即可（哪些是重点呢？是不是需要提示？）。在实践时，为了实现功能，查阅翻读源码时，就会不断加深你对这些目录划分的了解。
 
 
 ## 3.2 Android系统启动流程
 
-​	`Android`系统启动流程主要分为四个阶段：`Bootloader`阶段、`Kernel`阶段、`Init`进程阶段和`System Server`启动阶段，下面看一下这几个阶段的启动流程。
+​	`Android`系统启动主要分为四个阶段：`Bootloader`阶段、`Kernel`阶段、`Init`进程阶段和`System Server`启动阶段，下面看一下这几个阶段的启动流程。
 
-1. `Bootloader`阶段： 当手机或平板电脑开机时，首先会执行引导加载程序（`Bootloader`），它会在手机的`ROM`中寻找启动内核（`Kernel`）的镜像文件，并将其加载进`RAM`中。在这个阶段中，`Android`系统并没有完全启动，只是建立了基本的硬件和内核环境。
-2. `Kernel`阶段： `Kernel`阶段是`Android`启动流程的第二阶段，它主要负责初始化硬件设备、加载驱动程序、设置内存管理等。此外，`Kernel`还会加载`initramfs`，它是一个临时文件系统，包含了`init`程序和一些设备文件。
+1. `Bootloader`阶段： 当手机或平板电脑开机时，首先会执行引导加载程序（`Bootloader`），它会在手机的`ROM`中寻找启动内核（`Kernel`）的镜像文件，并将其加载进`RAM`。在这个阶段，`Android`系统并没有完全启动，只是建立了基本的硬件和内核环境。
+2. `Kernel`阶段： `Kernel`阶段是`Android`启动的第二阶段，它主要负责初始化硬件设备、加载驱动程序、设置内存管理等。此外，`Kernel`还会加载`initramfs`，它是一个临时文件系统，包含了`init`程序和一些设备文件。
 3. `Init`进程阶段： `Kernel`会启动`init`进程，它是`Android`系统中的第一个用户空间进程。`Init`进程的主要任务是读取`init.rc`文件，并根据该文件中的配置信息启动和配置`Android`系统的各个组件。在这个阶段中，系统会依次启动各个服务和进程，包括启动`Zygote`进程和创建`System Server`进程。
 4. `System Server`启动阶段： `System Server`是`Android`系统的核心服务进程，它会启动所有的系统服务。其中包括`Activity Manager、Package Manager、Window Manager、Location Manager、Telephony Manager、Wi-Fi Service、Bluetooth Service`等。`System Server`启动后，`Android`系统就完全启动了，用户可以进入桌面，开始使用各种应用程序。
 
@@ -330,12 +330,12 @@ int main(int argc, char** argv) {
             return SecondStageMain(argc, argv);
         }
     }
-	// 第一步 挂载设备节点
+	// 第一步 挂载设备节点（位置是否有问题？）
     return FirstStageMain(argc, argv);
 }
 ```
 
-​	根据上一章的启动`init`的参数，可以判断第一次启动时，执行的是`FirstStageMain`函数，继续看看这个函数的实现，可以看到初始化了一些基础系统支持的目录，以及使用`mount`进行挂载。
+​	根据上一章的启动`init`的参数，可以判断第一次启动时执行的是`FirstStageMain`函数，继续看看这个函数的实现，可以看到初始化了一些基础系统支持的目录，以及使用`mount`进行挂载。
 
 ```cpp
 
@@ -374,7 +374,7 @@ int FirstStageMain(int argc, char** argv) {
     dup2(fd, STDOUT_FILENO);
     dup2(fd, STDERR_FILENO);
     close(fd);
-    // 使用execv再次调用起init进程
+    // 使用execv再次调用init进程
     execv(path, const_cast<char**>(args));
 
     // execv() only returns if an error happened, in which case we
@@ -385,7 +385,7 @@ int FirstStageMain(int argc, char** argv) {
 }
 ```
 
-​	在目录初始化完成后，又拉起了一个`init`进程，并且传了参数`selinux_setup`，接下来，直接看前面`main`入口函数中判断出现该参数时调用的`SetupSelinux`函数。
+​	在目录初始化完成后又拉起了一个`init`进程，并且传入参数`selinux_setup`，接下来，直接看前面`main`入口函数中判断出现该参数时调用的`SetupSelinux`函数。
 
 ```cpp
 int SetupSelinux(char** argv) {
@@ -439,7 +439,7 @@ int SetupSelinux(char** argv) {
 }
 ```
 
-​	上面的代码可以看到，在完成`selinux`的加载处理后，又拉起了一个`init`进程，并且传参数`second_stage`。接下来，看第三步`SecondStageMain`函数
+​	上面的代码可以看到，在完成`selinux`的加载处理后，又拉起了一个`init`进程，并且传入参数`second_stage`。接下来，看第三步`SecondStageMain`函数。
 
 ```cpp
 
@@ -459,7 +459,7 @@ int SecondStageMain(int argc, char** argv) {
 }
 ```
 
-​	继续跟踪`LoadBootScripts`函数，了解是如何解析执行的`init.rc`文件。
+​	继续跟踪`LoadBootScripts`函数，了解它是如何解析执行`init.rc`文件的。（修改的意思是否正确？）
 
 ```cpp
 
@@ -492,7 +492,7 @@ static void LoadBootScripts(ActionManager& action_manager, ServiceList& service_
 
 ```
 
-​	继续看看解析的逻辑，可以看到参数可以是目录或者文件
+​	继续看看解析的逻辑，可以看到参数可以是目录或者文件。
 
 ```cpp
 bool Parser::ParseConfig(const std::string& path) {
@@ -503,7 +503,7 @@ bool Parser::ParseConfig(const std::string& path) {
 }
 ```
 
-​	如果是目录，则遍历所有文件再调用解析文件，所以直接看`ParseConfigFile`就好了
+​	如果是目录，则遍历所有文件再调用解析文件，所以直接看`ParseConfigFile`就好了。
 
 ```cpp
 bool Parser::ParseConfigFile(const std::string& path) {
@@ -513,7 +513,7 @@ bool Parser::ParseConfigFile(const std::string& path) {
 }
 ```
 
-​	最后看看`ParseData`是如何解析数据的
+​	最后看看`ParseData`是如何解析数据的。
 
 ```cpp
 
@@ -579,14 +579,14 @@ Parser CreateParser(ActionManager& action_manager, ServiceList& service_list) {
 }
 ```
 
-​	如果了解过`init.rc`文件格式的，看到这里就很眼熟了，这就是`.rc`文件中配置时使用的节点名称了。他们的功能简单的描述如下。
+​	如果了解过`init.rc`文件格式的，看到这里就很眼熟了，这就是`.rc`文件中配置时使用的节点名称了。它们的功能的简单描述如下。
 
 1. `service`	定义一个服务
 2. `on`				触发某个`action`时，执行对应的指令
 
 3. `import`	  表示导入另外一个`rc`文件
 
-​	再解读上面的代码就是，根据`rc`文件的配置不同，来使用`ServiceParser`、`ActionParser`、`ImportParser`这三种节点解析对象的`ParseSection`或者`ParseLineSection`函数来处理。继续看看这三个对象的解析函数实现。
+​	再解读上面的代码就是，根据`rc`文件的配置不同，使用`ServiceParser`、`ActionParser`、`ImportParser`这三种节点解析对象的`ParseSection`或者`ParseLineSection`函数来处理（这句不完整？）。继续看看这三个对象的解析函数实现。
 
 ```cpp
 // service节点的解析处理
@@ -680,9 +680,9 @@ Result<void> ImportParser::ParseSection(std::vector<std::string>&& args,
 
 ## 3.5 init.rc
 
-​	`init.rc`是`Android`系统中的一个脚本文件并非配置文件，是一种名为`Android Init Language`的脚本语言写成的文件，当然也可以简单当作是配置文件理解，主要用于启动和管理`Android`上的其他进程对系统进行初始化工作。
+​	`init.rc`是`Android`系统中的一个脚本文件而并非配置文件，是一种名为`Android Init Language`的脚本语言写成的文件，当然也可以简单当作配置文件来理解，主要用于启动和管理`Android`上的其他进程以对系统进行初始化工作。
 
-​	将`init.rc`看作是`init`进程功能的动态延申，一些可能需要改动的初始化系统任务就放在配置文件中，然后读取配置解析后再进行初始化执行，如此可以提高一定的灵活性，相信很多开发人员在工作中都有做过类似的封装。而`init.rc`就是配置文件的入口，在`init.rc`中通过`import`节点来导入其他的配置文件，所以这些文件都可以算是`init.rc`的一部分。在上一章，通过了解`init`进程的工作流程，明白了解析`init.rc`文件的过程。
+​	将`init.rc`看作是`init`进程功能的动态延申，一些可能需要改动的初始化系统任务就放在配置文件中，然后读取配置解析后再进行初始化执行，如此可以提高一定的灵活性，相信很多开发人员在工作中都有做过类似的封装。而`init.rc`就是配置文件的入口，在`init.rc`中通过`import`节点来导入其他的配置文件，所以这些文件都可以算是`init.rc`的一部分。在上一章（确定是章？），通过了解`init`进程的工作流程，明白了解析`init.rc`文件的过程。
 
 ​	`init.rc`是由多个`section`节点组成的，而节点的类型分别主要是`service、on、import`三种。上一节中，有简单的介绍，它们的作用分别是定义服务、事件触发、导入其他`rc`文件。下面，来看`init.rc`文件中的几个例子，查看文件`system/core/rootdir/init.rc`。
 
@@ -938,9 +938,9 @@ int main(int argc, char* const argv[])
 
 ​	从代码中可以看到主要是对参数进行处理包装后，然后根据是否携带`--zygote`选择启动`ZygoteInit`或者是`RuntimeInit`。
 
-​	`ZygoteInit`负责加载和初始化`Android`运行时环境，例如应用程序运行器，垃圾收集器等，并且它启动`Android`系统中的所有核心服务。
+​	`ZygoteInit`负责加载和初始化`Android`运行时环境，例如应用程序运行器、垃圾收集器等，并且它启动`Android`系统中的所有核心服务。
 
-​	 `RuntimeInit`负责将应用程序的执行环境与系统的运行环境进行联系，然后将应用程序的主类加载到运行时，最后将应用程序的控制权交给应用程序的主类。
+​	 `RuntimeInit`负责联系应用程序的执行环境与系统的运行环境，然后将应用程序的主类加载到运行时，最后将应用程序的控制权交给应用程序的主类。
 
 ​	下面继续看看`runtime.start`的实现，查看对应文件`frameworks/base/core/jni/AndroidRuntime.cpp`
 
@@ -1055,7 +1055,7 @@ public static void main(String[] argv) {
     }
 ```
 
-​	这里的重点是创建了`zygoteServer`，然后根据参数决定是否`forkSystemServer`，最后`runSelectLoop`等待`AMS`发送消息创建应用程序的进程。依次从代码观察他们的本质。首先是`ZygoteServer`的构造函数，可以看到，主要是创建`Socket`套接字。
+​	这里的重点是创建了`zygoteServer`，然后根据参数决定是否`forkSystemServer`，最后`runSelectLoop`等待`AMS`发送消息创建应用程序的进程。依次从代码观察它们的本质。首先是`ZygoteServer`的构造函数，可以看到，主要是创建`Socket`套接字。
 
 ```java
 ZygoteServer(boolean isPrimaryZygote) {
@@ -2510,7 +2510,7 @@ public void callApplicationOnCreate(Application app) {
 11. `Resource Manager`：管理所有允许应用程序访问的公共资源，例如铃声，照片和联系人信息。
 12. `Activity`和`Fragment`：提供应用程序的用户界面和控制器。
 
-​	可以看到前文中的各种系统服务就是属于`Framework`中的一部分，但是用户层并不能直接的访问系统服务提供的功能，而是通过各服务对应的管理器来对系统服务进行调用。接下来开始跟踪，在开发应用中，当调用一个系统服务功能时发生了哪些调用，使用`Android Studio`创建一个项目，添加如下代码。
+​	可以看到前文中的各种系统服务就是属于`Framework`中的一部分，但是用户层并不能直接访问系统服务提供的功能，而是通过各服务对应的管理器来对系统服务进行调用。接下来开始跟踪，在开发应用中，当调用一个系统服务功能时发生了哪些调用，使用`Android Studio`创建一个项目，添加如下代码。
 
 ```java
 protected void onCreate(Bundle savedInstanceState) {
