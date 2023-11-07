@@ -198,7 +198,7 @@ export REPO_URL='https://mirrors.tuna.tsinghua.edu.cn/git/git-repo/'
 mkdir aosp_12 && cd aosp_12
 
 // 指定分支版本
-repo init -u https://aosp.tuna.tsinghua.edu.cn/platform/manifest -b android-12.0.0_r3
+repo init -u https://mirrors.tuna.tsinghua.edu.cn/git/AOSP/platform/manifest -b android-12.0.0_r3
 
 // 同步代码
 repo sync -c -j8
