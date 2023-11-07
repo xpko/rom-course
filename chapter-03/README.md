@@ -34,7 +34,7 @@
 23. `tools`：开发工具，如`Android SDK`工具、`Android Studio、Eclipse`等。
 24. `vendor`：硬件厂商提供的驱动程序，如摄像头驱动、蓝牙驱动等。
 
-​	在上述目录中，并不需要全部记下，只需要记住几个重点即可（哪些是重点呢？是不是需要提示？）。在实践时，为了实现功能，查阅翻读源码时，就会不断加深你对这些目录划分的了解。
+​	在上述目录中，并不需要全部记下，只需要记住几个重点即可，例如`art、framework、libcore、system、build`。在实践时，为了实现功能，查阅翻读源码时，就会不断加深你对这些目录划分的了解。
 
 
 ## 3.2 Android系统启动流程
@@ -330,7 +330,7 @@ int main(int argc, char** argv) {
             return SecondStageMain(argc, argv);
         }
     }
-	// 第一步 挂载设备节点（位置是否有问题？）
+	// 第一步 挂载设备节点，初次进入没有参数将执行这里
     return FirstStageMain(argc, argv);
 }
 ```
