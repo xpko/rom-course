@@ -661,6 +661,12 @@ fastboot boot twrp.img
 
 ### 2.7 源码开发环境搭建
 
+谷歌一直积极的探索，在开发系统编辑与调试代码时，如何让开发人员拥有一个好的开发体验。在2020年之前，想要在IDE中开发系统代码，需要借助AOSP中带的`idegen`工具。但是，系统代码量日渐庞大，`idegen`工具提供的项目管理方式让配置工作变得复杂，也非常的耗时与吃内存，于是有了新的`aidegen`工具，2022年之后，`idegen`工具的代码也几乎不在维护了。到目前，谷歌的风向又发生了变化，官方决定直接基于`Android Studio`来做一个定制的IDE，集成系统代码的智能行语法提示、交叉引用代码跳转、编译与调试等功能于一体，截至本书出版，该工具命名为`Android Studio For platform`，并推出了一个Linux的deb安装包，还不支持macOS与Windows系统。
+
+无论是`idegen`还是`aidegen`工具，它们生成的项目管理文件都只支持分开单独编辑处理Java与Native代码。1`Android Studio For platform`则统一支持，本小节主要讲`idegen`还是`aidegen`这两个工具的使用。
+
+#### 2.7.1 idegen
+
 ​	`Android`系统是一个非常庞大的工程，需要采用合适的编辑器或`IDE`来阅读与修改代码。如果改动不多，使用`vscode`导入工作区即可开始修改代码。`vscode`的智能提示和跳转相对`IDE`较为简陋，如果想要更加友好的开发体验，可以选择将源码导入`Android Studio`中编辑`java`部分代码，导入`Clion`中编辑`native`部分代码。
 
 下面介绍如何将源码导入`Android Studio`。
@@ -767,6 +773,100 @@ add_subdirectory(system/core/lmkd/lmkd-arm64-android)
 ```
 
 ​	配置好`cmake`工程后，使用`clion`打开项目，选择上面的`CMakeLists.txt`文件所在的目录`out/development/ide/clion`。导入成功后，修改工程的根目录，`Tools->Cmake->Change Project Root`，然后选择源码根目录即可。
+
+
+#### 2.7.2 aidegen
+
+本节将介绍如何使用`aidegen`工具来生成Android Studio项目配置文件，以及如何生成供CLion编辑生成的native项目管理工程文件。以下是详细的步骤：
+
+与使用`idegen`一样，需要先安装好IDE。`Android Studio`的安装可以使用`sudo snap install android-studio`，也可以到官方网站上下载deb文件后安装。`Clion`可以选择去该IDE的官方下载安装。这两个IDE安装完成后，接下来是准备好需要开发的AOSP代码。然后执行如下命令：
+
+```
+$ cd <path_to_aosp_source>
+$ . build/envsetup.sh
+$ lunch <target>
+```
+
+`path_to_aosp_source`为AOSP代码，注意，使用`aidegen`方式项目文件支持安卓11及以后版本的代码，低版本的代码可能使用`idegen`更合适。`lunch`命令后的`target`指明要开发的目标，比如`aosp_cf_x86_64_phone-userdebug`。只有在`lunch`命令执行完后，`aidegen`命令才处于可用状态，它是一个压缩的Python程序包，被赋予了可执行权限。执行下面命令查看它的用法：
+
+```
+$ which  aidegen
+<path_to_aosp_source>/prebuilts/asuite/aidegen/linux-x86/aidegen
+
+$ aidegen --help
+usage: aidegen [module_name1 module_name2... project_path1 project_path2...]
+
+AIDEgen
+
+This CLI generates project files for using in IntelliJ, such as:
+    - iml
+    - .idea/compiler.xml
+    - .idea/misc.xml
+    - .idea/modules.xml
+    - .idea/vcs.xml
+    - .idea/.name
+    - .idea/copyright/Apache_2.xml
+    - .idea/copyright/progiles_settings.xml
+
+- Sample usage:
+    - Change directory to AOSP root first.
+    $ cd /user/home/aosp/
+    - Generating project files under packages/apps/Settings folder.
+    $ aidegen packages/apps/Settings
+    or
+    $ aidegen Settings
+    or
+    $ cd packages/apps/Settings;aidegen
+
+positional arguments:
+  targets               Android module name or path.e.g. Settings or packages/apps/Settings
+
+options:
+  -h, --help            show this help message and exit
+  -d {0,1,2,3,4,5,6,7,8,9}, --depth {0,1,2,3,4,5,6,7,8,9}
+                        The depth of module referenced by source.
+  -v, --verbose         Display DEBUG level logging.
+  -i IDE, --ide IDE     Launch IDE type, j: IntelliJ, s: Android Studio, e: Eclipse, c: CLion, v: VS Code. The default value is 'u': undefined.
+  -p IDE_INSTALLED_PATH, --ide-path IDE_INSTALLED_PATH
+                        IDE installed path.
+  -n, --no_launch       Do not launch IDE.
+  -r, --config-reset    Reset all saved configurations, e.g., preferred IDE version.
+  -s, --skip-build      Skip building jars or modules that create java files in build time, e.g. R/AIDL/Logtags.
+  -a, --android-tree    Generate whole Android source tree project file for IDE.
+  -e [EXCLUDE_PATHS ...], --exclude-paths [EXCLUDE_PATHS ...]
+                        Exclude the directories in IDE.
+  -V, --version         Print aidegen version string.
+  -l LANGUAGE, --language LANGUAGE
+                        Launch IDE with a specific language, j: Java, c: C/C++, r: Rust. The default value is 'u': undefined.
+
+INFO: To report an AIDEGen tool problem, please use this link: https://goto.google.com/aidegen-bug
+```
+
+`options`部分列出了支持的参数，可以看到，它支持生成`j: IntelliJ, s: Android Studio, e: Eclipse, c: CLion, v: VS Code`等多种IDE。接下来就是使用了。
+
+使用AIDEGen工具生成供Android Studio使用的项目配置文件。执行以下命令：
+
+```
+$ ./out/host/linux-x86/bin/aidegen -i <path_to_module> -p <path_to_android_studio_project>
+```
+
+其中，`<path_to_module>`是您要生成项目配置文件的模块的路径，`<path_to_android_studio_project>` 是您要将配置文件生成到的Android Studio项目的路径。你也可以不指定`-p`参数，这样会在终端窗口输出生成的项目路径。如执行下命令的命令，会生成供`Android Studio`使用的项目文件，里面包含了`Settings`与`framework`模块：
+
+```
+$ aidegen Settings framework -s
+```
+
+接下来，打开生成的Android Studio项目，并配置您的调试环境。您可以使用Android Studio的调试功能来调试Java代码，生成的项目自动包括了AOSP里集成的JDK，并配置好了代码依赖，支持代码跳转与智能提示，由于不需要一次性打开所有的项目，启动加载速度会快上很多，开发体验一下就上去了。
+
+生成C项目工程的方法类似，使用`aidegen`工具生成供CLion使用的C项目工程。执行以下命令：
+
+```
+$ ./out/host/linux-x86/bin/aidegen -c -i <path_to_module> -p <path_to_clion_project>
+```
+
+其中，`<path_to_module>`是您要生成项目工程的模块的路径，`<path_to_clion_project>`是您要将工程生成到的CLion项目的路径。
+
+打开生成的CLion项目，并配置您的编辑环境。您可以使用CLion的功能来编辑和调试C代码。更多实践与说明，可以参看AOSP代码tools/asuite/aidegen目录下的README.md文档。
 
 
 ## 2.8 gitlab配合repo管理源码
