@@ -18,6 +18,3 @@ GPL3.0
 
 本图书仅供技术交流，禁止使用书中的技术与工具进行任何商业活动与安全商业产品开发。
 
-## 收费课程
-
-![image](https://github.com/user-attachments/assets/6ab26a03-a838-43c8-b797-0f13394155b6)
