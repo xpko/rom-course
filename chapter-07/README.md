@@ -934,7 +934,7 @@ DexFile::DexFile(const uint8_t* base,
 
 ​	使用`010 Editor`工具，通过模板库在线安装`DEX.bt`模板，然后打开之前的样例文件，查看在例子中`header_`的真实数据。
 
-![image-20230325190621427](.\images\dex_header.png)
+![image-20230325190621427](images/dex_header.png)
 
 
 ## 7.3 函数调用流程
@@ -994,7 +994,7 @@ public interface Opcodes {
 
 ​	使用`010 Editor`工具，将样例程序解压后获得的`classes.dex`拖入`010 Editor`打开。看到结果如下。
 
-![image-20230325133550347](.\images\dex模板.png)
+![image-20230325133550347](images/dex模板.png)
 
 ​	接下来在`dex_class_defs`中寻找刚刚分析的目标类`MyCommon`。
 
@@ -1004,11 +1004,11 @@ struct class_def_item class_def[2205]	public cn.rom.myjar.MyCommon	1243C4h	20h	F
 
 ​	将其展开后，能看到该`class`的详细信息，在上一节的类加载中，当`DEX`被解析后，加载的类在内存中就是以这样的结构存储着数据。
 
-![image-20230325134213390](.\images\def_class.png)
+![image-20230325134213390](images/def_class.png)
 
 ​	在其中的函数结构体下面的`code_item`类型的数据，就存储着该函数要执行的`java`字节码，继续展开该结构。
 
-![image-20230325134632085](.\images\codeitem1.png)
+![image-20230325134632085](images/codeitem1.png)
 
 ​	这里就能看到对该函数结构的描述了，`insns`中则存储着函数要执行的指令。每个指令的单位是`ushort`，即两个字节存储，将这里的三个指令转换为16进制表示则是。
 
