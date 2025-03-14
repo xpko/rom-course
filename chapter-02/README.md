@@ -29,11 +29,11 @@
 
 ​	由于是系统自带的，所以安装起来非常方便，可以直接在控制面版->程序->启动或关闭`Window`功能中开启支持即可，如下图
 
-![img](.\images\69ba546fd55c4fea8ef9b5d55a9bd354.png)
+![img](images/69ba546fd55c4fea8ef9b5d55a9bd354.png)
 
 ​	或者是采用命令的方式开启虚拟机平台和`Linux`子系统，使用管理员权限启动。
 
-![image-20230102183708998](.\images\image-20230102183708998.png)
+![image-20230102183708998](images/image-20230102183708998.png)
 
 ​	打开Powershell，执行下面的命令开启功能。
 
@@ -46,7 +46,7 @@ Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-L
 
 ​	启动完成这些特性后，重新启动计算机，就可以开始安装一个`Ubuntu`系统了。打开`Microsoft Store`应用商店输入关键字`Ubuntu`进行搜索，然后选择自己需要的版本即可，例如这里安装的是22.04版本，如下图。
 
-![image-20230102184626538](.\images\image-20230102184626538.png)
+![image-20230102184626538](images/image-20230102184626538.png)
 
 ​	成功获取`Ubuntu`系统后，从应用中启动系统即开始正式安装。安装过程只需要设置好用户名与密码即可。完成后会进行一个`shell`环境供用户输入。第一次启动时，需要设置用户名与密码来完成初始化配置。以后，只需要在终端工具的界面上，选择Ubuntu就可以启动了，整个启动过程中非常的快，只要数秒就会在窗口中给出一个Shell提示符，供用户输入操作。
 
@@ -79,27 +79,27 @@ wsl --import ubuntu22 E:\wsl2\ubuntu22_wsl E:\wsl2\ubuntu22.tar
 1. 下载并安装`VMware`虚拟机，然后下载`Ubuntu22.04`系统`ISO`镜像文件。
 2. `VWware`创建虚拟机，选择指定镜像
 
-![image-20230102194041709](.\images\image-20230102194041709.png)
+![image-20230102194041709](images/image-20230102194041709.png)
 
 3. 设置初始账号密码
 
-![image-20230102194243774](.\images\image-20230102194243774.png)
+![image-20230102194243774](images/image-20230102194243774.png)
 
 4. 选择虚拟机保存位置，这里不要保存在`C`盘，记得磁盘要有至少`300G`的空间
 
-![image-20230102194331141](.\images\image-20230102194331141.png)
+![image-20230102194331141](images/image-20230102194331141.png)
 
 5. 虚拟硬件`CPU`核心根据你的电脑配置进行调整，尽量多分点给虚拟机。
 
-![image-20230102194543812](.\images\image-20230102194543812.png)
+![image-20230102194543812](images/image-20230102194543812.png)
 
 6. 虚拟内存分配，至少保证`16G`以上的内存，否则可能会碰到内存不足编译失败的情况。
 
-![image-20230102194722427](.\images\image-20230102194722427.png)
+![image-20230102194722427](images/image-20230102194722427.png)
 
 7. 虚拟硬盘分配，这里至少分配`500G`的空间，考虑到性能，我选择的是单文件吗，这里如果选择立即分配所有磁盘空间，能提高一定的性能。如果你的电脑配置不是很高，建议你选择立即分配。
 
-![image-20230102194952517](.\images\image-20230102194952517.png)
+![image-20230102194952517](images/image-20230102194952517.png)
 
 ​	虚拟机开机后，将默认进入`Ubuntu`安装界面，按照提示进行选择语言，区域等待安装完成即可。
 
@@ -176,7 +176,7 @@ export REPO_URL='https://mirrors.tuna.tsinghua.edu.cn/git/git-repo/'
 
 ​	根据自己的需求来选择合适的版本，比如想要在`Android`12的基础上进行二次开发，参考官方文档：https://source.android.com/docs/setup/about/build-numbers?hl=zh-cn，找到对应的版本描述，例如下图，可以看到各个版本号关联的代码分支，各分支版本支持哪些设备。
 
-![image-20230103220519836](.\images\image-20230103220519836.png)
+![image-20230103220519836](images/image-20230103220519836.png)
 
 ​	这么多版本，要根据自身的需求选一个适合的版本，例如我的选择策略如下:
 
@@ -186,7 +186,7 @@ export REPO_URL='https://mirrors.tuna.tsinghua.edu.cn/git/git-repo/'
 
 ​	如果该`ROM`主要在虚拟机中刷机测试的，那么选择支持版本最多的分支即可。这里我的测试设备是`pixel`3，根据上文中的选择策略找到了版本`SP1A.210812.016.A1`，对应的分支代码是`android-12.0.0_r3`，如下图。
 
-![image-20230103220838404](.\images\image-20230103220838404.png)
+![image-20230103220838404](images/image-20230103220838404.png)
 
 
 #### 2.2.3 源码拉取与同步
@@ -242,7 +242,7 @@ export OUT_DIR=~/android_src/aosp12_out
 
 ​	在开始编译前，还需要准备对应设备的驱动，根据前面选择的版本号`SP1A.210812.016.A1`,在官网地址：`https://developers.google.com/android/drivers`中找到对应的版本号。
 
-![image-20230103232052738](.\images\image-20230103232052738.png)
+![image-20230103232052738](images/image-20230103232052738.png)
 
 ​	第一个文件`Vendor`是用来存储厂商特定的文件，比如设备驱动程序。`Android`驱动会根据提供的这些设备驱动来正确的加载硬件。这个文件通常由设备厂商提供。如果你成功编译`Android`后，输出目录缺少`vendor.img`文件，那么你就需要检查下是否忘记导入对应型号的设备驱动了。
 
@@ -420,7 +420,7 @@ Common goals are:
 
 ​	首先，找到对应当前手机的内核分支，官网提供了详细的说明文档：https://source.android.com/docs/setup/build/building-kernels。根据下图可以看到，对应`Pixel`3测试机分支是`android-msm-crosshatch-4.9-android12`。
 
-![image-20230105221730348](.\images\image-20230105221730348.png)
+![image-20230105221730348](images/image-20230105221730348.png)
 
 ​	接下来，按照官网的说明拉取代码。
 
@@ -629,11 +629,11 @@ fastboot reboot fastboot
 
 ​	这时的界面如下图，使用音量键减，切换到`Enter recovery`，然后按电源键进入`recovery`模式。
 
-![image-20230108190236615](.\images\image-20230108190236615.png)
+![image-20230108190236615](images/image-20230108190236615.png)
 
 ​	`recovery`模式的界面，选择`Apply update from ADB`
 
-![image-20230108190631803](.\images\image-20230108190631803.png)
+![image-20230108190631803](images/image-20230108190631803.png)
 
 ​	使用命令`adb devices`查看当前状态显示为`sideload`，即可直接通过命令`adb sideload ota.zip`进行刷机。
 
@@ -1003,7 +1003,7 @@ exit
 
 ​	后面需要创建大量的子模块仓库，不可能在`web`页面上手动一个个的创建，下面使用命令来创建一个`manifests.git`仓库。这种方式需要`gitlab`账号的`Access Token`。可以在`web`中登录账号，点击右上角的用户图标，选择`Preferences`来到用户设置页面，然后进入`Access Tokens`栏目，填写`token`名称以及勾选权限，最后点击生成，例如生成的`token`为`27zctxyWZP9Txksenkxb`。流程见下图。
 
-![image-20230216211544482](.\images\image-20230216211544482.png)
+![image-20230216211544482](images/image-20230216211544482.png)
 
 ​	首先，在`gitlab`中手动创建一个根目录的`group`，这里创建了一个`android12_r3`的组，所有的子模块仓库都将在这个分组下。在`gitlab`页面中点击左上角`Groups->your Groups`。点击`New group`创建分组。成功创建后，记录下这个分组的`id`，比如我的根目录组`id`是6.
 
