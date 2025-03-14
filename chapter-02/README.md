@@ -418,7 +418,7 @@ Common goals are:
 
 ​	系统编译完成后，可以在编译的镜像结果中看到文件`boot.img`，这个文件是内核镜像文件。但是这个内核默认采用`Android`源码树中预编译好的内核文件，没有使用源码编译出来的内核文件，如果想要为编译的系统纳入自编译的内核，需要拉取对应分支的内核代码参与编译，并将编译结果放入`Android`源码树中的指定路径，最后再重新编译打包`Android`镜像。这样，生成的系统刷入手机后，使用的内核就是自编译的版本了。
 
-​	首先，找到对应当前手机的内核分支，官网提供了详细的说明文档：https://source.android.com/docs/setup/build/building-kernels。根据下图可以看到，对应`Pixel`3测试机分支是`android-msm-crosshatch-4.9-android12`。
+​	首先，找到对应当前手机的内核分支，官网提供了详细的说明文档：https://source.android.com/docs/setup/build/building-kernels 。根据下图可以看到，对应`Pixel`3测试机分支是`android-msm-crosshatch-4.9-android12`。
 
 ![image-20230105221730348](images/image-20230105221730348.png)
 
@@ -440,7 +440,7 @@ repo init -u https://android.googlesource.com/kernel/manifest -b android-msm-cro
 repo sync -j$(nproc --all)
 ```
 
-​	成功拉取代码后，还需要将内核检出对应的`commit ID`，确保和官方镜像的内核分支一致。首先下载官方镜像，下载地址：https://developers.google.com/android/images，找到`Pixel 3`下的版本`SP1A.210812.016.A1`的官方镜像下载。
+​	成功拉取代码后，还需要将内核检出对应的`commit ID`，确保和官方镜像的内核分支一致。首先下载官方镜像，下载地址：https://developers.google.com/android/images ，找到`Pixel 3`下的版本`SP1A.210812.016.A1`的官方镜像下载。
 
 ​	解压官方镜像，然后手机进入`bootloader`引导模式，运行官方镜像包中的`flash-all.bat`刷入手机，操作如下。
 
