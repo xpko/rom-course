@@ -98,11 +98,11 @@ su
 
 ​接下来打开`ida`，选择`Debugger->Attach->Remote Arm linux/android debugger`，在`hostname`选项中填本地回环地址`127.0.0.1`，如下图。
 
-![image-20230403223624911](.\images\ida_debug_attach.png)
+![image-20230403223624911](images/ida_debug_attach.png)
 
 ​点击`ok`后，则会展示所有`Android`中的进程，在其中进行过滤，找到目标进程。如下图
 
-![image-20230403223830842](.\images\ida_debug_process.png)
+![image-20230403223830842](images/ida_debug_process.png)
 
 ​成功挂起调试后，检查日志中的 `ppid`，发现并没有任何变化，依然是`zygote`作为父进程。
 
@@ -226,7 +226,7 @@ Java_cn_rom_nativedemo_MainActivity_stringFromJNI(
 
 ​然后使用`ida`尝试对子进程进行调试，发现无法正常附加该进程了，错误如下。
 
-![image-20230405162058014](.\images\ida_attach_err.png)
+![image-20230405162058014](images/ida_attach_err.png)
 
 
 ### 11.1.4 检测跟踪工具
