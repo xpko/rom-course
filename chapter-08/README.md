@@ -980,7 +980,7 @@ D/k.myservicedem: [ROM] DefineClass write 2 /data/data/cn.rom.myservicedemo/defi
 
 最后将这个文件传到电脑中，使用反编译工具`jadx`打开看到脱壳后的结果。
 
-![image-20230328004256155](.\images\tuoke.png)
+![image-20230328004256155](images/tuoke.png)
 
 在这个自动脱壳的例子中，并不限于在哪个调用时机来对其保存到文件，只要是在加载过程中，能获取到`DexFile`结果的地方，大多数都是能拿到动态加载壳所保护的目标。当你不确定的情况，可以先加上打桩信息，然后逐步去排查来判断你使用的调用时机是否可用。
 
