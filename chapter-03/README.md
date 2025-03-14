@@ -282,7 +282,7 @@ static int run_init_process(const char *init_filename)
 
 ​	这里能看到最后是通过`execve`拉起来了系统的第一个进程，`init`进程。总结内核启动的简单流程图如下。
 
-![startkernel](.\images\startkernel.png)
+![startkernel](images/startkernel.png)
 
 
 ## 3.4 Init进程启动
@@ -1620,7 +1620,7 @@ pid-3638                             W  start CallStaticVoidMethod current proce
 
 ​	结合观测到的代码流程，再看下面的一个汇总图。不需要完全理解启动过程中的所有的处理，重点是在这里留下一个大致的印象以及简单的整理。
 
-![image](.\images\android-boot.jpg)
+![image](images/android-boot.jpg)
 
 ## 3.7 Android app应用启动
 
@@ -2493,7 +2493,7 @@ public void callApplicationOnCreate(Application app) {
 
 ​	看一张经典的`Android`架构图。
 
-![在这里插入图片描述](.\images\android-framework.jpg)
+![在这里插入图片描述](images/android-framework.jpg)
 
 ​	从上图中可以看到`Framewok`的组成部分，它们的功能分别是：
 
@@ -3048,11 +3048,11 @@ allow zygote apk_data_file:dir search;
 
 ​	接着给`010 Editor`编辑器安装一个`ELF`格式解析的模板，在工具栏找到模板->模板存储库。搜索`ELF`，点击安装，操作见下图。
 
-![image-20230304135859598](.\images\image-20230304135859598.png)
+![image-20230304135859598](images/image-20230304135859598.png)
 
 ​	模板安装后，关闭文件，重新使用`010 Editor`打开后，将编辑方式切换为模板后，就能成功看到使用ELF格式解析so文件的结果了，如下图。
 
-![image-20230304140328010](.\images\image-20230304140328010.png)
+![image-20230304140328010](images/image-20230304140328010.png)
 
 ​		`ELF`头部定义了`ELF`文件的基本属性和结构，也为后续的段表和节表等信息提供了重要的指导作用。加载`ELF`文件的第一步就是解析`ELF`头部后，再根据头部信息去解析其他部分的数据，`ELF`头部（`elf_header`）结构包含以下成员：
 
@@ -3086,7 +3086,7 @@ allow zygote apk_data_file:dir search;
 
 ​	下图是`010 Edtior`解析展示的结果图。
 
-![image-20230304141143199](.\images\image-20230304141143199.png)
+![image-20230304141143199](images/image-20230304141143199.png)
 
 ​	`program header table`是一种用于描述可执行文件和共享库的各个段（`section`）在进程内存中的映射关系的结构，也称为段表。每个程序头表入口表示一个段。在`Linux`系统中，它是被操作系统用于将`ELF`文件加载到进程地址空间的重要数据结构之一。每个`program header table`具有相同的固定结构，相关字段如下：
 
@@ -3108,7 +3108,7 @@ allow zygote apk_data_file:dir search;
 
 ​	下图是编辑器中解析so看到的值
 
-![image-20230304142500744](.\images\image-20230304142500744.png)
+![image-20230304142500744](images/image-20230304142500744.png)
 
 ​	`section header table`（节头表）是用于描述`ELF`文件中所有节（`section`）的元信息列表，也称为节表。它包含了每个节在文件中的位置、大小、类型、属性等信息。节头表的中相关字段如下：
 
@@ -3134,7 +3134,7 @@ allow zygote apk_data_file:dir search;
 
 ​	通过这些信息，`section header table`可以为执行链接和动态加载提供必要的元数据信息。样例数据看下图
 
-![image-20230304143100841](.\images\image-20230304143100841.png)
+![image-20230304143100841](images/image-20230304143100841.png)
 
 ​	`ELF`文件中有各种节用于存放对应的信息，几个常见的节点存放数据的描述如下。
 
@@ -3152,7 +3152,7 @@ allow zygote apk_data_file:dir search;
 
 * `.shstrtab` 节点（`Section Header String Table`）存储节名称字符串，即每个节的名称和节头表中的节名称偏移量。它包含了`ELF`文件中每个节的字符串名称，方便读取程序在加载时快速访问。在`Android`中，`.shstrtab`节点是一个特殊的节，它位于节头表的末尾，可以通过`ELF`文件头的`e_shstrndx`字段找到。
 
-![image-20230304143003972](.\images\image-20230304143003972.png)
+![image-20230304143003972](images/image-20230304143003972.png)
 
 
 ### 3.12.2 动态库加载流程
