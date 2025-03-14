@@ -174,7 +174,7 @@ export REPO_URL='https://mirrors.tuna.tsinghua.edu.cn/git/git-repo/'
 
 #### 2.2.2 分支选择策略
 
-​	根据自己的需求来选择合适的版本，比如想要在`Android`12的基础上进行二次开发，参考官方文档：https://source.android.com/docs/setup/about/build-numbers?hl=zh-cn，找到对应的版本描述，例如下图，可以看到各个版本号关联的代码分支，各分支版本支持哪些设备。
+​	根据自己的需求来选择合适的版本，比如想要在`Android`12的基础上进行二次开发，参考官方文档：https://source.android.com/docs/setup/about/build-numbers?hl=zh-cn ，找到对应的版本描述，例如下图，可以看到各个版本号关联的代码分支，各分支版本支持哪些设备。
 
 ![image-20230103220519836](images/image-20230103220519836.png)
 
