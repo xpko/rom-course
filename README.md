@@ -22,7 +22,7 @@ GitHub 项目地址：[https://github.com/feicong/rom-course](https://github.com
 
 ## 目录
 
-见[目录](%E7%9B%AE%E5%BD%95.md)
+见[目录](TOC.md)
 
 ## 电子版图书
 

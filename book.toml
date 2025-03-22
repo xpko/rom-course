@@ -1,0 +1,9 @@
+[book]
+authors = ["非虫", "missingkeys"]
+language = "zh-CN"
+multilingual = false
+src = "."
+title = "安卓系统定制：从入门到实践"
+
+[output.html]
+[output.pdf]
