@@ -26,7 +26,8 @@ GitHub 项目地址：[https://github.com/feicong/rom-course](https://github.com
 
 ## 电子版图书
 
-点击下载最新版本PDF版本图书：[https://t.zsxq.com/mBLwU](https://t.zsxq.com/mBLwU)
+[点击下载最新版本PDF版本图书，不定时更新](https://t.zsxq.com/mBLwU)
+
 ## 技术交流
 
 欢迎加入系统定制技术交流微信群，分享安卓系统定制资源，交流系统定制技术。
