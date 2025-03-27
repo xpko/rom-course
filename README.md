@@ -1,6 +1,11 @@
-# 安卓系统定制：从入门到实践
+# <p align="center">安卓系统定制：从入门到实践</p>
 
-**大家在阅读过程中，发现什么内容错误、格式错误、错别字等问题，欢迎提交pr，这样可以帮助到更多想要学习的朋友。**
+<p align="center">非虫 missingkeys 著</p>
+
+<div style="page-break-before:always">&nbsp;</div>
+<p></p>
+
+> 大家在阅读过程中，发现什么内容错误、格式错误、错别字等问题，欢迎提交pr，这样可以帮助到更多想要学习的朋友。
 
 本书开源，欢迎 Star & 贡献！ 🚀
 
@@ -20,19 +25,18 @@ GitHub 项目地址：[https://github.com/feicong/rom-course](https://github.com
 
 - 安全研究员
 
-## 目录
-
-见[目录](TOC.md)
-
-## 电子版图书
-
-[点击下载最新版本PDF版本图书，不定时更新](https://t.zsxq.com/mBLwU)
+[点击下载最新版PDF电子书，不定时更新](https://t.zsxq.com/mBLwU)
 
 ## 技术交流
 
 欢迎加入系统定制技术交流微信群，分享安卓系统定制资源，交流系统定制技术。
 
-微信添加**feicongcn**邀请入群。
+> 微信添加**feicongcn**邀请入群。
+
+## 微信公众号
+
+<img width="454" alt="image" src="https://github.com/user-attachments/assets/e1bdaf8f-a372-4a60-b9de-b3a7d2ec68d0" />
+
 ## 免责申明
 
 本书籍内容仅供学习和研究使用，所有资料均来源于公开的安全技术文献、开源项目及个人经验分享。对于任何由于本书内容产生的直接或间接损失，本书作者及发布方概不负责。请读者在实际操作中遵守法律法规，避免从事任何非法或不道德的行为。

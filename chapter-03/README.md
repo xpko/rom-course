@@ -239,18 +239,17 @@ static int __ref kernel_init(void *unused)
 {
 	int ret;
 	...
-	if (!try_to_run_init_process("/sbin/init") ||
-	    !try_to_run_init_process("/etc/init") ||
-	    !try_to_run_init_process("/bin/init") ||
-	    !try_to_run_init_process("/bin/sh"))
-		return 0;
-
-	panic("No working init found.  Try passing init= option to kernel. "
-	      "See Linux Documentation/init.txt for guidance.");
+	if (ramdisk_execute_command) {
+		ret = run_init_process(ramdisk_execute_command);
+		if (!ret)
+			return 0;
+		pr_err("Failed to execute %s (error %d)\n",
+		       ramdisk_execute_command, ret);
+	}
 }
 ```
 
-​	在这里，看到了原来`init`进程是用`try_to_run_init_process`启动的，运行失败的情况下会依次执行上面的4个进程。继续看看这个函数是如何启动进程的。
+​	在这里，看到了原来`init`进程是用`run_init_process`启动的，`ramdisk_execute_command`被初始化为了"/init"。
 
 ```c
 static int try_to_run_init_process(const char *init_filename)
