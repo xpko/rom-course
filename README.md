@@ -1,6 +1,6 @@
 # <p align="center">安卓系统定制：从入门到实践</p>
 
-<p align="center">非虫 missingkeys 著</p>
+<p align="center">非虫 misskings 著</p>
 
 <div style="page-break-before:always">&nbsp;</div>
 <p></p>
