@@ -366,7 +366,7 @@ android_app_import {
 
 有多种方式可以实现内置`JAR`包功能。接下来将介绍两种方法来集成一个自己编写的JAR包到系统中。首先要创建一个没有Activity的Android项目，并命名为`MyJar` ，如下图所示：
 
-![image-20230308211039320](.\images\create_no_activity.png)
+![image-20230308211039320](images/create_no_activity.png)
 
 ​	接着简单的写两个测试函数。在最后内置成功后，将对这个函数进行调用测试是否内置成功。
 
@@ -520,7 +520,7 @@ protected void onCreate(Bundle savedInstanceState) {
 
 首先准备一个测试项目，创建Native C++的项目。见下图。
 
-![image-20230308232615347](.\images\create_so_project.png)
+![image-20230308232615347](images/create_so_project.png)
 
 ​	这个项目并不需要启动，所以直接删除`MainActivity`文件，添加一个类来加载动态库。并且修改`cpp`中对应的函数名称，相关修改如下。
 

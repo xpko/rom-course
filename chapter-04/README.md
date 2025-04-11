@@ -36,7 +36,7 @@
 
 ​	下图展示的是`Google`官方的`Android`系统桌面图，以及自己编译`AOSP`的桌面图。
 
-![未标题-1](.\images\未标题-1.jpg)
+![未标题-1](images/未标题-1.jpg)
 
 ​	从上图中可以看到明显差异，`Google`官方的`ROM`相较于`AOSP` ROM多了一些功能和应用，例如谷歌应用套件：`Google Mobile Services（GMS）`包含了各种谷歌应用，如`Gmail、Google Maps、Play`商店等等。这些应用在`AOSP` ROM中是没有的。
 
@@ -69,7 +69,7 @@
 
 ​	在前文中和`Google`官方`ROM`对比的界面图，就是`Android`的`UI`界面中的壁纸了，壁纸是在手机主页面的背景图，壁纸可以在手机中进行切换修改，同样也可以直接修改默认的壁纸，默认壁纸的路径是`frameworks/base/core/res/res/drawable-nodpi/default_wallpaper.png`。下图是`AOSP`中的默认壁纸。
 
-![image-20230305152441883](.\images\image-20230305152441883.png)
+![image-20230305152441883](images/image-20230305152441883.png)
 
 ​	知道壁纸素材的路径后，可以通过对这个素材进行替换来达到修改的目的，同样也可以通过查找设置的地方，修改默认设置选项，将壁纸切换为另一张图片来完成壁纸修改，前者的好处在于简单快捷，替换素材即可。而后者在于稳妥，随时可以调整切换回原素材。替换的方式较为简单就不再细说，这里看看通过修改设置的实现。
 
@@ -270,7 +270,7 @@ if __name__ == '__main__':
 
 解压开机动画压缩包后的文件如下图。
 
-![image-20230424205456876](.\images\bootanimation.png)
+![image-20230424205456876](images/bootanimation.png)
 
 `desc.txt`文件内容如下。
 
@@ -290,7 +290,7 @@ c 1 0 part5
 
 ​	查看其中一个目录下的文件如下图。
 
-![image-20230424210838393](.\images\play.png)
+![image-20230424210838393](images/play.png)
 
 对这些了解后，接着开始对其进行替换，为了便于简单演示，就不找新的素材进行替换了，直接将`androidtv`的开机动画替换为当前开机动画，找到文件`device/google/atv/products/bootanimations/bootanimation.zip`，将其复制到自定义的任意目录，例如新建目录`packages/bootstart/`，将启动动画拷贝到该目录中。然后在文件`build/make/target/product/generic_system.mk`添加配置，将其拷贝到`system/media/`目录下。相关修改如下。
 

@@ -1,3 +1,5 @@
+/book/
 .DS_Store
-*.pdf
-projects/
+.pdf
+.html
+/pdf/
